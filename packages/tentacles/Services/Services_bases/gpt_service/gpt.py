@@ -67,7 +67,13 @@ USER = "user"
 REASONING_EFFORT_LOW = "low"
 REASONING_EFFORT_MEDIUM = "medium"
 REASONING_EFFORT_HIGH = "high"
-REASONING_EFFORT_VALUES = (REASONING_EFFORT_LOW, REASONING_EFFORT_MEDIUM, REASONING_EFFORT_HIGH)
+REASONING_EFFORT_NONE = "none"
+REASONING_EFFORT_VALUES = (
+    REASONING_EFFORT_NONE,
+    REASONING_EFFORT_LOW,
+    REASONING_EFFORT_MEDIUM,
+    REASONING_EFFORT_HIGH,
+)
 
 
 class LLMService(services.AbstractAIService):
@@ -105,7 +111,7 @@ class LLMService(services.AbstractAIService):
                 ),
                 services_constants.CONFIG_LLM_REASONING_EFFORT: (
                     "Reasoning effort level for models that support reasoning. "
-                    "Values: 'low', 'medium', 'high', or empty for default. "
+                    "Values: 'none', 'low', 'medium', 'high', or empty for default. "
                     "If configured, the model will be treated as reasoning-capable."
                 ),
                 services_constants.CONFIG_LLM_MCP_SERVERS: (
@@ -829,12 +835,18 @@ class LLMService(services.AbstractAIService):
         """
         api_kwargs = {
             "model": model,
-            "max_completion_tokens": max_tokens,
             "n": n,
             "stop": stop,
             "temperature": temperature if supports_params else openai.NOT_GIVEN,
             "messages": messages,
         }
+        # Ollama's OpenAI-compatible endpoint currently documents and enforces
+        # max_tokens. Using max_completion_tokens can leave reasoning models
+        # effectively unbounded on local endpoints.
+        if self._is_ollama_endpoint():
+            api_kwargs["max_tokens"] = max_tokens
+        else:
+            api_kwargs["max_completion_tokens"] = max_tokens
         
         # Add reasoning_effort if configured
         if has_reasoning_config:
@@ -859,6 +871,10 @@ class LLMService(services.AbstractAIService):
                 api_kwargs["messages"] = messages
         
         return api_kwargs
+
+    def _is_ollama_endpoint(self) -> bool:
+        base_url = (self._get_base_url() or "").lower()
+        return ":11434" in base_url or "ollama" in base_url
 
     def _process_chat_completion_response(
         self,
@@ -950,7 +966,7 @@ class LLMService(services.AbstractAIService):
             response_schema: Optional Pydantic model or JSON schema dict for structured output.
                            If provided with json_output=True, enforces the response to match schema.
             reasoning_effort: Set reasoning effort if model supports reasoning.
-                            Values: "low", "medium", "high", or None to use config/default.
+                            Values: "none", "low", "medium", "high", or None to use config/default.
                             If configured (via parameter or config), model is treated as reasoning-capable.
             show_reasoning: If True and reasoning_effort is configured, returns reasoning summary.
                           If None, uses config value. Default: False.

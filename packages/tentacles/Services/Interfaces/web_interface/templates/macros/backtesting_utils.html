@@ -37,11 +37,6 @@
               </tbody>
             </table>
         </div>
-        {% if not has_open_source_package() %}
-        <div class="card-footer">
-            <i class="fa fa-info-circle"></i> Looking for more in-depth backtesting results? The <a href="{{ url_for('extensions') }}">Strategy designer</a> is specifically designed for advanced backtestings and strategy optimization.
-        </div>
-        {% endif %}
         <div class="card-footer">
             <div class="text-right">
                 <label for="timeFrameSelect">Time frame</label>

@@ -145,6 +145,12 @@ USER_AUTH_KEY = os.getenv("USER_AUTH_KEY", None)
 COMMUNITY_BOT_ID = os.getenv("COMMUNITY_BOT_ID", "")
 IS_DEMO = os_util.parse_boolean_environment_var("IS_DEMO", "False")
 IS_CLOUD_ENV = os_util.parse_boolean_environment_var("IS_CLOUD_ENV", "false")
+# This fork is designed to run independently from OctoBot Cloud.  Keeping the
+# switch explicit makes every cloud-only code path opt-in rather than silently
+# contacting a third-party service from a local installation.
+ENABLE_CLOUD_INTEGRATIONS = os_util.parse_boolean_environment_var(
+    "ENABLE_CLOUD_INTEGRATIONS", "false"
+)
 DEPLOYMENT_TIME = os.getenv("DEPLOYMENT_TIME") # format: ISO 8601, ex: 2026-02-21T08:08:42.325Z
 DEFAULT_NEW_DEPLOYMENT_TIMEOUT = 2 * octobot_commons.constants.MINUTE_TO_SECONDS
 USE_FETCHED_BOT_CONFIG = os_util.parse_boolean_environment_var("USE_FETCHED_BOT_CONFIG", "false")

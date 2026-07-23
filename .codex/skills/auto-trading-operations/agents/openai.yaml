@@ -1,0 +1,4 @@
+interface:
+  display_name: "Auto Trading Operations"
+  short_description: "Operate the local guarded AI trading project safely."
+  default_prompt: "Use $auto-trading-operations to implement or review a change in this local OctoBot paper-trading project."

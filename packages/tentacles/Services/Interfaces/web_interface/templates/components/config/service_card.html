@@ -52,7 +52,7 @@
             </p>
             <p>
                 {% if service.is_improved_by_extensions() %}
-                    <i class="fa fa-info-circle"></i> The {{service_name}} interface is improved by the <a href="{{ url_for('extensions') }}">{{extension_name}}</a>.
+                    <i class="fa fa-info-circle"></i> Optional extension features for {{service_name}} are disabled in this local-only build.
                 {% endif %}
             </p>
             <button type="button" class="btn btn-danger remove-btn px-3 waves-effect"><i class="fa fa-ban" aria-hidden="true"></i> Remove</button>

@@ -114,7 +114,9 @@ class CommunityAuthentication(authentication.Authenticator):
         self.backend_url: str = backend_url or identifiers_provider.IdentifiersProvider.BACKEND_URL
         self.backend_key: str = backend_key or identifiers_provider.IdentifiersProvider.BACKEND_KEY
         self.configuration_storage: supabase_backend.ASyncConfigurationStorage = supabase_backend.ASyncConfigurationStorage(self.config)
-        self.supabase_client: supabase_backend.CommunitySupabaseClient = self._create_client()
+        self.supabase_client: typing.Optional[supabase_backend.CommunitySupabaseClient] = (
+            self._create_client() if constants.ENABLE_CLOUD_INTEGRATIONS else None
+        )
         self.user_account: community_user_account.CommunityUserAccount = community_user_account.CommunityUserAccount()
         self.public_data: community_public_data.CommunityPublicData = community_public_data.CommunityPublicData()
         self.community_bot: community_bot.CommunityBot = community_bot.CommunityBot(self)
@@ -290,10 +292,14 @@ class CommunityAuthentication(authentication.Authenticator):
             await self._re_create_client()
 
     def is_using_the_current_loop(self):
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return True
         return self.supabase_client.event_loop is None \
             or self.supabase_client.event_loop is asyncio.get_event_loop()
 
     def is_initialized(self):
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return True
         return self.initialized_event is not None and self.initialized_event.is_set()
 
     def init_account(self, fetch_private_data):
@@ -361,6 +367,8 @@ class CommunityAuthentication(authentication.Authenticator):
             )
 
     def can_authenticate(self):
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return False
         return bool(
             identifiers_provider.IdentifiersProvider.BACKEND_URL
             and identifiers_provider.IdentifiersProvider.BACKEND_KEY
@@ -499,6 +507,8 @@ class CommunityAuthentication(authentication.Authenticator):
         return self.user_account.has_pending_packages_to_install
 
     def is_logged_in_and_has_selected_bot(self):
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return False
         return (self.supabase_client.is_admin or self.is_logged_in()) and self.user_account.bot_id is not None
 
     async def refresh_selected_bot(self):
@@ -532,6 +542,8 @@ class CommunityAuthentication(authentication.Authenticator):
         self.remove_login_detail()
 
     def is_logged_in(self):
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return False
         return bool(self.supabase_client.is_signed_in() and self.user_account.has_user_data())
 
     async def has_login_info(self):
@@ -584,6 +596,8 @@ class CommunityAuthentication(authentication.Authenticator):
 
     async def stop(self):
         self.logger.debug("Stopping ...")
+        if not constants.ENABLE_CLOUD_INTEGRATIONS:
+            return
         if self._fetch_account_task is not None and not self._fetch_account_task.done():
             self._fetch_account_task.cancel()
         await self.supabase_client.aclose()
@@ -1082,4 +1096,3 @@ class CommunityAuthentication(authentication.Authenticator):
             self.logger.debug(
                 f"Skipping activity update: current bot {self.user_account.bot_id} has no deployment"
             )
-

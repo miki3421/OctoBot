@@ -25,6 +25,9 @@ import octobot_evaluators.evaluators as evaluators
 import octobot_evaluators.util as evaluators_util
 import octobot_trading.api as trading_api
 import tentacles.Evaluator.Util as EvaluatorUtil
+from ..market_regime_evaluator.market_regime import (
+    MarketRegimeEvaluator as QuantitativeMarketRegimeEvaluator,
+)
 
 
 class RSIMomentumEvaluator(evaluators.TAEvaluator):
@@ -792,3 +795,7 @@ class KlingerOscillatorReversalConfirmationMomentumEvaluator(evaluators.TAEvalua
         await self.evaluation_completed(cryptocurrency, symbol, time_frame,
                                         eval_time=evaluators_util.get_eval_time(full_candle=candle,
                                                                                 time_frame=time_frame))
+
+
+class MarketRegimeEvaluator(QuantitativeMarketRegimeEvaluator):
+    """Expose the quantitative classifier through the installed momentum package."""

@@ -1,0 +1,13 @@
+{
+  "adx_period": 14,
+  "trend_adx_threshold": 25,
+  "range_adx_threshold": 20,
+  "fast_ema_period": 20,
+  "slow_ema_period": 50,
+  "minimum_ema_spread_pct": 0.25,
+  "bollinger_period": 20,
+  "bollinger_stddev": 2,
+  "volatility_lookback": 100,
+  "high_volatility_percentile": 0.9,
+  "atr_period": 14
+}

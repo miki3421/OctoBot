@@ -1,0 +1,9 @@
+FROM drakkarsoftware/octobot:stable
+
+# Keep the runtime aligned with the current source tree while the source itself
+# is mounted by docker-compose.local.yml for rapid local development.
+COPY packages/sync/requirements.txt /tmp/sync-requirements.txt
+COPY packages/trading/requirements.txt /tmp/trading-requirements.txt
+RUN pip install --no-cache-dir \
+    -r /tmp/sync-requirements.txt \
+    -r /tmp/trading-requirements.txt

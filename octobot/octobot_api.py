@@ -125,11 +125,12 @@ class OctoBotAPI:
             await self._octobot.exchange_producer.stop_all_trading_modes_and_pause_traders(execution_details)
         except Exception as err:
             self._octobot.logger.exception(err, True, f"Error when stopping trading modes: {err}")
-        await self._octobot.community_auth.community_bot.on_trading_modes_stopped_and_traders_paused(
-            stop_reason,
-            execution_details,
-            schedule_bot_stop,
-        )
+        if constants.ENABLE_CLOUD_INTEGRATIONS:
+            await self._octobot.community_auth.community_bot.on_trading_modes_stopped_and_traders_paused(
+                stop_reason,
+                execution_details,
+                schedule_bot_stop,
+            )
 
     def stop_tasks(self) -> None:
         self._octobot.task_manager.stop_tasks()

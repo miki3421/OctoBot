@@ -1,0 +1,23 @@
+version: "3.3"
+
+services:
+  octobot:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+    image: octobot-local:dev
+    container_name: octobot-local
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/local-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      AI_DECISIONS_DB_PATH: ${AI_DECISIONS_DB_PATH:-/octobot/user/ai_decisions.sqlite}
+    ports:
+      - "5001:5001"
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/user:/octobot/user
+      - ../octobot-local/tentacles:/octobot/tentacles
+      - ../octobot-local/logs:/octobot/logs
+      - ../octobot-local/backtesting:/octobot/backtesting

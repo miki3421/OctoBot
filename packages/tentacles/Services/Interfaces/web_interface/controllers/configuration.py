@@ -21,6 +21,7 @@ from datetime import datetime
 import octobot_commons.constants as commons_constants
 import octobot_commons.enums as commons_enums
 import octobot_commons.authentication as authentication
+import octobot.constants as octobot_constants
 import octobot_services.constants as services_constants
 import tentacles.Services.Interfaces.web_interface.constants as constants
 import tentacles.Services.Interfaces.web_interface.login as login
@@ -152,6 +153,8 @@ def register(blueprint):
                 if url:
                     new_profile = models.download_and_import_profile(url)
                 else:
+                    if not octobot_constants.ENABLE_CLOUD_INTEGRATIONS:
+                        raise RuntimeError("Cloud strategy imports are disabled in local-only mode")
                     if None in (strategy_id, name):
                         raise RuntimeError("Both strategy_id and name are required to import a strategy")
                     authenticator = authentication.Authenticator.instance()

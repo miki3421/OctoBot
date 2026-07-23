@@ -379,7 +379,17 @@ class OctoBotBacktesting:
                 continue
             handled_evaluator_classes.add(evaluator.__class__)
             try:
-                for required_class in tentacles_manager_api.get_tentacle_classes_requirements(evaluator.__class__):
+                requirements_getter = getattr(
+                    evaluator, "get_backtesting_service_requirements", None
+                )
+                required_classes = (
+                    requirements_getter() if callable(requirements_getter) else None
+                )
+                if required_classes is None:
+                    required_classes = tentacles_manager_api.get_tentacle_classes_requirements(
+                        evaluator.__class__
+                    )
+                for required_class in required_classes:
                     if required_class is not None and service_api.is_service_class(required_class):
                         required_service_classes.add(required_class)
             except Exception as e:

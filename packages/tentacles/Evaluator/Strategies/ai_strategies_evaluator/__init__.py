@@ -3,3 +3,4 @@ from .ai_strategies import (
     CryptoLLMAIStrategyEvaluator,
     GlobalLLMAIStrategyEvaluator
 )
+from .guarded_llm_strategy import GuardedLLMStrategyEvaluator

@@ -271,10 +271,14 @@ async def _async_load_community_data(community_auth, config, logger, is_first_st
 
 
 def _apply_forced_configs(community_auth, logger, config, is_first_startup):
-    asyncio.run(_async_load_community_data(community_auth, config, logger, is_first_startup))
-
-    # 2. handle profiles from env variables
-    _apply_env_variables_to_config(logger, config)
+    if constants.ENABLE_CLOUD_INTEGRATIONS:
+        asyncio.run(_async_load_community_data(community_auth, config, logger, is_first_startup))
+        # handle profiles downloaded from remote URLs when cloud integrations
+        # have been explicitly enabled.
+        _apply_env_variables_to_config(logger, config)
+    elif constants.FORCED_PROFILE:
+        # Selecting an already installed local profile remains supported.
+        commands.select_forced_profile_if_any(config, constants.FORCED_PROFILE, logger)
 
 
 def _read_config(config, logger):
@@ -317,12 +321,15 @@ def _load_or_create_tentacles(community_auth, config, logger):
         tentacles_setup_config = tentacles_manager_api.get_tentacles_setup_config(
             config.get_tentacles_config_path()
         )
-        commands.run_update_or_repair_tentacles_if_necessary(community_auth, config, tentacles_setup_config)
+        if constants.ENABLE_CLOUD_INTEGRATIONS:
+            commands.run_update_or_repair_tentacles_if_necessary(community_auth, config, tentacles_setup_config)
+        elif not tentacles_manager_api.load_tentacles(verbose=True):
+            raise errors.ConfigError("Local tentacles could not be loaded")
     else:
-        # when no tentacles folder has been found
-        logger.info("OctoBot tentacles can't be found. Installing default tentacles ...")
-        commands.run_tentacles_install_or_update(community_auth, config)
-        config.load_profiles_if_possible_and_necessary()
+        raise errors.ConfigError(
+            "Local tentacles are required when cloud integrations are disabled. "
+            "Install or build tentacles locally before starting OctoBot."
+        )
 
 
 def _init_cli_overriden_folders(args):
@@ -361,7 +368,8 @@ def start_octobot(args, default_config_file=None):
         # Current running environment
         _log_environment(logger)
 
-        octobot_community.init_sentry_tracker()
+        if constants.ENABLE_CLOUD_INTEGRATIONS:
+            octobot_community.init_sentry_tracker()
 
         # load configuration
         config, is_first_startup = _create_startup_config(
@@ -383,9 +391,9 @@ def start_octobot(args, default_config_file=None):
         # show terms
         _log_terms_if_unaccepted(config, logger)
 
-        community_auth = None if args.backtesting else asyncio.run(
-            _get_authenticated_community_if_possible(config, logger)
-        )
+        community_auth = None
+        if not args.backtesting and constants.ENABLE_CLOUD_INTEGRATIONS:
+            community_auth = asyncio.run(_get_authenticated_community_if_possible(config, logger))
 
         # tries to load, install or repair tentacles
         _load_or_create_tentacles(community_auth, config, logger)

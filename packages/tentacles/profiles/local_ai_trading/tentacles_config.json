@@ -1,0 +1,25 @@
+{
+  "installation_context": {
+    "octobot_version": "2.1.1"
+  },
+  "tentacle_activation": {
+    "Evaluator": {
+      "ADXMomentumEvaluator": true,
+      "BBMomentumEvaluator": true,
+      "DoubleMovingAverageTrendEvaluator": true,
+      "EMADivergenceTrendEvaluator": true,
+      "GuardedLLMStrategyEvaluator": true,
+      "MACDMomentumEvaluator": true,
+      "RSIMomentumEvaluator": true
+    },
+    "Services": {
+      "GPTService": false,
+      "WebInterface": true
+    },
+    "Trading": {
+      "DailyTradingMode": true,
+      "Kucoin": true,
+      "KucoinCCXTWebsocketConnector": true
+    }
+  }
+}

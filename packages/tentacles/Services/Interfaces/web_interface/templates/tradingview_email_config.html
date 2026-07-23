@@ -42,8 +42,7 @@
                 Login
             </a>
             <p>
-                Note: The <a class="font-weight-bolder" href="{{url_for('extensions')}}">{{OCTOBOT_EXTENSION_PACKAGE_1_NAME}}</a>
-                is required to connect your OctoBot to TradingView email alerts.
+                Note: extension-based TradingView email alerts are disabled in this local-only build.
             </p>
         </div>
         {% elif has_open_source_package() %}
@@ -140,14 +139,7 @@
             </div>
         {% else %}
             <div class="alert alert-info">
-                Using the <a class="font-weight-bolder" href="{{url_for('extensions')}}">{{OCTOBOT_EXTENSION_PACKAGE_1_NAME}}</a>,
-                your OctoBot can trade using TradingView free email alerts.
-            </div>
-            <div class="text-center">
-                <a type="button" class="btn btn-primary btn-lg"
-                   href="{{ url_for('extensions') }}">
-                    View extension
-                </a>
+                Extension-based TradingView email alerts are disabled in this local-only build.
             </div>
         {% endif %}
     </div>

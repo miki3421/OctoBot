@@ -3,7 +3,8 @@
   "origin_package": "OctoBot-Default-Tentacles",
   "tentacles": [
     "CryptoLLMAIStrategyEvaluator",
-    "GlobalLLMAIStrategyEvaluator"
+    "GlobalLLMAIStrategyEvaluator",
+    "GuardedLLMStrategyEvaluator"
   ],
   "tentacles-requirements": [
     "gpt_service",

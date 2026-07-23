@@ -120,7 +120,9 @@ class OctoBot:
     async def initialize(self):
         self.stopped = asyncio.Event()
         await self._ensure_clock()
-        if not (self.community_auth.is_initialized() and self.community_auth.is_using_the_current_loop()):
+        if constants.ENABLE_CLOUD_INTEGRATIONS and not (
+            self.community_auth.is_initialized() and self.community_auth.is_using_the_current_loop()
+        ):
             self.community_auth.init_account(True)
         await self.initializer.create(True)
         self._log_config()
@@ -218,10 +220,12 @@ class OctoBot:
                 await self.evaluator_producer.stop()
             if self.exchange_producer is not None:
                 await self.exchange_producer.stop()
-            await self.community_auth.stop()
+            if constants.ENABLE_CLOUD_INTEGRATIONS:
+                await self.community_auth.stop()
             if self.service_feed_producer is not None:
                 await self.service_feed_producer.stop()
-            await profiles.stop_profile_synchronizer()
+            if constants.ENABLE_CLOUD_INTEGRATIONS:
+                await profiles.stop_profile_synchronizer()
             await os_clock_sync.stop_clock_synchronizer()
             await system_resources_watcher.stop_system_resources_watcher()
             await service_api.stop_services()
@@ -239,7 +243,8 @@ class OctoBot:
 
     async def _start_tools_tasks(self):
         await self._init_aiohttp_session()
-        self._init_community()
+        if constants.ENABLE_CLOUD_INTEGRATIONS:
+            self._init_community()
         await self.task_manager.start_tools_tasks()
 
     def _init_community(self):
@@ -250,10 +255,11 @@ class OctoBot:
             await os_clock_sync.start_clock_synchronizer()
 
     async def _init_profile_synchronizer(self):
-        await profiles.start_profile_synchronizer(
-            self.get_edited_config(constants.CONFIG_KEY, dict_only=False),
-            self._on_profile_update
-        )
+        if constants.ENABLE_CLOUD_INTEGRATIONS:
+            await profiles.start_profile_synchronizer(
+                self.get_edited_config(constants.CONFIG_KEY, dict_only=False),
+                self._on_profile_update
+            )
 
     async def delayed_restart(self, delay):
         await asyncio.sleep(delay)

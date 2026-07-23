@@ -1,0 +1,20 @@
+{
+  "default_config": ["GuardedLLMStrategyEvaluator"],
+  "required_strategies": ["GuardedLLMStrategyEvaluator"],
+  "required_strategies_min_count": 1,
+  "target_profits_mode": true,
+  "target_profits_mode_take_profit": 4.0,
+  "target_profits_mode_stop_loss": 2.0,
+  "target_profits_mode_enable_position_increase": false,
+  "use_stop_orders": true,
+  "use_prices_close_to_current_price": false,
+  "close_to_current_price_difference": 0.005,
+  "buy_with_maximum_size_orders": false,
+  "sell_with_maximum_size_orders": false,
+  "buy_order_amount": "",
+  "sell_order_amount": "",
+  "disable_buy_orders": false,
+  "disable_sell_orders": false,
+  "max_currency_percent": 10,
+  "emit_trading_signals": false
+}

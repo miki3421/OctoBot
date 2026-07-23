@@ -14,13 +14,13 @@
 #  You should have received a copy of the GNU Lesser General Public
 #  License along with this library.
 import octobot.enums
+import octobot.constants as octobot_constants
 
 import tentacles.Services.Interfaces.web_interface.controllers.octobot_authentication
-import tentacles.Services.Interfaces.web_interface.controllers.community_authentication
 import tentacles.Services.Interfaces.web_interface.controllers.backtesting
 import tentacles.Services.Interfaces.web_interface.controllers.commands
 import tentacles.Services.Interfaces.web_interface.controllers.about
-import tentacles.Services.Interfaces.web_interface.controllers.community
+import tentacles.Services.Interfaces.web_interface.controllers.ai_decisions
 import tentacles.Services.Interfaces.web_interface.controllers.configuration
 import tentacles.Services.Interfaces.web_interface.controllers.tentacles_config
 import tentacles.Services.Interfaces.web_interface.controllers.dashboard
@@ -43,13 +43,20 @@ import tentacles.Services.Interfaces.web_interface.controllers.distributions.pre
 import tentacles.Services.Interfaces.web_interface.controllers.distributions.node
 import tentacles.Services.Interfaces.web_interface.controllers.dsl
 
+if octobot_constants.ENABLE_CLOUD_INTEGRATIONS:
+    import tentacles.Services.Interfaces.web_interface.controllers.community_authentication
+    import tentacles.Services.Interfaces.web_interface.controllers.community
+
 
 def register(blueprint, distribution: octobot.enums.OctoBotDistribution):
     if distribution is octobot.enums.OctoBotDistribution.DEFAULT:
-        tentacles.Services.Interfaces.web_interface.controllers.community_authentication.register(blueprint)
+        if octobot_constants.ENABLE_CLOUD_INTEGRATIONS:
+            tentacles.Services.Interfaces.web_interface.controllers.community_authentication.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.backtesting.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.about.register(blueprint)
-        tentacles.Services.Interfaces.web_interface.controllers.community.register(blueprint)
+        tentacles.Services.Interfaces.web_interface.controllers.ai_decisions.register(blueprint)
+        if octobot_constants.ENABLE_CLOUD_INTEGRATIONS:
+            tentacles.Services.Interfaces.web_interface.controllers.community.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.configuration.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.tentacles_config.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.dashboard.register(blueprint)

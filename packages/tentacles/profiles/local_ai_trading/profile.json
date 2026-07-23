@@ -1,0 +1,60 @@
+{
+  "config": {
+    "crypto-currencies": {
+      "Bitcoin": {
+        "enabled": true,
+        "pairs": ["BTC/USDT:USDT"]
+      }
+    },
+    "distribution": "default",
+    "exchanges": {
+      "binance": {
+        "enabled": false,
+        "exchange-type": "spot"
+      },
+      "kucoin": {
+        "enabled": true,
+        "exchange-type": "future"
+      }
+    },
+    "services": {
+      "gpt_service": {
+        "enabled": false
+      }
+    },
+    "trader": {
+      "enabled": false,
+      "load-trade-history": false
+    },
+    "trader-simulator": {
+      "enabled": true,
+      "fees": {
+        "maker": 0.1,
+        "taker": 0.1
+      },
+      "starting-portfolio": {
+        "USDT": 10000
+      }
+    },
+    "trading": {
+      "reference-market": "USDT",
+      "risk": 0.1
+    }
+  },
+  "profile": {
+    "auto_update": false,
+    "avatar": "default_profile.png",
+    "complexity": 2,
+    "description": "Local TA-only LLM strategy with deterministic risk guard and SQLite audit journal. KuCoin Futures paper trading only.",
+    "extra_backtesting_time_frames": [],
+    "hidden": false,
+    "id": "local_ai_trading",
+    "imported": false,
+    "name": "Local Guarded AI Futures Trading",
+    "origin_url": null,
+    "read_only": false,
+    "risk": 1,
+    "slug": "",
+    "type": "live"
+  }
+}
