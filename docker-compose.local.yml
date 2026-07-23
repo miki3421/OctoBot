@@ -21,3 +21,59 @@ services:
       - ../octobot-local/tentacles:/octobot/tentacles
       - ../octobot-local/logs:/octobot/logs
       - ../octobot-local/backtesting:/octobot/backtesting
+
+  trend-shadow:
+    image: octobot-local:dev
+    container_name: octobot-trend-shadow
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/trend-shadow-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      SHADOW_HISTORY_DAYS: ${SHADOW_HISTORY_DAYS:-264}
+      SHADOW_INTERVAL_SECONDS: ${SHADOW_INTERVAL_SECONDS:-86400}
+      SHADOW_RETRY_SECONDS: ${SHADOW_RETRY_SECONDS:-900}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/backtesting:/octobot/backtesting
+      - ../octobot-local/shadow:/shadow
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/shadow/health.json'));
+          performance=json.load(open('/shadow/performance.json'));
+          objective=json.load(open('/shadow/income-objective.json'));
+          v14_health=json.load(open('/shadow/v14/health.json'));
+          v14_performance=json.load(open('/shadow/v14/performance.json'));
+          v14_objective=json.load(open('/shadow/v14/income-objective.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          v14_last=datetime.datetime.fromisoformat(v14_health['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and v14_health.get('status') == 'healthy'
+          and performance.get('automatic_promotion') is False
+          and v14_performance.get('automatic_promotion') is False
+          and objective.get('real_income_authorized') is False
+          and v14_objective.get('real_income_authorized') is False
+          and objective.get('status') in ('not_achieved','achieved_in_paper')
+          and v14_objective.get('status') in ('not_achieved','achieved_in_paper')
+          and (now-last).total_seconds() < 172800
+          and (now-v14_last).total_seconds() < 172800 else 1)"
+      interval: 5m
+      timeout: 10s
+      retries: 3

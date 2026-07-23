@@ -15,11 +15,17 @@ import tempfile
 import time
 import typing
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 
 
 BINANCE_ARCHIVE_ROOT = "https://data.binance.vision/data/futures/um/monthly"
+BINANCE_SPOT_ARCHIVE_ROOT = "https://data.binance.vision/data/spot/monthly"
+KUCOIN_SPOT_KLINES_URL = "https://api.kucoin.com/api/v1/market/candles"
+KUCOIN_FUTURES_KLINES_URL = (
+    "https://api-futures.kucoin.com/api/v1/kline/query"
+)
 COLLECTOR_SCHEMA_VERSION = 1
 TIME_FRAME_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400}
 
@@ -29,12 +35,15 @@ class BinanceArchiveConfig:
     symbol_mapping: dict[str, str]
     start_date: datetime.date
     end_date: datetime.date
+    allowed_15m_gaps: int = 0
 
     def validate(self) -> None:
         if not self.symbol_mapping:
             raise ValueError("at least one symbol mapping is required")
         if self.start_date > self.end_date:
             raise ValueError("start date must not follow end date")
+        if self.allowed_15m_gaps < 0:
+            raise ValueError("allowed_15m_gaps cannot be negative")
         for octobot_symbol, archive_symbol in self.symbol_mapping.items():
             if not octobot_symbol or not archive_symbol:
                 raise ValueError("symbol mappings cannot be empty")
@@ -46,10 +55,23 @@ def fetch_binance_archive(
     *,
     funding_output_value: typing.Optional[typing.Union[str, pathlib.Path]] = None,
     cache_value: typing.Optional[typing.Union[str, pathlib.Path]] = None,
+    market_type: str = "futures_um",
+    candle_interval: str = "15m",
 ) -> dict:
     """Build an OctoBot-compatible collector from checksummed Binance archives."""
 
     config.validate()
+    if market_type not in {"futures_um", "spot"}:
+        raise ValueError("market_type must be futures_um or spot")
+    if candle_interval not in {"15m", "1h"}:
+        raise ValueError("candle_interval must be 15m or 1h")
+    if market_type == "spot" and funding_output_value is not None:
+        raise ValueError("spot archives do not contain funding")
+    archive_root = (
+        BINANCE_ARCHIVE_ROOT
+        if market_type == "futures_um"
+        else BINANCE_SPOT_ARCHIVE_ROOT
+    )
     output = pathlib.Path(output_value).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     cache = (
@@ -58,6 +80,8 @@ def fetch_binance_archive(
         else output.parent / ".binance-archive-cache"
     )
     cache.mkdir(parents=True, exist_ok=True)
+    market_cache = cache / market_type
+    market_cache.mkdir(parents=True, exist_ok=True)
 
     archive_manifest = []
     series_by_symbol = {}
@@ -66,12 +90,15 @@ def fetch_binance_archive(
         candles = {}
         funding_points = {}
         for year, month in _iter_months(config.start_date, config.end_date):
-            candle_name = f"{archive_symbol}-15m-{year:04d}-{month:02d}.zip"
+            candle_name = (
+                f"{archive_symbol}-{candle_interval}-"
+                f"{year:04d}-{month:02d}.zip"
+            )
             candle_path = (
-                f"klines/{archive_symbol}/15m/{candle_name}"
+                f"klines/{archive_symbol}/{candle_interval}/{candle_name}"
             )
             candle_bytes, candle_record = _download_verified_archive(
-                candle_path, cache
+                candle_path, market_cache, archive_root
             )
             archive_manifest.append(candle_record)
             for candle in parse_binance_kline_archive(candle_bytes):
@@ -89,7 +116,7 @@ def fetch_binance_archive(
                     f"fundingRate/{archive_symbol}/{funding_name}"
                 )
                 funding_bytes, funding_record = _download_verified_archive(
-                    funding_path, cache
+                    funding_path, market_cache, archive_root
                 )
                 archive_manifest.append(funding_record)
                 for timestamp_ms, rate in parse_binance_funding_archive(
@@ -102,23 +129,44 @@ def fetch_binance_archive(
                         funding_points[timestamp_ms] = rate
 
         ordered = [candles[key] for key in sorted(candles)]
-        _validate_contiguous_15m(octobot_symbol, ordered)
-        series_by_symbol[octobot_symbol] = {
-            "15m": ordered,
-            "1h": aggregate_candles(ordered, 4),
-            "4h": aggregate_candles(ordered, 16),
-        }
+        if candle_interval == "15m":
+            _validate_contiguous_15m(
+                octobot_symbol,
+                ordered,
+                allowed_gaps=config.allowed_15m_gaps,
+            )
+            series_by_symbol[octobot_symbol] = {
+                "15m": ordered,
+                "1h": aggregate_candles(ordered, 4),
+                "4h": aggregate_candles(ordered, 16),
+            }
+        else:
+            if len(ordered) < 1000:
+                raise ValueError(
+                    f"insufficient 1h candles for {octobot_symbol}"
+                )
+            gaps = _find_gaps(ordered, 3600)
+            if len(gaps) > config.allowed_15m_gaps:
+                raise ValueError(
+                    f"{octobot_symbol} contains {len(gaps)} hourly gaps, "
+                    f"allowed={config.allowed_15m_gaps}; first={gaps[0]}"
+                )
+            series_by_symbol[octobot_symbol] = {"1h": ordered}
         funding_by_symbol[octobot_symbol] = [
             {"timestamp_ms": key, "rate": funding_points[key]}
             for key in sorted(funding_points)
         ]
 
-    _write_collector_atomic(output, series_by_symbol, config)
+    exchange_name = "binance" if market_type == "futures_um" else "binance_spot"
+    _write_collector_atomic(
+        output, series_by_symbol, config, exchange_name=exchange_name
+    )
     collector_sha = _sha256(output)
     manifest = {
         "schema_version": COLLECTOR_SCHEMA_VERSION,
         "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "source": BINANCE_ARCHIVE_ROOT,
+        "source": archive_root,
+        "market_type": market_type,
         "research_only": True,
         "collector_path": str(output),
         "collector_sha256": collector_sha,
@@ -127,6 +175,8 @@ def fetch_binance_archive(
             "symbol_mapping": config.symbol_mapping,
             "start_date": config.start_date.isoformat(),
             "end_date": config.end_date.isoformat(),
+            "allowed_15m_gaps": config.allowed_15m_gaps,
+            "candle_interval": candle_interval,
         },
         "archives": archive_manifest,
         "coverage": {
@@ -135,6 +185,7 @@ def fetch_binance_archive(
                     "rows": len(candles),
                     "first_open_timestamp": int(candles[0][0]),
                     "last_open_timestamp": int(candles[-1][0]),
+                    "gap_count": len(_find_gaps(candles, TIME_FRAME_SECONDS[time_frame])),
                 }
                 for time_frame, candles in time_frames.items()
             }
@@ -161,7 +212,7 @@ def fetch_binance_archive(
         funding_output.parent.mkdir(parents=True, exist_ok=True)
         funding_payload = {
             "schema_version": 1,
-            "source": f"{BINANCE_ARCHIVE_ROOT}/fundingRate",
+            "source": f"{archive_root}/fundingRate",
             "retrieved_at": datetime.datetime.now(
                 datetime.timezone.utc
             ).isoformat(),
@@ -198,6 +249,246 @@ def fetch_binance_archive(
             },
         }
     return result
+
+
+def fetch_kucoin_spot_hourly(
+    config: BinanceArchiveConfig,
+    output_value: typing.Union[str, pathlib.Path],
+) -> dict:
+    """Fetch public KuCoin spot 1h candles for same-venue carry validation."""
+
+    config.validate()
+    output = pathlib.Path(output_value).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    start = int(
+        datetime.datetime.combine(
+            config.start_date, datetime.time.min, datetime.timezone.utc
+        ).timestamp()
+    )
+    end = int(
+        datetime.datetime.combine(
+            config.end_date + datetime.timedelta(days=1),
+            datetime.time.min,
+            datetime.timezone.utc,
+        ).timestamp()
+    )
+    series_by_symbol = {}
+    for octobot_symbol, kucoin_symbol in sorted(config.symbol_mapping.items()):
+        candles = {}
+        chunk_start = start
+        while chunk_start < end:
+            chunk_end = min(end, chunk_start + 1400 * 3600)
+            query = urllib.parse.urlencode(
+                {
+                    "symbol": kucoin_symbol,
+                    "type": "1hour",
+                    "startAt": chunk_start,
+                    "endAt": chunk_end,
+                }
+            )
+            request = urllib.request.Request(
+                f"{KUCOIN_SPOT_KLINES_URL}?{query}",
+                headers={"User-Agent": "OctoBot-AI-Lab/1"},
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.load(response)
+            if payload.get("code") != "200000":
+                raise RuntimeError(
+                    f"KuCoin spot request failed for {kucoin_symbol}: {payload}"
+                )
+            # KuCoin spot order: time, open, close, high, low, volume, turnover.
+            for row in payload.get("data", []):
+                timestamp = int(row[0])
+                if start <= timestamp < end:
+                    candles[timestamp] = [
+                        timestamp,
+                        float(row[1]),
+                        float(row[3]),
+                        float(row[4]),
+                        float(row[2]),
+                        float(row[5]),
+                    ]
+            chunk_start = chunk_end
+            time.sleep(0.05)
+        ordered = [candles[key] for key in sorted(candles)]
+        if len(ordered) < 1000:
+            raise ValueError(f"insufficient KuCoin spot history for {octobot_symbol}")
+        gaps = _find_gaps(ordered, 3600)
+        if len(gaps) > config.allowed_15m_gaps:
+            raise ValueError(
+                f"{octobot_symbol} contains {len(gaps)} hourly gaps, "
+                f"allowed={config.allowed_15m_gaps}; first={gaps[0]}"
+            )
+        series_by_symbol[octobot_symbol] = {"1h": ordered}
+
+    _write_collector_atomic(
+        output,
+        series_by_symbol,
+        config,
+        exchange_name="kucoin_spot",
+    )
+    manifest = {
+        "schema_version": COLLECTOR_SCHEMA_VERSION,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "source": KUCOIN_SPOT_KLINES_URL,
+        "research_only": True,
+        "market_type": "spot",
+        "collector_path": str(output),
+        "collector_sha256": _sha256(output),
+        "collector_bytes": output.stat().st_size,
+        "config": {
+            "symbol_mapping": config.symbol_mapping,
+            "start_date": config.start_date.isoformat(),
+            "end_date": config.end_date.isoformat(),
+            "allowed_hourly_gaps": config.allowed_15m_gaps,
+        },
+        "coverage": {
+            symbol: {
+                "rows": len(values["1h"]),
+                "first_open_timestamp": int(values["1h"][0][0]),
+                "last_open_timestamp": int(values["1h"][-1][0]),
+                "gap_count": len(_find_gaps(values["1h"], 3600)),
+            }
+            for symbol, values in series_by_symbol.items()
+        },
+    }
+    manifest_path = output.with_suffix(output.suffix + ".manifest.json")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "collector": {
+            "path": str(output),
+            "sha256": manifest["collector_sha256"],
+            "bytes": output.stat().st_size,
+        },
+        "manifest": str(manifest_path),
+        "coverage": manifest["coverage"],
+    }
+
+
+def fetch_kucoin_futures_hourly(
+    config: BinanceArchiveConfig,
+    output_value: typing.Union[str, pathlib.Path],
+) -> dict:
+    """Fetch public KuCoin perpetual 1h candles after the 2025 cutoff."""
+
+    config.validate()
+    output = pathlib.Path(output_value).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    start = int(
+        datetime.datetime.combine(
+            config.start_date, datetime.time.min, datetime.timezone.utc
+        ).timestamp()
+        * 1000
+    )
+    end = int(
+        datetime.datetime.combine(
+            config.end_date + datetime.timedelta(days=1),
+            datetime.time.min,
+            datetime.timezone.utc,
+        ).timestamp()
+        * 1000
+    )
+    series_by_symbol = {}
+    for octobot_symbol, kucoin_symbol in sorted(config.symbol_mapping.items()):
+        candles = {}
+        chunk_start = start
+        while chunk_start < end:
+            # KuCoin currently caps futures kline responses at 200 rows.
+            # Use 199 intervals because both endpoints can be included.
+            chunk_end = min(end, chunk_start + 199 * 3600 * 1000)
+            query = urllib.parse.urlencode(
+                {
+                    "symbol": kucoin_symbol,
+                    "granularity": 60,
+                    "from": chunk_start,
+                    "to": chunk_end,
+                }
+            )
+            request = urllib.request.Request(
+                f"{KUCOIN_FUTURES_KLINES_URL}?{query}",
+                headers={"User-Agent": "OctoBot-AI-Lab/1"},
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                payload = json.load(response)
+            if payload.get("code") != "200000":
+                raise RuntimeError(
+                    f"KuCoin futures request failed for {kucoin_symbol}: {payload}"
+                )
+            for row in payload.get("data", []):
+                timestamp_ms = int(row[0])
+                if start <= timestamp_ms < end:
+                    timestamp = timestamp_ms // 1000
+                    candles[timestamp] = [
+                        timestamp,
+                        float(row[1]),
+                        float(row[2]),
+                        float(row[3]),
+                        float(row[4]),
+                        float(row[5]),
+                    ]
+            chunk_start = chunk_end
+            time.sleep(0.05)
+        ordered = [candles[key] for key in sorted(candles)]
+        if len(ordered) < 1000:
+            raise ValueError(
+                f"insufficient KuCoin futures history for {octobot_symbol}"
+            )
+        gaps = _find_gaps(ordered, 3600)
+        if len(gaps) > config.allowed_15m_gaps:
+            raise ValueError(
+                f"{octobot_symbol} contains {len(gaps)} hourly gaps, "
+                f"allowed={config.allowed_15m_gaps}; first={gaps[0]}"
+            )
+        series_by_symbol[octobot_symbol] = {"1h": ordered}
+
+    _write_collector_atomic(
+        output,
+        series_by_symbol,
+        config,
+        exchange_name="kucoin",
+    )
+    manifest = {
+        "schema_version": COLLECTOR_SCHEMA_VERSION,
+        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "source": KUCOIN_FUTURES_KLINES_URL,
+        "research_only": True,
+        "market_type": "futures",
+        "collector_path": str(output),
+        "collector_sha256": _sha256(output),
+        "collector_bytes": output.stat().st_size,
+        "config": {
+            "symbol_mapping": config.symbol_mapping,
+            "start_date": config.start_date.isoformat(),
+            "end_date": config.end_date.isoformat(),
+            "allowed_hourly_gaps": config.allowed_15m_gaps,
+        },
+        "coverage": {
+            symbol: {
+                "rows": len(values["1h"]),
+                "first_open_timestamp": int(values["1h"][0][0]),
+                "last_open_timestamp": int(values["1h"][-1][0]),
+                "gap_count": len(_find_gaps(values["1h"], 3600)),
+            }
+            for symbol, values in series_by_symbol.items()
+        },
+    }
+    manifest_path = output.with_suffix(output.suffix + ".manifest.json")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return {
+        "collector": {
+            "path": str(output),
+            "sha256": manifest["collector_sha256"],
+            "bytes": output.stat().st_size,
+        },
+        "manifest": str(manifest_path),
+        "coverage": manifest["coverage"],
+    }
 
 
 def parse_binance_kline_archive(archive: bytes) -> list[list[float]]:
@@ -270,9 +561,9 @@ def aggregate_candles(
 
 
 def _download_verified_archive(
-    relative_path: str, cache: pathlib.Path
+    relative_path: str, cache: pathlib.Path, archive_root: str
 ) -> tuple[bytes, dict]:
-    archive_url = f"{BINANCE_ARCHIVE_ROOT}/{relative_path}"
+    archive_url = f"{archive_root}/{relative_path}"
     checksum_url = f"{archive_url}.CHECKSUM"
     cache_path = cache / relative_path
     checksum_path = cache_path.with_suffix(cache_path.suffix + ".CHECKSUM")
@@ -326,25 +617,37 @@ def _read_single_csv_archive(archive: bytes) -> list[list[str]]:
 
 
 def _validate_contiguous_15m(
-    symbol: str, candles: list[list[float]]
+    symbol: str,
+    candles: list[list[float]],
+    *,
+    allowed_gaps: int = 0,
 ) -> None:
     if len(candles) < 1000:
         raise ValueError(f"insufficient 15m candles for {symbol}")
-    gaps = [
+    gaps = _find_gaps(candles, 900)
+    if len(gaps) > allowed_gaps:
+        raise ValueError(
+            f"{symbol} contains {len(gaps)} 15m gaps, "
+            f"allowed={allowed_gaps}; first={gaps[0]}"
+        )
+
+
+def _find_gaps(
+    candles: list[list[float]], expected_seconds: int
+) -> list[tuple[int, int]]:
+    return [
         (int(previous[0]), int(current[0]))
         for previous, current in zip(candles, candles[1:])
-        if int(current[0]) - int(previous[0]) != 900
+        if int(current[0]) - int(previous[0]) != expected_seconds
     ]
-    if gaps:
-        raise ValueError(
-            f"{symbol} contains {len(gaps)} 15m gaps; first={gaps[0]}"
-        )
 
 
 def _write_collector_atomic(
     output: pathlib.Path,
     series_by_symbol: dict[str, dict[str, list[list[float]]]],
     config: BinanceArchiveConfig,
+    *,
+    exchange_name: str = "binance",
 ) -> None:
     handle, temporary_name = tempfile.mkstemp(
         prefix=f".{output.name}.", suffix=".tmp", dir=str(output.parent)
@@ -369,9 +672,17 @@ def _write_collector_atomic(
                 now,
                 "ai-lab-binance-archive-v1",
                 "research_only",
-                "binance",
+                exchange_name,
                 json.dumps(sorted(config.symbol_mapping)),
-                json.dumps(sorted(TIME_FRAME_SECONDS)),
+                json.dumps(
+                    sorted(
+                        {
+                            time_frame
+                            for values in series_by_symbol.values()
+                            for time_frame in values
+                        }
+                    )
+                ),
                 config.start_date.isoformat(),
                 config.end_date.isoformat(),
             ),
@@ -385,7 +696,7 @@ def _write_collector_atomic(
                     (
                         (
                             int(candle[0]) + close_offset,
-                            "binance",
+                            exchange_name,
                             cryptocurrency,
                             symbol,
                             time_frame,

@@ -1,7 +1,10 @@
+import asyncio
+import datetime
 import pathlib
 import sqlite3
 import tempfile
 import unittest
+from unittest import mock
 
 import pydantic
 
@@ -18,6 +21,9 @@ from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
 )
 from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm_strategy import (
     GuardedLLMStrategyEvaluator,
+)
+from tentacles.Trading.Mode.daily_trading_mode.daily_trading import (
+    DailyTradingMode,
 )
 
 
@@ -392,6 +398,195 @@ class DeterministicRiskGuardTest(unittest.TestCase):
                     triggered_at=1_700_000_001,
                 )
             )
+
+    def test_sqlite_journal_links_paper_order_and_closed_outcome(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
+            decision = _decision(action="BUY")
+            guarded = DeterministicRiskGuard(
+                RiskGuardSettings()
+            ).evaluate(decision)
+            journal = SQLiteDecisionJournal(str(database_path))
+            decision_id = journal.record(
+                context={
+                    "exchange_name": "kucoin",
+                    "cryptocurrency": "Bitcoin",
+                    "symbol": "BTC/USDT:USDT",
+                    "triggered_at": 1_700_000_000,
+                },
+                model=None,
+                prompt_version="deterministic-v1",
+                input_data={"mode": "deterministic_alignment"},
+                output_data=decision.model_dump(mode="json"),
+                guarded=guarded,
+            )
+            now = datetime.datetime.now(datetime.timezone.utc)
+            entry_event_id = journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    "id": "entry-1",
+                    "status": "filled",
+                    "side": "buy",
+                    "type": "market",
+                    "amount": 2,
+                    "filled": 2,
+                    "price": 100,
+                    "average": 100,
+                    "fee": {"cost": 1, "currency": "USDT"},
+                    "reduceOnly": False,
+                },
+                update_type="update",
+                is_from_bot=True,
+                occurred_at=now + datetime.timedelta(seconds=1),
+            )
+            exit_event_id = journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    "id": "exit-1",
+                    "status": "filled",
+                    "side": "sell",
+                    "type": "sell_limit",
+                    "amount": 2,
+                    "filled": 2,
+                    "price": 110,
+                    "average": 110,
+                    "fee": {"cost": 1, "currency": "USDT"},
+                    "reduceOnly": True,
+                },
+                update_type="update",
+                is_from_bot=True,
+                occurred_at=now + datetime.timedelta(seconds=2),
+            )
+            duplicate_exit_id = journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    "id": "exit-1",
+                    "status": "filled",
+                    "side": "sell",
+                    "type": "sell_limit",
+                    "amount": 2,
+                    "filled": 2,
+                    "price": 110,
+                    "average": 110,
+                    "fee": {"cost": 1, "currency": "USDT"},
+                    "reduceOnly": True,
+                },
+                update_type="update",
+                is_from_bot=True,
+                occurred_at=now + datetime.timedelta(seconds=2),
+            )
+
+            with sqlite3.connect(database_path) as connection:
+                events = connection.execute(
+                    "SELECT decision_id, COUNT(*) FROM ai_order_events "
+                    "GROUP BY decision_id"
+                ).fetchone()
+                outcome = connection.execute(
+                    """
+                    SELECT decision_id, entry_event_id, exit_event_id, side,
+                           gross_price_pnl, known_fees,
+                           net_pnl_excluding_funding,
+                           return_pct_excluding_funding, exit_reason
+                    FROM ai_position_outcomes
+                    """
+                ).fetchone()
+                integrity = connection.execute(
+                    "PRAGMA integrity_check"
+                ).fetchone()[0]
+
+            self.assertEqual(events, (decision_id, 2))
+            self.assertEqual(entry_event_id, outcome[1])
+            self.assertEqual(exit_event_id, outcome[2])
+            self.assertEqual(duplicate_exit_id, exit_event_id)
+            self.assertEqual(outcome[0], decision_id)
+            self.assertEqual(outcome[3], "long")
+            self.assertAlmostEqual(outcome[4], 20)
+            self.assertAlmostEqual(outcome[5], 2)
+            self.assertAlmostEqual(outcome[6], 18)
+            self.assertAlmostEqual(outcome[7], 0.09)
+            self.assertEqual(outcome[8], "take_profit")
+            self.assertEqual(integrity, "ok")
+
+    def test_guard_rejection_does_not_create_order_event(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
+            decision = _decision(
+                action="HOLD", stop_loss_pct=0, take_profit_pct=0
+            )
+            guarded = DeterministicRiskGuard(
+                RiskGuardSettings()
+            ).evaluate(decision)
+            journal = SQLiteDecisionJournal(str(database_path))
+            journal.record(
+                context={
+                    "exchange_name": "kucoin",
+                    "cryptocurrency": "Bitcoin",
+                    "symbol": "BTC/USDT:USDT",
+                },
+                model=None,
+                prompt_version="deterministic-v1",
+                input_data={},
+                output_data=decision.model_dump(mode="json"),
+                guarded=guarded,
+            )
+
+            with sqlite3.connect(database_path) as connection:
+                self.assertEqual(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM ai_order_events"
+                    ).fetchone()[0],
+                    0,
+                )
+
+    def test_daily_mode_callback_ignores_external_orders(self):
+        mode = mock.Mock()
+        mode._ai_decision_journal = mock.Mock()
+        mode.exchange_manager.exchange_name = "kucoin"
+
+        asyncio.run(
+            DailyTradingMode._ai_order_notification_callback(
+                mode,
+                "kucoin",
+                "exchange-id",
+                "Bitcoin",
+                "BTC/USDT:USDT",
+                {"id": "external-1"},
+                "update",
+                False,
+            )
+        )
+
+        mode._ai_decision_journal.record_order_event.assert_not_called()
+
+    def test_daily_mode_callback_forwards_bot_order_to_journal(self):
+        mode = mock.Mock()
+        mode._ai_decision_journal = mock.Mock()
+        mode.exchange_manager.exchange_name = "kucoin"
+        order = {"id": "paper-1", "status": "open"}
+
+        asyncio.run(
+            DailyTradingMode._ai_order_notification_callback(
+                mode,
+                "kucoin",
+                "exchange-id",
+                "Bitcoin",
+                "BTC/USDT:USDT",
+                order,
+                "update",
+                True,
+            )
+        )
+
+        mode._ai_decision_journal.record_order_event.assert_called_once_with(
+            exchange_name="kucoin",
+            symbol="BTC/USDT:USDT",
+            order=order,
+            update_type="update",
+            is_from_bot=True,
+        )
 
 
 if __name__ == "__main__":

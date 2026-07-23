@@ -10,6 +10,7 @@
 
 import dataclasses
 import datetime
+import hashlib
 import json
 import math
 import pathlib
@@ -573,7 +574,7 @@ class DeterministicRiskGuard:
 class SQLiteDecisionJournal:
     """Append-only local audit trail for every LLM decision and rejection."""
 
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
 
     def __init__(self, database_path: str):
         self.database_path = pathlib.Path(database_path)
@@ -620,6 +621,76 @@ class SQLiteDecisionJournal:
                 "CREATE INDEX IF NOT EXISTS idx_ai_decisions_replay "
                 "ON ai_decisions(exchange_name, symbol, triggered_at)"
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ai_order_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL,
+                    event_key TEXT NOT NULL UNIQUE,
+                    decision_id INTEGER,
+                    exchange_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    order_id TEXT NOT NULL,
+                    update_type TEXT,
+                    status TEXT,
+                    side TEXT,
+                    order_type TEXT,
+                    quantity REAL,
+                    filled_quantity REAL,
+                    price REAL,
+                    average_price REAL,
+                    fee REAL,
+                    fee_currency TEXT,
+                    reduce_only INTEGER NOT NULL,
+                    is_from_bot INTEGER NOT NULL,
+                    raw_json TEXT NOT NULL,
+                    FOREIGN KEY(decision_id) REFERENCES ai_decisions(id)
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_order_events_order "
+                "ON ai_order_events(exchange_name, symbol, order_id)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_order_events_decision "
+                "ON ai_order_events(decision_id, id)"
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ai_position_outcomes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL,
+                    decision_id INTEGER NOT NULL,
+                    entry_event_id INTEGER NOT NULL,
+                    exit_event_id INTEGER NOT NULL UNIQUE,
+                    exchange_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    side TEXT NOT NULL,
+                    entry_order_id TEXT NOT NULL,
+                    exit_order_id TEXT NOT NULL,
+                    entry_at TEXT NOT NULL,
+                    exit_at TEXT NOT NULL,
+                    quantity REAL NOT NULL,
+                    entry_price REAL NOT NULL,
+                    exit_price REAL NOT NULL,
+                    gross_price_pnl REAL NOT NULL,
+                    known_fees REAL NOT NULL,
+                    net_pnl_excluding_funding REAL NOT NULL,
+                    return_pct_excluding_funding REAL NOT NULL,
+                    exit_reason TEXT NOT NULL,
+                    FOREIGN KEY(decision_id) REFERENCES ai_decisions(id),
+                    FOREIGN KEY(entry_event_id) REFERENCES ai_order_events(id),
+                    FOREIGN KEY(exit_event_id) REFERENCES ai_order_events(id)
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_position_outcomes_decision "
+                "ON ai_position_outcomes(decision_id, exit_at)"
+            )
 
     def record(
         self,
@@ -630,11 +701,11 @@ class SQLiteDecisionJournal:
         input_data: dict,
         output_data: dict,
         guarded: GuardedDecision,
-    ) -> None:
+    ) -> int:
         self.initialize()
         decision = guarded.decision
         with sqlite3.connect(self.database_path, timeout=5) as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 INSERT INTO ai_decisions (
                     created_at, schema_version, exchange_name, cryptocurrency,
@@ -665,6 +736,352 @@ class SQLiteDecisionJournal:
                     decision.horizon_minutes,
                 ),
             )
+            return int(cursor.lastrowid)
+
+    def record_order_event(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+        order: dict,
+        update_type: typing.Any = None,
+        is_from_bot: bool,
+        occurred_at: typing.Optional[datetime.datetime] = None,
+    ) -> typing.Optional[int]:
+        """Append one simulated order state and derive a closed outcome."""
+
+        self.initialize()
+        occurred_at = occurred_at or datetime.datetime.now(
+            datetime.timezone.utc
+        )
+        if occurred_at.tzinfo is None:
+            occurred_at = occurred_at.replace(tzinfo=datetime.timezone.utc)
+        normalized = self._normalize_order(order)
+        order_id = normalized["order_id"]
+        if not exchange_name or not symbol or not order_id:
+            raise ValueError("exchange, symbol and order id are required")
+        normalized_update_type = self._enum_value(update_type)
+        event_payload = {
+            "exchange_name": exchange_name,
+            "symbol": symbol,
+            "update_type": normalized_update_type,
+            "is_from_bot": bool(is_from_bot),
+            **normalized,
+        }
+        event_key = hashlib.sha256(
+            json.dumps(
+                event_payload,
+                sort_keys=True,
+                ensure_ascii=False,
+                default=str,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            decision_id = self._decision_for_order_event(
+                connection,
+                exchange_name=exchange_name,
+                symbol=symbol,
+                normalized=normalized,
+                is_from_bot=is_from_bot,
+                occurred_at=occurred_at,
+            )
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO ai_order_events (
+                    created_at, schema_version, event_key, decision_id,
+                    exchange_name, symbol, order_id, update_type, status, side,
+                    order_type, quantity, filled_quantity, price, average_price,
+                    fee, fee_currency, reduce_only, is_from_bot, raw_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    occurred_at.isoformat(),
+                    self.SCHEMA_VERSION,
+                    event_key,
+                    decision_id,
+                    exchange_name,
+                    symbol,
+                    order_id,
+                    normalized_update_type,
+                    normalized["status"],
+                    normalized["side"],
+                    normalized["order_type"],
+                    normalized["quantity"],
+                    normalized["filled_quantity"],
+                    normalized["price"],
+                    normalized["average_price"],
+                    normalized["fee"],
+                    normalized["fee_currency"],
+                    int(normalized["reduce_only"]),
+                    int(bool(is_from_bot)),
+                    json.dumps(
+                        order, ensure_ascii=False, sort_keys=True, default=str
+                    ),
+                ),
+            )
+            if cursor.rowcount == 0:
+                row = connection.execute(
+                    "SELECT id FROM ai_order_events WHERE event_key = ?",
+                    (event_key,),
+                ).fetchone()
+                return int(row[0]) if row else None
+            event_id = int(cursor.lastrowid)
+            if (
+                normalized["status"] == "filled"
+                and normalized["reduce_only"]
+                and decision_id is not None
+            ):
+                self._record_position_outcome(
+                    connection,
+                    exit_event_id=event_id,
+                    decision_id=decision_id,
+                    exit_event=normalized,
+                    exchange_name=exchange_name,
+                    symbol=symbol,
+                    occurred_at=occurred_at,
+                )
+            return event_id
+
+    @classmethod
+    def _normalize_order(cls, order):
+        fee_value = order.get("fee")
+        if isinstance(fee_value, dict):
+            fee = cls._float_or_none(
+                fee_value.get("cost", fee_value.get("amount"))
+            )
+            fee_currency = fee_value.get(
+                "currency", fee_value.get("code")
+            )
+        else:
+            fee = cls._float_or_none(fee_value)
+            fee_currency = order.get("fee_currency")
+        return {
+            "order_id": str(
+                order.get("id")
+                or order.get("order_id")
+                or order.get("exchange_order_id")
+                or ""
+            ),
+            "status": str(
+                cls._enum_value(order.get("status")) or ""
+            ).lower(),
+            "side": str(
+                cls._enum_value(order.get("side")) or ""
+            ).lower(),
+            "order_type": str(
+                cls._enum_value(
+                    order.get("type", order.get("order_type"))
+                )
+                or ""
+            ).lower(),
+            "quantity": cls._float_or_none(
+                order.get("amount", order.get("quantity"))
+            ),
+            "filled_quantity": cls._float_or_none(
+                order.get("filled", order.get("filled_quantity"))
+            ),
+            "price": cls._float_or_none(order.get("price")),
+            "average_price": cls._float_or_none(
+                order.get("average", order.get("average_price"))
+            ),
+            "fee": fee,
+            "fee_currency": (
+                str(fee_currency) if fee_currency is not None else None
+            ),
+            "reduce_only": bool(
+                order.get("reduceOnly", order.get("reduce_only", False))
+            ),
+        }
+
+    @staticmethod
+    def _float_or_none(value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _enum_value(value):
+        return getattr(value, "value", value)
+
+    def _decision_for_order_event(
+        self,
+        connection,
+        *,
+        exchange_name,
+        symbol,
+        normalized,
+        is_from_bot,
+        occurred_at,
+    ):
+        if not is_from_bot:
+            return None
+        existing = connection.execute(
+            """
+            SELECT decision_id
+            FROM ai_order_events
+            WHERE exchange_name = ? AND symbol = ? AND order_id = ?
+                  AND decision_id IS NOT NULL
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (exchange_name, symbol, normalized["order_id"]),
+        ).fetchone()
+        if existing:
+            return int(existing[0])
+        if normalized["reduce_only"]:
+            entry = connection.execute(
+                """
+                SELECT event.decision_id
+                FROM ai_order_events AS event
+                WHERE event.exchange_name = ? AND event.symbol = ?
+                      AND event.status = 'filled'
+                      AND event.reduce_only = 0
+                      AND event.decision_id IS NOT NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM ai_position_outcomes AS outcome
+                          WHERE outcome.entry_event_id = event.id
+                      )
+                ORDER BY event.id DESC
+                LIMIT 1
+                """,
+                (exchange_name, symbol),
+            ).fetchone()
+            return int(entry[0]) if entry else None
+        row = connection.execute(
+            """
+            SELECT id, created_at, action, horizon_minutes
+            FROM ai_decisions
+            WHERE exchange_name = ? AND symbol = ? AND approved = 1
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (exchange_name, symbol),
+        ).fetchone()
+        if row is None:
+            return None
+        expected_side = "buy" if row[2] == "BUY" else "sell"
+        if normalized["side"] and normalized["side"] != expected_side:
+            return None
+        try:
+            decision_at = datetime.datetime.fromisoformat(row[1])
+            if decision_at.tzinfo is None:
+                decision_at = decision_at.replace(
+                    tzinfo=datetime.timezone.utc
+                )
+            age_seconds = (occurred_at - decision_at).total_seconds()
+        except (TypeError, ValueError):
+            return None
+        max_age_seconds = max(900, int(row[3] or 0) * 60)
+        if not 0 <= age_seconds <= max_age_seconds:
+            return None
+        return int(row[0])
+
+    def _record_position_outcome(
+        self,
+        connection,
+        *,
+        exit_event_id,
+        decision_id,
+        exit_event,
+        exchange_name,
+        symbol,
+        occurred_at,
+    ):
+        entry = connection.execute(
+            """
+            SELECT id, created_at, order_id, side, filled_quantity, quantity,
+                   price, average_price, fee
+            FROM ai_order_events
+            WHERE decision_id = ? AND exchange_name = ? AND symbol = ?
+                  AND status = 'filled' AND reduce_only = 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ai_position_outcomes AS outcome
+                      WHERE outcome.entry_event_id = ai_order_events.id
+                  )
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (decision_id, exchange_name, symbol),
+        ).fetchone()
+        if entry is None:
+            return
+        entry_side = str(entry[3] or "").lower()
+        if entry_side not in {"buy", "sell"}:
+            return
+        if exit_event["side"] == entry_side:
+            return
+        entry_quantity = entry[4] or entry[5]
+        exit_quantity = (
+            exit_event["filled_quantity"] or exit_event["quantity"]
+        )
+        entry_price = entry[7] or entry[6]
+        exit_price = exit_event["average_price"] or exit_event["price"]
+        if not all(
+            value is not None and value > 0
+            for value in (
+                entry_quantity,
+                exit_quantity,
+                entry_price,
+                exit_price,
+            )
+        ):
+            return
+        quantity = min(float(entry_quantity), float(exit_quantity))
+        direction = 1.0 if entry_side == "buy" else -1.0
+        gross_pnl = (
+            (float(exit_price) - float(entry_price)) * quantity * direction
+        )
+        known_fees = float(entry[8] or 0) + float(exit_event["fee"] or 0)
+        net_pnl = gross_pnl - known_fees
+        entry_notional = float(entry_price) * quantity
+        order_type = exit_event["order_type"]
+        exit_reason = (
+            "stop_loss"
+            if "stop" in order_type
+            else (
+                "take_profit"
+                if "limit" in order_type
+                else "market_or_other"
+            )
+        )
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO ai_position_outcomes (
+                created_at, schema_version, decision_id, entry_event_id,
+                exit_event_id, exchange_name, symbol, side, entry_order_id,
+                exit_order_id, entry_at, exit_at, quantity, entry_price,
+                exit_price, gross_price_pnl, known_fees,
+                net_pnl_excluding_funding, return_pct_excluding_funding,
+                exit_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                occurred_at.isoformat(),
+                self.SCHEMA_VERSION,
+                decision_id,
+                int(entry[0]),
+                exit_event_id,
+                exchange_name,
+                symbol,
+                "long" if entry_side == "buy" else "short",
+                str(entry[2]),
+                exit_event["order_id"],
+                entry[1],
+                occurred_at.isoformat(),
+                quantity,
+                float(entry_price),
+                float(exit_price),
+                gross_pnl,
+                known_fees,
+                net_pnl,
+                net_pnl / entry_notional,
+                exit_reason,
+            ),
+        )
 
     def latest_recorded_at(self, *, exchange_name: str, symbol: str) -> datetime.datetime | None:
         """Return the latest journal timestamp for a market, if it is available."""

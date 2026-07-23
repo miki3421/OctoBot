@@ -134,3 +134,22 @@ def test_selection_uses_one_direction_and_no_symbol_overlap():
         research_dataset, indices, probabilities, 0.5
     )
     assert selected.tolist() == [1, 5]
+
+
+def test_training_subsample_handles_already_strided_dataset():
+    research_dataset = _research_dataset(12)
+    hourly = numpy.arange(12, dtype=numpy.int64) * 3600 + 900
+    research_dataset = dataset.ResearchDataset(
+        **{
+            **research_dataset.__dict__,
+            "timestamp": hourly,
+            "exit_timestamp": hourly + 900,
+            "event_end_timestamp": hourly + 3600,
+        }
+    )
+    selected = model._training_subsample(
+        research_dataset,
+        numpy.arange(12),
+        model.ValidationConfig(training_stride=2),
+    )
+    assert selected.tolist() == [0, 2, 4, 6, 8, 10]

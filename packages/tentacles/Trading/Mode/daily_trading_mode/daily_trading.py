@@ -17,6 +17,8 @@ import asyncio
 import decimal
 import math
 import dataclasses
+import os
+import sqlite3
 import typing
 
 import octobot_commons.constants as commons_constants
@@ -33,10 +35,14 @@ import octobot_evaluators.matrix as matrix
 import octobot_trading.constants as trading_constants
 import octobot_trading.errors as trading_errors
 import octobot_trading.api as trading_api
+import octobot_trading.exchange_channel as exchanges_channel
 import octobot_trading.modes as trading_modes
 import octobot_trading.modes.script_keywords as script_keywords
 import octobot_trading.enums as trading_enums
 import octobot_trading.personal_data as trading_personal_data
+from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
+    SQLiteDecisionJournal,
+)
 
 
 @dataclasses.dataclass
@@ -46,6 +52,8 @@ class OrderDetails:
 
 
 class DailyTradingMode(trading_modes.AbstractTradingMode):
+    RECORD_AI_TRADE_EVENTS = "record_ai_trade_events"
+    DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
 
     def init_user_inputs(self, inputs: dict) -> None:
         """
@@ -162,6 +170,16 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             title="Maximum currency percent: Maximum portfolio % to allocate on a given currency. "
                   "Used to compute buy order amounts. Ignored when 'Amount per buy/entry order' is set.",
         )
+        self.UI.user_input(
+            self.RECORD_AI_TRADE_EVENTS,
+            commons_enums.UserInputTypes.BOOLEAN,
+            False,
+            inputs,
+            title=(
+                "Paper AI audit: append simulated order lifecycle events and "
+                "closed outcomes to the configured AI decision journal."
+            ),
+        )
 
     @classmethod
     def get_supported_exchange_types(cls) -> list:
@@ -182,6 +200,61 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
 
     def get_mode_consumer_classes(self) -> list:
         return [DailyTradingModeConsumer]
+
+    async def create_consumers(self) -> list:
+        consumers = await super().create_consumers()
+        if not self.trading_config.get(self.RECORD_AI_TRADE_EVENTS, False):
+            return consumers
+        if self.exchange_manager.is_backtesting:
+            self.logger.info(
+                "AI trade event journaling is disabled during backtesting."
+            )
+            return consumers
+        if not trading_api.is_trader_simulated(self.exchange_manager):
+            self.logger.error(
+                "AI trade event journaling requires the paper trader; "
+                "no order event consumer was started."
+            )
+            return consumers
+        self._ai_decision_journal = SQLiteDecisionJournal(
+            os.getenv(
+                "AI_DECISIONS_DB_PATH",
+                self.DEFAULT_AI_DECISIONS_DB_PATH,
+            )
+        )
+        order_consumer = await exchanges_channel.get_chan(
+            trading_personal_data.OrdersChannel.get_name(),
+            self.exchange_manager.id,
+        ).new_consumer(
+            self._ai_order_notification_callback,
+            symbol=self.symbol,
+        )
+        return consumers + [order_consumer]
+
+    async def _ai_order_notification_callback(
+        self,
+        exchange,
+        exchange_id,
+        cryptocurrency,
+        symbol,
+        order,
+        update_type,
+        is_from_bot,
+    ):
+        if not is_from_bot:
+            return
+        try:
+            self._ai_decision_journal.record_order_event(
+                exchange_name=self.exchange_manager.exchange_name,
+                symbol=symbol,
+                order=order,
+                update_type=update_type,
+                is_from_bot=True,
+            )
+        except (OSError, sqlite3.Error, TypeError, ValueError) as error:
+            self.logger.warning(
+                f"Unable to append simulated AI order event: {error}"
+            )
 
     @classmethod
     def get_is_symbol_wildcard(cls) -> bool:

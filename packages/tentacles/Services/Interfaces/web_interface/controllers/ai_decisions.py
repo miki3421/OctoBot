@@ -26,6 +26,7 @@ DEFAULT_BACKTEST_METADATA_PATH = (
 )
 PROTECTED_CAPITAL_USDT = 10_000.0
 MAX_DISPLAYED_DECISIONS = 250
+MAX_DISPLAYED_OUTCOMES = 50
 
 
 def _pretty_json(value: str) -> str:
@@ -59,6 +60,17 @@ def _empty_capital_summary() -> dict:
         "run_id": None,
         "period": None,
         "completed_at": None,
+    }
+
+
+def _empty_outcome_summary() -> dict:
+    return {
+        "order_events": 0,
+        "closed_positions": 0,
+        "wins": 0,
+        "losses": 0,
+        "net_pnl_excluding_funding": 0.0,
+        "win_rate": 0.0,
     }
 
 
@@ -173,6 +185,71 @@ def _read_decisions(database_path: str) -> tuple[list[dict], dict]:
     return decisions, summary
 
 
+def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
+    path = pathlib.Path(database_path)
+    if not path.is_file():
+        return [], _empty_outcome_summary()
+    with sqlite3.connect(
+        f"file:{path}?mode=ro", uri=True, timeout=2
+    ) as connection:
+        connection.row_factory = sqlite3.Row
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        if not {
+            "ai_order_events",
+            "ai_position_outcomes",
+        }.issubset(tables):
+            return [], _empty_outcome_summary()
+        event_count = connection.execute(
+            "SELECT COUNT(*) FROM ai_order_events"
+        ).fetchone()[0]
+        summary_row = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS closed_positions,
+                COALESCE(SUM(
+                    CASE WHEN net_pnl_excluding_funding > 0 THEN 1 ELSE 0 END
+                ), 0) AS wins,
+                COALESCE(SUM(
+                    CASE WHEN net_pnl_excluding_funding < 0 THEN 1 ELSE 0 END
+                ), 0) AS losses,
+                COALESCE(SUM(net_pnl_excluding_funding), 0)
+                    AS net_pnl_excluding_funding
+            FROM ai_position_outcomes
+            """
+        ).fetchone()
+        summary = dict(summary_row)
+        summary["order_events"] = event_count
+        summary["win_rate"] = (
+            round(
+                summary["wins"] * 100 / summary["closed_positions"], 1
+            )
+            if summary["closed_positions"]
+            else 0.0
+        )
+        rows = connection.execute(
+            """
+            SELECT outcome.id, outcome.exit_at, outcome.symbol, outcome.side,
+                   outcome.quantity, outcome.entry_price, outcome.exit_price,
+                   outcome.net_pnl_excluding_funding,
+                   outcome.return_pct_excluding_funding,
+                   outcome.exit_reason, outcome.decision_id,
+                   decision.action, decision.confidence
+            FROM ai_position_outcomes AS outcome
+            JOIN ai_decisions AS decision
+              ON decision.id = outcome.decision_id
+            ORDER BY outcome.id DESC
+            LIMIT ?
+            """,
+            (MAX_DISPLAYED_OUTCOMES,),
+        ).fetchall()
+    return [dict(row) for row in rows], summary
+
+
 def register(blueprint):
     @blueprint.route("/ai_decisions")
     @login.login_required_when_activated
@@ -181,12 +258,20 @@ def register(blueprint):
             "AI_DECISIONS_DB_PATH", DEFAULT_AI_DECISIONS_DB_PATH
         )
         error = None
+        outcome_error = None
         backtest_error = None
         try:
             decisions, summary = _read_decisions(database_path)
         except (OSError, sqlite3.Error) as database_error:
             decisions, summary = [], _empty_summary()
             error = f"Unable to read the AI decision journal: {database_error}"
+        try:
+            outcomes, outcome_summary = _read_outcomes(database_path)
+        except (OSError, sqlite3.Error) as database_error:
+            outcomes, outcome_summary = [], _empty_outcome_summary()
+            outcome_error = (
+                f"Unable to read paper trade outcomes: {database_error}"
+            )
         try:
             capital = _read_capital_summary(
                 os.getenv("BACKTEST_METADATA_PATH", DEFAULT_BACKTEST_METADATA_PATH)
@@ -200,7 +285,11 @@ def register(blueprint):
             summary=summary,
             database_ready=pathlib.Path(database_path).is_file(),
             error=error,
+            outcomes=outcomes,
+            outcome_summary=outcome_summary,
+            outcome_error=outcome_error,
             backtest_error=backtest_error,
             capital=capital,
             display_limit=MAX_DISPLAYED_DECISIONS,
+            outcome_display_limit=MAX_DISPLAYED_OUTCOMES,
         )

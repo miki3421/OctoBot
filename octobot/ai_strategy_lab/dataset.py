@@ -172,9 +172,133 @@ def build_dataset(
     return dataset
 
 
+def relabel_dataset(
+    base_dataset: ResearchDataset,
+    collector_paths: typing.Iterable[typing.Union[str, pathlib.Path]],
+    barriers: BarrierConfig,
+    *,
+    funding_rates: typing.Optional[
+        dict[str, tuple[numpy.ndarray, numpy.ndarray]]
+    ] = None,
+) -> ResearchDataset:
+    """Reuse point-in-time features while applying a different exit protocol."""
+
+    base_dataset.validate()
+    barriers.validate()
+    paths = [pathlib.Path(path).resolve() for path in collector_paths]
+    series_by_symbol = load_collector_series(paths)
+    candle_indices = {
+        symbol: {
+            int(timestamp): index
+            for index, timestamp in enumerate(time_frames["15m"].open_times)
+        }
+        for symbol, time_frames in series_by_symbol.items()
+    }
+    retained = []
+    replacements = {
+        "label": [],
+        "outcome": [],
+        "profitable": [],
+        "net_return": [],
+        "gross_return": [],
+        "exit_timestamp": [],
+        "event_end_timestamp": [],
+        "entry_price": [],
+        "stop_price": [],
+        "target_price": [],
+        "duration_bars": [],
+        "mfe_return": [],
+        "mae_return": [],
+    }
+    for row in range(len(base_dataset.label)):
+        symbol = str(base_dataset.symbol[row])
+        if symbol not in series_by_symbol:
+            raise ValueError(f"missing relabel collector for {symbol}")
+        base = series_by_symbol[symbol]["15m"]
+        open_timestamp = (
+            int(base_dataset.timestamp[row]) - TIME_FRAME_SECONDS["15m"]
+        )
+        entry_index = candle_indices[symbol].get(open_timestamp)
+        if (
+            entry_index is None
+            or entry_index + barriers.horizon_bars >= len(base.values)
+        ):
+            continue
+        atr_feature = base_dataset.feature_names.index("15m_atr_pct")
+        label_data = _triple_barrier_label(
+            base.values,
+            entry_index,
+            int(base_dataset.direction[row]),
+            float(base_dataset.features[row, atr_feature]),
+            barriers,
+            (
+                None
+                if funding_rates is None
+                else funding_rates.get(symbol)
+            ),
+        )
+        retained.append(row)
+        replacements["label"].append(
+            int(label_data["outcome"] == OUTCOME_TARGET)
+        )
+        replacements["outcome"].append(int(label_data["outcome"]))
+        replacements["profitable"].append(int(label_data["net_return"] > 0))
+        replacements["net_return"].append(float(label_data["net_return"]))
+        replacements["gross_return"].append(float(label_data["gross_return"]))
+        replacements["exit_timestamp"].append(
+            int(label_data["exit_timestamp"])
+        )
+        replacements["event_end_timestamp"].append(
+            int(base_dataset.timestamp[row])
+            + barriers.horizon_bars * TIME_FRAME_SECONDS["15m"]
+        )
+        for name in (
+            "entry_price",
+            "stop_price",
+            "target_price",
+            "duration_bars",
+            "mfe_return",
+            "mae_return",
+        ):
+            replacements[name].append(label_data[name])
+
+    indices = numpy.asarray(retained, dtype=numpy.int64)
+    values = {}
+    integer_types = {
+        "label": numpy.int8,
+        "outcome": numpy.int8,
+        "profitable": numpy.int8,
+        "exit_timestamp": numpy.int64,
+        "event_end_timestamp": numpy.int64,
+        "duration_bars": numpy.int16,
+    }
+    for field in dataclasses.fields(ResearchDataset):
+        if field.name == "feature_names":
+            continue
+        if field.name in replacements:
+            values[field.name] = numpy.asarray(
+                replacements[field.name],
+                dtype=integer_types.get(field.name, numpy.float64),
+            )
+        else:
+            values[field.name] = getattr(base_dataset, field.name)[indices]
+    result = ResearchDataset(
+        feature_names=base_dataset.feature_names,
+        **values,
+    )
+    result.validate()
+    return result
+
+
 def load_collector_series(
     collector_paths: typing.Iterable[pathlib.Path],
+    required_time_frames: tuple[str, ...] = REQUIRED_TIME_FRAMES,
 ) -> dict[str, dict[str, CandleSeries]]:
+    if (
+        not required_time_frames
+        or set(required_time_frames) - set(TIME_FRAME_SECONDS)
+    ):
+        raise ValueError("unknown or empty required_time_frames")
     merged: dict[tuple[str, str], dict[int, tuple[float, ...]]] = {}
     for path in collector_paths:
         if not path.is_file():
@@ -192,13 +316,15 @@ def load_collector_series(
             }
             if "ohlcv" not in tables:
                 raise ValueError(f"collector has no ohlcv table: {path}")
+            placeholders = ",".join("?" for _ in required_time_frames)
             for symbol, time_frame, raw_candle in connection.execute(
-                """
+                f"""
                 SELECT symbol, time_frame, candle
                 FROM ohlcv
-                WHERE time_frame IN ('15m', '1h', '4h')
+                WHERE time_frame IN ({placeholders})
                 ORDER BY symbol, time_frame, timestamp
-                """
+                """,
+                required_time_frames,
             ):
                 candle = json.loads(raw_candle)
                 if len(candle) < 6:
@@ -220,9 +346,9 @@ def load_collector_series(
         )
 
     incomplete = {
-        symbol: sorted(set(REQUIRED_TIME_FRAMES) - set(time_frames))
+        symbol: sorted(set(required_time_frames) - set(time_frames))
         for symbol, time_frames in result.items()
-        if set(time_frames) != set(REQUIRED_TIME_FRAMES)
+        if set(time_frames) != set(required_time_frames)
     }
     if incomplete:
         formatted = ", ".join(

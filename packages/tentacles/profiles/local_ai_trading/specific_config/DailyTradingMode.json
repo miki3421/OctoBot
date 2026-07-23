@@ -16,5 +16,6 @@
   "disable_buy_orders": false,
   "disable_sell_orders": false,
   "max_currency_percent": 10,
+  "record_ai_trade_events": true,
   "emit_trading_signals": false
 }

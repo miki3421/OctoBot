@@ -1145,9 +1145,12 @@ def _training_subsample(
 ) -> numpy.ndarray:
     if validation_config.training_stride == 1:
         return indices
-    base_interval = dataset_module.TIME_FRAME_SECONDS["15m"]
-    slots = dataset.timestamp[indices] // base_interval
-    return indices[slots % validation_config.training_stride == 0]
+    # Select by ordinal decision time, not epoch modulo. Datasets can already
+    # have a candidate stride (for example hourly rows); epoch modulo can then
+    # be constant and accidentally remove every training row.
+    unique_times = numpy.unique(dataset.timestamp[indices])
+    selected_times = unique_times[:: validation_config.training_stride]
+    return indices[numpy.isin(dataset.timestamp[indices], selected_times)]
 
 
 def _sigmoid(values: numpy.ndarray) -> numpy.ndarray:
