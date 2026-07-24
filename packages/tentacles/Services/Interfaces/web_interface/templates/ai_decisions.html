@@ -84,12 +84,14 @@
                 <h4 class="mb-1"><i class="fas fa-chart-line mr-2"></i>Paper outcome feedback</h4>
                 <div class="text-muted small mb-3">
                     Append-only simulator evidence. P/L and return include known order fees but exclude funding.
+                    Orders missing after a restart are retained and marked as interrupted.
                 </div>
                 {% if outcome_error %}
                     <div class="alert alert-warning" role="alert">{{ outcome_error }}</div>
                 {% endif %}
                 <div class="row mb-0">
                     {{ metric_card("Order events", outcome_summary.order_events, "info") }}
+                    {{ metric_card("Interrupted", outcome_summary.interrupted_orders, "warning") }}
                     {{ metric_card("Closed positions", outcome_summary.closed_positions, "primary") }}
                     {{ metric_card("Wins", outcome_summary.wins, "success") }}
                     {{ metric_card("Losses", outcome_summary.losses, "danger") }}

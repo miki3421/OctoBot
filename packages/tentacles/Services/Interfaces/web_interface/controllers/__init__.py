@@ -21,6 +21,7 @@ import tentacles.Services.Interfaces.web_interface.controllers.backtesting
 import tentacles.Services.Interfaces.web_interface.controllers.commands
 import tentacles.Services.Interfaces.web_interface.controllers.about
 import tentacles.Services.Interfaces.web_interface.controllers.ai_decisions
+import tentacles.Services.Interfaces.web_interface.controllers.strategy_status
 import tentacles.Services.Interfaces.web_interface.controllers.configuration
 import tentacles.Services.Interfaces.web_interface.controllers.tentacles_config
 import tentacles.Services.Interfaces.web_interface.controllers.dashboard
@@ -55,6 +56,7 @@ def register(blueprint, distribution: octobot.enums.OctoBotDistribution):
         tentacles.Services.Interfaces.web_interface.controllers.backtesting.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.about.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.ai_decisions.register(blueprint)
+        tentacles.Services.Interfaces.web_interface.controllers.strategy_status.register(blueprint)
         if octobot_constants.ENABLE_CLOUD_INTEGRATIONS:
             tentacles.Services.Interfaces.web_interface.controllers.community.register(blueprint)
         tentacles.Services.Interfaces.web_interface.controllers.configuration.register(blueprint)

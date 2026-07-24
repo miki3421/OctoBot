@@ -123,6 +123,37 @@ const sell_color = getComputedStyle(document.body).getPropertyValue('--local-pri
 const buy_color = getComputedStyle(document.body).getPropertyValue('--local-price-chart-buy-color');
 const candle_sell_color = getComputedStyle(document.body).getPropertyValue('----local-price-chart-candle-sell-color');
 const candle_buy_color = getComputedStyle(document.body).getPropertyValue('--local-price-chart-candle-buy-color');
+const percentage_research_cache = {};
+const percentage_causal_cache = {};
+const percentage_probability_cache = {};
+const percentage_long_hypothesis_cache = {};
+const percentage_long_hypothesis_h2_cache = {};
+const percentage_long_h1_style = {
+    pathColor: "#20c997",
+    longEntryColor: "#20c997",
+    shortEntryColor: "#dc3545",
+    longEntrySymbol: "diamond",
+    shortEntrySymbol: "diamond",
+    activationColor: "#ffc107",
+    exitColor: "#9c27b0",
+    annotationName: "percentage-long-hypothesis-h1",
+    annotationX: 0.01,
+    annotationAnchor: "left",
+    evidenceText: "validazione riutilizzata: 87 casi · successo 36,8% (base 39,2%)"
+};
+const percentage_long_h2_style = {
+    pathColor: "#007bff",
+    longEntryColor: "#007bff",
+    shortEntryColor: "#dc3545",
+    longEntrySymbol: "triangle-up",
+    shortEntrySymbol: "triangle-down",
+    activationColor: "#fd7e14",
+    exitColor: "#e83e8c",
+    annotationName: "percentage-long-hypothesis-h2",
+    annotationX: 0.99,
+    annotationAnchor: "right",
+    evidenceText: "KuCoin riutilizzato: 35 trade L/S · WR 60,0% · PF 2,00 (non validato)"
+};
 
 function create_candlesticks(candles){
     const data_time = candles["time"];
@@ -340,12 +371,574 @@ function push_new_candle(price_trace, volume_trace, candles, candle_index, last_
     volume_trace.marker.color.push(vol_color);
 }
 
+function _percentage_research_hover(trade, stage){
+    const direction = trade.direction === "LONG" ? "Long" : "Short";
+    const stage_labels = {
+        entry: "Entrata teorica",
+        activation: "Profit lock attivato",
+        exit: "Uscita teorica"
+    };
+    return [
+        `<b>${stage_labels[stage]} · ${direction}</b>`,
+        `Rendimento lordo: ${trade.gross_return_pct.toFixed(2)}%`,
+        `MFE: ${trade.maximum_favorable_excursion_pct.toFixed(2)}%`,
+        `MAE: ${trade.maximum_adverse_excursion_pct.toFixed(2)}%`,
+        `Uscita: ${trade.exit_reason}`,
+        "Diagnostica retrospettiva: usa candele future"
+    ].join("<br>");
+}
+
+function _percentage_marker_trace(x, y, text, name, symbol, color){
+    return {
+        x: x,
+        y: y,
+        text: text,
+        mode: "markers",
+        name: name,
+        hovertemplate: "%{text}<extra></extra>",
+        marker: {
+            symbol: symbol,
+            color: color,
+            size: 12,
+            opacity: 0.95,
+            line: {
+                color: getTextColor(),
+                width: 1
+            }
+        },
+        xaxis: "x",
+        yaxis: "y2"
+    };
+}
+
+function create_percentage_research_traces(research){
+    if(!isDefined(research) || !Array.isArray(research.trades) || !research.trades.length){
+        return [];
+    }
+    const long_line = {x: [], y: []};
+    const short_line = {x: [], y: []};
+    const entries = {
+        LONG: {x: [], y: [], text: []},
+        SHORT: {x: [], y: [], text: []}
+    };
+    const activations = {x: [], y: [], text: []};
+    const exits = {x: [], y: [], text: [], color: []};
+
+    research.trades.forEach((trade) => {
+        const line = trade.direction === "LONG" ? long_line : short_line;
+        line.x.push(
+            trade.entry_time,
+            trade.activation_time,
+            trade.exit_time,
+            null
+        );
+        line.y.push(
+            trade.entry_price,
+            trade.activation_price,
+            trade.exit_price,
+            null
+        );
+        entries[trade.direction].x.push(trade.entry_time);
+        entries[trade.direction].y.push(trade.entry_price);
+        entries[trade.direction].text.push(_percentage_research_hover(trade, "entry"));
+        activations.x.push(trade.activation_time);
+        activations.y.push(trade.activation_price);
+        activations.text.push(_percentage_research_hover(trade, "activation"));
+        exits.x.push(trade.exit_time);
+        exits.y.push(trade.exit_price);
+        exits.text.push(_percentage_research_hover(trade, "exit"));
+        exits.color.push(trade.direction === "LONG" ? "#198754" : "#dc3545");
+    });
+
+    const traces = [];
+    [
+        [long_line, "#198754", "Long hindsight path"],
+        [short_line, "#dc3545", "Short hindsight path"]
+    ].forEach(([line, color, name]) => {
+        if(line.x.length){
+            traces.push({
+                x: line.x,
+                y: line.y,
+                mode: "lines",
+                name: name,
+                hoverinfo: "skip",
+                line: {
+                    color: color,
+                    width: 2,
+                    dash: "dot"
+                },
+                xaxis: "x",
+                yaxis: "y2"
+            });
+        }
+    });
+    if(entries.LONG.x.length){
+        traces.push(_percentage_marker_trace(
+            entries.LONG.x,
+            entries.LONG.y,
+            entries.LONG.text,
+            "Long entry",
+            "triangle-up",
+            "#198754"
+        ));
+    }
+    if(entries.SHORT.x.length){
+        traces.push(_percentage_marker_trace(
+            entries.SHORT.x,
+            entries.SHORT.y,
+            entries.SHORT.text,
+            "Short entry",
+            "triangle-down",
+            "#dc3545"
+        ));
+    }
+    traces.push(_percentage_marker_trace(
+        activations.x,
+        activations.y,
+        activations.text,
+        "Profit lock activation",
+        "diamond",
+        "#ffc107"
+    ));
+    const exit_trace = _percentage_marker_trace(
+        exits.x,
+        exits.y,
+        exits.text,
+        "Hindsight exit",
+        "circle",
+        exits.color
+    );
+    traces.push(exit_trace);
+    return traces;
+}
+
+function update_percentage_research_annotation(layout, research, enabled){
+    const annotations = isDefined(layout.annotations) ? layout.annotations : [];
+    layout.annotations = annotations.filter(
+        (annotation) => annotation.name !== "percentage-research"
+    );
+    if(!enabled || !isDefined(research) || !isDefined(research.summary)){
+        return;
+    }
+    const summary = research.summary;
+    const config = research.config;
+    layout.annotations.push({
+        name: "percentage-research",
+        xref: "paper",
+        yref: "paper",
+        x: 0.01,
+        y: 0.99,
+        xanchor: "left",
+        yanchor: "top",
+        showarrow: false,
+        align: "left",
+        bordercolor: "rgba(255, 193, 7, 0.85)",
+        borderwidth: 1,
+        borderpad: 5,
+        bgcolor: "rgba(20, 20, 20, 0.78)",
+        font: {
+            color: "#ffffff",
+            size: 11
+        },
+        text: (
+            `<b>Mappa % retrospettiva — non è un segnale</b><br>` +
+            `lock +${config.minimum_profit_pct}% dopo +${config.activation_pct}%, ` +
+            `stop ${config.initial_stop_pct}%, orizzonte ${config.horizon_candles} candele<br>` +
+            `${summary.selected_non_overlapping_trades} trade selezionati · ` +
+            `hit rate storico ${summary.historical_hit_rate_pct.toFixed(1)}% · ` +
+            `massimo composto lordo ${summary.maximum_hindsight_compounded_gross_return_pct.toFixed(1)}%`
+        )
+    });
+}
+
+function _percentage_causal_hover(trade, stage){
+    const direction = trade.direction === "LONG" ? "Long" : "Short";
+    const features = trade.signal_features;
+    const stage_labels = {
+        entry: "Ingresso causale V1",
+        activation: "Profit lock attivato",
+        exit: "Uscita valutata"
+    };
+    return [
+        `<b>${stage_labels[stage]} · ${direction}</b>`,
+        `Netto stimato: ${trade.net_return_pct.toFixed(2)}%`,
+        `Lordo: ${trade.gross_return_pct.toFixed(2)}%`,
+        `ATR: ${(features.atr_pct * 100).toFixed(3)}%`,
+        `EMA spread direzionale: ${(features.directional_ema_spread_pct * 100).toFixed(3)}%`,
+        `EMA slope direzionale: ${(features.directional_ema_slope_pct * 100).toFixed(3)}%`,
+        `Uscita: ${trade.exit_reason}`,
+        "L'ingresso non usa il futuro; l'esito sì"
+    ].join("<br>");
+}
+
+function create_percentage_causal_traces(causal){
+    if(!isDefined(causal) || !Array.isArray(causal.trades) || !causal.trades.length){
+        return [];
+    }
+    const paths = {x: [], y: []};
+    const entries = {x: [], y: [], text: [], color: []};
+    const activations = {x: [], y: [], text: []};
+    const exits = {x: [], y: [], text: [], color: []};
+
+    causal.trades.forEach((trade) => {
+        paths.x.push(trade.entry_time);
+        paths.y.push(trade.entry_price);
+        if(trade.activation_time !== null){
+            paths.x.push(trade.activation_time);
+            paths.y.push(trade.activation_price);
+            activations.x.push(trade.activation_time);
+            activations.y.push(trade.activation_price);
+            activations.text.push(_percentage_causal_hover(trade, "activation"));
+        }
+        paths.x.push(trade.exit_time, null);
+        paths.y.push(trade.exit_price, null);
+        entries.x.push(trade.entry_time);
+        entries.y.push(trade.entry_price);
+        entries.text.push(_percentage_causal_hover(trade, "entry"));
+        entries.color.push(trade.direction === "LONG" ? "#00bcd4" : "#9c27b0");
+        exits.x.push(trade.exit_time);
+        exits.y.push(trade.exit_price);
+        exits.text.push(_percentage_causal_hover(trade, "exit"));
+        exits.color.push(trade.net_return_pct > 0 ? "#20c997" : "#ff6b6b");
+    });
+
+    const traces = [{
+        x: paths.x,
+        y: paths.y,
+        mode: "lines",
+        name: "Causal V1 evaluated path",
+        hoverinfo: "skip",
+        line: {
+            color: "#00bcd4",
+            width: 3
+        },
+        xaxis: "x",
+        yaxis: "y2"
+    }];
+    traces.push(_percentage_marker_trace(
+        entries.x,
+        entries.y,
+        entries.text,
+        "Causal V1 entry",
+        "star",
+        entries.color
+    ));
+    if(activations.x.length){
+        traces.push(_percentage_marker_trace(
+            activations.x,
+            activations.y,
+            activations.text,
+            "Causal V1 profit lock",
+            "diamond-open",
+            "#ffc107"
+        ));
+    }
+    traces.push(_percentage_marker_trace(
+        exits.x,
+        exits.y,
+        exits.text,
+        "Causal V1 exit",
+        "square",
+        exits.color
+    ));
+    return traces;
+}
+
+function update_percentage_causal_annotation(layout, causal, enabled){
+    const annotations = isDefined(layout.annotations) ? layout.annotations : [];
+    layout.annotations = annotations.filter(
+        (annotation) => annotation.name !== "percentage-causal"
+    );
+    if(!enabled || !isDefined(causal) || !isDefined(causal.chart_summary)){
+        return;
+    }
+    const chart = causal.chart_summary;
+    const test = causal.frozen_evidence.test_metrics;
+    const rule = causal.rule;
+    layout.annotations.push({
+        name: "percentage-causal",
+        xref: "paper",
+        yref: "paper",
+        x: 0.99,
+        y: 0.99,
+        xanchor: "right",
+        yanchor: "top",
+        showarrow: false,
+        align: "left",
+        bordercolor: "rgba(0, 188, 212, 0.9)",
+        borderwidth: 1,
+        borderpad: 5,
+        bgcolor: "rgba(20, 20, 20, 0.82)",
+        font: {
+            color: "#ffffff",
+            size: 11
+        },
+        text: (
+            `<b>Candidata causale V1 — NON approvata</b><br>` +
+            `ATR ≤ ${(rule.maximum_atr_pct * 100).toFixed(3)}% · ` +
+            `EMA spread ≥ ${(rule.minimum_directional_ema_spread_pct * 100).toFixed(3)}% · ` +
+            `slope ≥ ${(rule.minimum_directional_ema_slope_pct * 100).toFixed(3)}%<br>` +
+            `test KuCoin: ${test.trades} trade · WR ${test.win_rate_pct.toFixed(1)}% · ` +
+            `PF ${test.profit_factor.toFixed(2)} · netto ${test.compounded_net_return_pct.toFixed(2)}%<br>` +
+            `grafico: ${chart.non_overlapping_trades} trade · ` +
+            `netto ${chart.compounded_net_return_pct.toFixed(2)}% · ` +
+            `${chart.trades_per_day.toFixed(2)}/giorno · gate FALLITO`
+        )
+    });
+}
+
+function create_percentage_probability_traces(probability){
+    if(!isDefined(probability) || !Array.isArray(probability.points)){
+        return [];
+    }
+    return ["LONG", "SHORT"].map((direction) => {
+        const points = probability.points.filter((point) => point.direction === direction);
+        return {
+            x: points.map((point) => point.time),
+            y: points.map((point) => point.price),
+            text: points.map((point) =>
+                `${direction} · probabilità calibrata ${point.probability_pct.toFixed(1)}%` +
+                `<br>${point.trade_qualified ? "sopra" : "sotto"} soglia economica ` +
+                `${probability.display_threshold_pct.toFixed(1)}%` +
+                `<br>punto diagnostico, non ingresso autorizzato`
+            ),
+            hoverinfo: "text",
+            mode: "markers",
+            name: `${direction} probability`,
+            marker: {
+                symbol: direction === "LONG" ? "triangle-up" : "triangle-down",
+                size: 9,
+                color: direction === "LONG" ? "#17a2b8" : "#fd7e14",
+                line: {color: "#212529", width: 0.7}
+            },
+            type: "scatter"
+        };
+    });
+}
+
+function update_percentage_probability_annotation(layout, probability, enabled){
+    layout.annotations = (layout.annotations || []).filter(
+        (annotation) => annotation.name !== "percentage-probability"
+    );
+    if(
+        !enabled || !isDefined(probability) || !isDefined(probability.latest)
+        || !isDefined(probability.test)
+    ){
+        return;
+    }
+    const selected = probability.test.above_display_threshold;
+    const sourceText = isDefined(probability.data_source)
+        ? `<br>${probability.data_source} · ultima ${probability.snapshot_last_candle}`
+        : "";
+    const selectedText = selected.examples
+        ? `${selected.examples} esempi ≥ soglia, successo reale ${selected.observed_pct.toFixed(1)}%`
+        : "nessun esempio fuori campione ≥ soglia";
+    layout.annotations.push({
+        name: "percentage-probability",
+        x: 0.99,
+        y: 1.01,
+        xref: "paper",
+        yref: "paper",
+        xanchor: "right",
+        yanchor: "top",
+        showarrow: false,
+        align: "left",
+        bordercolor: "#17a2b8",
+        borderwidth: 1,
+        borderpad: 5,
+        bgcolor: "rgba(20, 20, 20, 0.82)",
+        font: {color: "#ffffff", size: 11},
+        text: (
+            `<b>Probabilità ${probability.time_frame} — ricerca, NON segnale</b><br>` +
+            `ultima candela chiusa: LONG ${probability.latest.long_probability_pct.toFixed(1)}% · ` +
+            `SHORT ${probability.latest.short_probability_pct.toFixed(1)}%<br>` +
+            `soglia economica ${probability.display_threshold_pct.toFixed(1)}% · ` +
+            `${selectedText}<br>` +
+            `test KuCoin: ${probability.test.examples} esempi · ` +
+            `base ${probability.test.base_rate_pct.toFixed(1)}% · ` +
+            `Brier ${probability.test.brier_score.toFixed(3)}` +
+            sourceText
+        )
+    });
+}
+
+function create_percentage_long_hypothesis_traces(hypothesis, style){
+    if(!isDefined(hypothesis) || !Array.isArray(hypothesis.trades)){
+        return [];
+    }
+    const paths = {x: [], y: [], text: []};
+    const entries = {
+        LONG: {x: [], y: [], text: []},
+        SHORT: {x: [], y: [], text: []}
+    };
+    const activations = {x: [], y: [], text: []};
+    const exits = {x: [], y: [], text: []};
+    hypothesis.trades.forEach((trade, index) => {
+        const direction = trade.direction;
+        const label = `${direction} ${hypothesis.hypothesis} #${index + 1}`;
+        const probability = trade.probability_pct.toFixed(1);
+        entries[direction].x.push(trade.entry_time);
+        entries[direction].y.push(trade.entry_price);
+        entries[direction].text.push(
+            `<b>${label} · ENTRATA</b><br>` +
+            `prezzo ${trade.entry_price.toFixed(2)} · probabilità ${probability}%<br>` +
+            `score ${trade.raw_score.toFixed(3)} · volume z ${trade.entry_volume_zscore.toFixed(2)}<br>` +
+            `stop −1,0% · attivazione +1,2% · diagnostico`
+        );
+        const pathX = [trade.entry_time];
+        const pathY = [trade.entry_price];
+        if(isDefined(trade.activation_time) && trade.activation_time !== null){
+            activations.x.push(trade.activation_time);
+            activations.y.push(trade.activation_price);
+            activations.text.push(
+                `<b>${label} · PROTEZIONE ATTIVA</b><br>` +
+                `raggiunto +1,2% · stop portato a +1,0%`
+            );
+            pathX.push(trade.activation_time);
+            pathY.push(trade.activation_price);
+        }
+        if(trade.status === "closed"){
+            exits.x.push(trade.exit_time);
+            exits.y.push(trade.exit_price);
+            exits.text.push(
+                `<b>${label} · USCITA</b><br>` +
+                `${trade.exit_reason} · lordo ${trade.gross_return_pct.toFixed(2)}% · ` +
+                `netto ${trade.net_return_pct.toFixed(2)}%`
+            );
+            pathX.push(trade.exit_time);
+            pathY.push(trade.exit_price);
+        }
+        paths.x.push(...pathX, null);
+        paths.y.push(...pathY, null);
+    });
+    const traces = [{
+        x: paths.x,
+        y: paths.y,
+        mode: "lines",
+        name: `${hypothesis.hypothesis} percorso`,
+        hoverinfo: "skip",
+        line: {color: style.pathColor, width: 1.5, dash: "dot"},
+        type: "scatter"
+    }];
+    ["LONG", "SHORT"].forEach((direction) => {
+        if(entries[direction].x.length){
+            const isLong = direction === "LONG";
+            traces.push(_percentage_marker_trace(
+                entries[direction].x,
+                entries[direction].y,
+                entries[direction].text,
+                `${direction} ${hypothesis.hypothesis} entrata`,
+                isLong ? style.longEntrySymbol : style.shortEntrySymbol,
+                isLong ? style.longEntryColor : style.shortEntryColor
+            ));
+        }
+    });
+    if(activations.x.length){
+        traces.push(_percentage_marker_trace(
+            activations.x, activations.y, activations.text,
+            `${hypothesis.hypothesis} protezione +1%`, "star", style.activationColor
+        ));
+    }
+    if(exits.x.length){
+        traces.push(_percentage_marker_trace(
+            exits.x, exits.y, exits.text,
+            `${hypothesis.hypothesis} uscita`, "x", style.exitColor
+        ));
+    }
+    return traces;
+}
+
+function update_percentage_long_hypothesis_annotation(layout, hypothesis, enabled, style){
+    layout.annotations = (layout.annotations || []).filter(
+        (annotation) => annotation.name !== style.annotationName
+    );
+    if(!enabled || !isDefined(hypothesis) || !isDefined(hypothesis.summary)){
+        return;
+    }
+    const summary = hypothesis.summary;
+    const pf = summary.profit_factor === null
+        ? "∞ (nessuna perdita)"
+        : summary.profit_factor.toFixed(2);
+    layout.annotations.push({
+        name: style.annotationName,
+        x: style.annotationX,
+        y: 0.02,
+        xref: "paper",
+        yref: "paper",
+        xanchor: style.annotationAnchor,
+        yanchor: "bottom",
+        showarrow: false,
+        align: "left",
+        bordercolor: style.longEntryColor,
+        borderwidth: 1,
+        borderpad: 5,
+        bgcolor: "rgba(20, 20, 20, 0.84)",
+        font: {color: "#ffffff", size: 11},
+        text: (
+            `<b>${hypothesis.alternating_directions ? "H2 LONG/SHORT alternati" : "LONG H1"} 15m — test visivo, NON strategia</b><br>` +
+            `score ≥ ${hypothesis.score_threshold.toFixed(3)}` +
+            (hypothesis.minimum_volume_zscore === null
+                ? ""
+                : ` · volume z ≥ ${hypothesis.minimum_volume_zscore.toFixed(1)}`) +
+            `<br>` +
+            `stop −1% · attiva a +1,2% · protegge +1% · max 24h<br>` +
+            (hypothesis.alternating_directions
+                ? `alternanza obbligatoria · ${summary.long_trades} LONG · ${summary.short_trades} SHORT<br>`
+                : "") +
+            `${summary.closed_trades} chiusi · ${summary.open_trades} aperti · ` +
+            `WR ${summary.win_rate_pct.toFixed(1)}% · PF ${pf} · ` +
+            `netto composto ${summary.compounded_net_return_pct.toFixed(2)}%<br>` +
+            style.evidenceText
+        )
+    });
+}
+
 function create_or_update_candlestick_graph(element_id, symbol_price_data, symbol, exchange_name, time_frame, replace=false){
     if (symbol_price_data) {
         const candles = symbol_price_data["candles"];
         const trades = symbol_price_data["trades"];
         const orders = symbol_price_data["orders"];
         const isSimulated = symbol_price_data["simulated"]
+        if(isDefined(symbol_price_data["percentage_research"])){
+            percentage_research_cache[element_id] = symbol_price_data["percentage_research"];
+        }
+        if(isDefined(symbol_price_data["percentage_causal"])){
+            percentage_causal_cache[element_id] = symbol_price_data["percentage_causal"];
+        }
+        if(isDefined(symbol_price_data["percentage_probability"])){
+            percentage_probability_cache[element_id] = symbol_price_data["percentage_probability"];
+        }
+        if(isDefined(symbol_price_data["percentage_long_hypothesis"])){
+            percentage_long_hypothesis_cache[element_id] = symbol_price_data["percentage_long_hypothesis"];
+        }
+        if(isDefined(symbol_price_data["percentage_long_hypothesis_h2"])){
+            percentage_long_hypothesis_h2_cache[element_id] = symbol_price_data["percentage_long_hypothesis_h2"];
+        }
+        const percentage_research = percentage_research_cache[element_id];
+        const percentage_causal = percentage_causal_cache[element_id];
+        const percentage_probability = percentage_probability_cache[element_id];
+        const percentage_long_hypothesis = percentage_long_hypothesis_cache[element_id];
+        const percentage_long_hypothesis_h2 = percentage_long_hypothesis_h2_cache[element_id];
+        const percentage_research_enabled = (
+            typeof shouldDisplayPercentageResearch === "function"
+            && shouldDisplayPercentageResearch()
+        );
+        const percentage_causal_enabled = (
+            typeof shouldDisplayPercentageCausal === "function"
+            && shouldDisplayPercentageCausal()
+        );
+        const percentage_probability_enabled = (
+            typeof shouldDisplayPercentageProbability === "function"
+            && shouldDisplayPercentageProbability()
+        );
+        const percentage_long_hypothesis_enabled = (
+            typeof shouldDisplayPercentageLongHypothesis === "function"
+            && shouldDisplayPercentageLongHypothesis()
+        );
+        const percentage_long_hypothesis_h2_enabled = (
+            typeof shouldDisplayPercentageLongHypothesisH2 === "function"
+            && shouldDisplayPercentageLongHypothesisH2()
+        );
 
         let layout = undefined;
 
@@ -369,7 +962,7 @@ function create_or_update_candlestick_graph(element_id, symbol_price_data, symbo
             // keep layout
             layout = prev_layout;
             // update data revision to force graph update
-            layout.datarevision = layout.datarevision + 1;
+            layout.datarevision = (layout.datarevision || 0) + 1;
 
             // trades
             real_trader_trades = isSimulated ? real_trader_trades : update_trades(trades, "Real trader", real_trader_trades);
@@ -417,8 +1010,67 @@ function create_or_update_candlestick_graph(element_id, symbol_price_data, symbo
         const lastTime = price_trace.x[price_trace.x.length - 1];
         const firstTime = price_trace.x[0];
         plotted_orders = create_orders(orders, isSimulated ? "Simulator": "Real trader", firstTime, lastTime);
+        const percentage_research_traces = percentage_research_enabled
+            ? create_percentage_research_traces(percentage_research)
+            : [];
+        const percentage_causal_traces = percentage_causal_enabled
+            ? create_percentage_causal_traces(percentage_causal)
+            : [];
+        const percentage_probability_traces = percentage_probability_enabled
+            ? create_percentage_probability_traces(percentage_probability)
+            : [];
+        const percentage_long_hypothesis_traces = percentage_long_hypothesis_enabled
+            ? create_percentage_long_hypothesis_traces(
+                percentage_long_hypothesis,
+                percentage_long_h1_style
+            )
+            : [];
+        const percentage_long_hypothesis_h2_traces = percentage_long_hypothesis_h2_enabled
+            ? create_percentage_long_hypothesis_traces(
+                percentage_long_hypothesis_h2,
+                percentage_long_h2_style
+            )
+            : [];
+        update_percentage_research_annotation(
+            layout,
+            percentage_research,
+            percentage_research_enabled
+        );
+        update_percentage_causal_annotation(
+            layout,
+            percentage_causal,
+            percentage_causal_enabled
+        );
+        update_percentage_probability_annotation(
+            layout,
+            percentage_probability,
+            percentage_probability_enabled
+        );
+        update_percentage_long_hypothesis_annotation(
+            layout,
+            percentage_long_hypothesis,
+            percentage_long_hypothesis_enabled,
+            percentage_long_h1_style
+        );
+        update_percentage_long_hypothesis_annotation(
+            layout,
+            percentage_long_hypothesis_h2,
+            percentage_long_hypothesis_h2_enabled,
+            percentage_long_h2_style
+        );
 
-        const data = [volume_trace, price_trace, real_trader_trades, simulator_trades, ...plotted_orders];
+        const data = [
+            volume_trace,
+            price_trace,
+            real_trader_trades,
+            simulator_trades,
+            ...plotted_orders,
+            ...percentage_research_traces,
+            ...percentage_causal_traces,
+            ...percentage_probability_traces,
+            ...percentage_long_hypothesis_traces,
+            ...percentage_long_hypothesis_h2_traces
+        ];
         const plotlyConfig = {
             staticPlot: isMobileDisplay(),
             scrollZoom: false,

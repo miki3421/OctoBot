@@ -66,6 +66,7 @@ def _empty_capital_summary() -> dict:
 def _empty_outcome_summary() -> dict:
     return {
         "order_events": 0,
+        "interrupted_orders": 0,
         "closed_positions": 0,
         "wins": 0,
         "losses": 0,
@@ -207,6 +208,14 @@ def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
         event_count = connection.execute(
             "SELECT COUNT(*) FROM ai_order_events"
         ).fetchone()[0]
+        interrupted_count = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM ai_order_events
+            WHERE status = 'interrupted'
+              AND update_type = 'startup_reconciliation'
+            """
+        ).fetchone()[0]
         summary_row = connection.execute(
             """
             SELECT
@@ -224,6 +233,7 @@ def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
         ).fetchone()
         summary = dict(summary_row)
         summary["order_events"] = event_count
+        summary["interrupted_orders"] = interrupted_count
         summary["win_rate"] = (
             round(
                 summary["wins"] * 100 / summary["closed_positions"], 1

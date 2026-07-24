@@ -177,16 +177,22 @@ class WebInterface(services_interfaces.AbstractWebInterface):
             # never allow "*" as allowed origin, prefer not setting it if user did not specifically set origins
             flask_cors.CORS(self.server_instance, origins=flask_util.get_user_defined_cors_allowed_origins())
 
-        self.server_instance.config['SEND_FILE_MAX_AGE_DEFAULT'] = 604800
+        hot_assets = os_util.parse_boolean_environment_var(
+            "OCTOBOT_WEB_HOT_ASSETS",
+            "False",
+        )
+        self.server_instance.config['SEND_FILE_MAX_AGE_DEFAULT'] = (
+            0 if hot_assets else 604800
+        )
         if os_util.parse_boolean_environment_var("OCTOBOT_PROXY_FIX_SCRIPT_NAME", "False"):
             # Trust X-Script-Name from reverse proxy so url_for() generates correct prefixed paths
             self.server_instance.wsgi_app = werkzeug.middleware.proxy_fix.ProxyFix(
                 self.server_instance.wsgi_app, x_script_name=1
             )
 
-        if self.dev_mode:
+        if self.dev_mode or hot_assets:
             server_instance.config['TEMPLATES_AUTO_RELOAD'] = True
-        else:
+        if not self.dev_mode:
             cache = Cache(config={"CACHE_TYPE": "SimpleCache"})
             cache.init_app(server_instance)
 

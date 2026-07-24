@@ -1434,6 +1434,41 @@ async def test_get_limit_quantity_from_risk(tools):
     assert await consumer._get_limit_quantity_from_risk(ctx, 1, decimal.Decimal(15), "BTC", False, False) == decimal.Decimal("15")
 
 
+async def test_get_limit_quantity_from_risk_caps_futures_notional(future_tools):
+    exchange_manager, trader, symbol, consumer, _ = future_tools
+    ctx = script_keywords.get_base_context(consumer.trading_mode, symbol)
+    trading_api.force_set_mark_price(exchange_manager, symbol, 100)
+    value_holder = (
+        exchange_manager.exchange_personal_data.portfolio_manager
+        .portfolio_value_holder
+    )
+    value_holder.value_converter.last_prices_by_trading_pair[symbol] = 100
+    value_holder.portfolio_current_value = decimal.Decimal("2000")
+    value_holder.current_crypto_currencies_values["BTC"] = decimal.Decimal("100")
+    consumer.MAX_CURRENCY_RATIO = decimal.Decimal("0.1")
+
+    quantity = await consumer._get_limit_quantity_from_risk(
+        ctx,
+        1,
+        decimal.Decimal("15"),
+        "BTC",
+        False,
+        True,
+    )
+    reducing_quantity = await consumer._get_limit_quantity_from_risk(
+        ctx,
+        1,
+        decimal.Decimal("15"),
+        "BTC",
+        True,
+        False,
+    )
+
+    assert quantity == decimal.Decimal("2")
+    assert quantity * decimal.Decimal("100") == decimal.Decimal("200")
+    assert reducing_quantity == decimal.Decimal("15")
+
+
 async def test_get_market_quantity_from_risk(tools):
     exchange_manager, trader, symbol, consumer, last_btc_price = tools
     ctx = script_keywords.get_base_context(consumer.trading_mode, symbol)

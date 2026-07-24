@@ -541,6 +541,274 @@ class DeterministicRiskGuardTest(unittest.TestCase):
                     0,
                 )
 
+    def test_sqlite_journal_reconciles_only_stale_open_orders_once(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
+            journal = SQLiteDecisionJournal(str(database_path))
+            now = datetime.datetime.now(datetime.timezone.utc)
+            for order_id in ("still-open", "lost-at-restart", "already-closed"):
+                journal.record_order_event(
+                    exchange_name="kucoin",
+                    symbol="BTC/USDT:USDT",
+                    order={
+                        "id": order_id,
+                        "status": "open",
+                        "side": "buy",
+                        "type": "buy_limit",
+                        "amount": 0.01,
+                        "price": 100,
+                    },
+                    update_type="update",
+                    is_from_bot=True,
+                    occurred_at=now,
+                )
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    "id": "already-closed",
+                    "status": "cancelled",
+                    "side": "buy",
+                    "type": "buy_limit",
+                    "amount": 0.01,
+                    "price": 100,
+                },
+                update_type="update",
+                is_from_bot=True,
+                occurred_at=now + datetime.timedelta(seconds=1),
+            )
+
+            reconciled = journal.reconcile_open_order_events(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                active_order_ids={"still-open"},
+                occurred_at=now + datetime.timedelta(seconds=2),
+            )
+            repeated = journal.reconcile_open_order_events(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                active_order_ids={"still-open"},
+                occurred_at=now + datetime.timedelta(seconds=3),
+            )
+
+            with sqlite3.connect(database_path) as connection:
+                latest_states = dict(
+                    connection.execute(
+                        """
+                        SELECT event.order_id, event.status
+                        FROM ai_order_events AS event
+                        JOIN (
+                            SELECT order_id, MAX(id) AS latest_id
+                            FROM ai_order_events
+                            GROUP BY order_id
+                        ) AS latest ON latest.latest_id = event.id
+                        """
+                    ).fetchall()
+                )
+                reconciliation_rows = connection.execute(
+                    """
+                    SELECT order_id, update_type, status
+                    FROM ai_order_events
+                    WHERE update_type = 'startup_reconciliation'
+                    """
+                ).fetchall()
+                integrity = connection.execute(
+                    "PRAGMA integrity_check"
+                ).fetchone()[0]
+
+            self.assertEqual(reconciled, 1)
+            self.assertEqual(repeated, 0)
+            self.assertEqual(latest_states["still-open"], "open")
+            self.assertEqual(latest_states["lost-at-restart"], "interrupted")
+            self.assertEqual(latest_states["already-closed"], "cancelled")
+            self.assertEqual(
+                reconciliation_rows,
+                [("lost-at-restart", "startup_reconciliation", "interrupted")],
+            )
+            self.assertEqual(integrity, "ok")
+
+    def test_sqlite_journal_returns_only_latest_open_restore_candidates(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
+            journal = SQLiteDecisionJournal(str(database_path))
+            base_order = {
+                "id": "paper-open",
+                "status": "open",
+                "side": "buy",
+                "type": "limit",
+                "amount": "0.015",
+                "filled": "0",
+                "price": "62840.5",
+                "reduceOnly": False,
+                "symbol": "BTC/USDT:USDT",
+            }
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order=base_order,
+                update_type="state_transition",
+                is_from_bot=True,
+            )
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={**base_order, "id": "paper-closed"},
+                update_type="state_transition",
+                is_from_bot=True,
+            )
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    **base_order,
+                    "id": "paper-closed",
+                    "status": "cancelled",
+                },
+                update_type="state_transition",
+                is_from_bot=True,
+            )
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={**base_order, "id": "external-open"},
+                update_type="state_transition",
+                is_from_bot=False,
+            )
+
+            candidates = journal.get_open_order_restore_candidates(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+            )
+
+            self.assertEqual(len(candidates), 1)
+            self.assertEqual(candidates[0]["order_id"], "paper-open")
+            self.assertEqual(candidates[0]["quantity"], 0.015)
+            self.assertEqual(candidates[0]["filled_quantity"], 0.0)
+            self.assertEqual(candidates[0]["raw_order"], base_order)
+
+    def test_daily_mode_restore_candidate_validation_is_fail_closed(self):
+        candidate = {
+            "order_id": "paper-open",
+            "status": "open",
+            "side": "buy",
+            "order_type": "limit",
+            "quantity": 0.015,
+            "filled_quantity": 0,
+            "price": 62840.5,
+            "reduce_only": False,
+            "raw_order": {
+                "id": "paper-open",
+                "status": "open",
+                "symbol": "BTC/USDT:USDT",
+            },
+        }
+        self.assertTrue(
+            DailyTradingMode._is_journal_order_restorable(
+                candidate,
+                "BTC/USDT:USDT",
+            )
+        )
+        for invalid_update in (
+            {"filled_quantity": 0.001},
+            {"reduce_only": True},
+            {"order_type": "market"},
+            {"quantity": 0},
+            {"price": 0},
+            {"order_id": "different-id"},
+            {
+                "raw_order": {
+                    **candidate["raw_order"],
+                    "symbol": "ETH/USDT:USDT",
+                }
+            },
+        ):
+            self.assertFalse(
+                DailyTradingMode._is_journal_order_restorable(
+                    {**candidate, **invalid_update},
+                    "BTC/USDT:USDT",
+                )
+            )
+
+    def test_daily_mode_restores_missing_candidate_once_with_protections(self):
+        candidate = {
+            "order_id": "paper-open",
+            "status": "open",
+            "side": "buy",
+            "order_type": "limit",
+            "quantity": 0.015,
+            "filled_quantity": 0,
+            "price": 62840.5,
+            "reduce_only": False,
+            "raw_order": {
+                "id": "paper-open",
+                "status": "open",
+                "symbol": "BTC/USDT:USDT",
+            },
+        }
+        mode = object.__new__(DailyTradingMode)
+        mode.symbol = "BTC/USDT:USDT"
+        mode.logger = mock.Mock()
+        mode._ai_decision_journal = mock.Mock()
+        mode._ai_decision_journal.get_open_order_restore_candidates.return_value = [
+            candidate
+        ]
+        mode.exchange_manager = mock.Mock()
+        mode.exchange_manager.exchange_name = "kucoin"
+        mode.exchange_manager.exchange.get_market_status.return_value = {
+            "precision": {}
+        }
+        mode.exchange_manager.exchange_personal_data.positions_manager \
+            .get_symbol_positions.return_value = []
+
+        restored_input = mock.Mock()
+        restored_input.tag = None
+        restored_input.order_id = "paper-open"
+        restored_input.is_from_this_octobot = False
+        restored_order = mock.Mock()
+        restored_order.order_id = "paper-open"
+        restored_order.to_dict.return_value = {
+            **candidate["raw_order"],
+            "amount": "0.015",
+            "filled": "0",
+            "price": "62840.5",
+            "side": "buy",
+            "type": "limit",
+        }
+        consumer = mock.Mock()
+        consumer.USE_TARGET_PROFIT_MODE = True
+        consumer.USE_STOP_ORDERS = True
+        consumer._create_order = mock.AsyncMock(return_value=restored_order)
+
+        with mock.patch(
+            "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+            "trading_personal_data.create_order_instance_from_raw",
+            return_value=restored_input,
+        ):
+            active_ids = set()
+            restored_count = asyncio.run(
+                DailyTradingMode._restore_paper_orders_from_journal(
+                    mode,
+                    consumer,
+                    active_ids,
+                )
+            )
+
+        self.assertEqual(restored_count, 1)
+        self.assertEqual(active_ids, {"paper-open"})
+        self.assertTrue(restored_input.is_from_this_octobot)
+        consumer._create_order.assert_awaited_once()
+        create_args = consumer._create_order.await_args.args
+        self.assertIs(create_args[0], restored_input)
+        self.assertTrue(create_args[1])
+        self.assertTrue(create_args[3])
+        mode._ai_decision_journal.record_order_event.assert_called_once_with(
+            exchange_name="kucoin",
+            symbol="BTC/USDT:USDT",
+            order=restored_order.to_dict.return_value,
+            update_type="startup_restore",
+            is_from_bot=True,
+        )
+
     def test_daily_mode_callback_ignores_external_orders(self):
         mode = mock.Mock()
         mode._ai_decision_journal = mock.Mock()

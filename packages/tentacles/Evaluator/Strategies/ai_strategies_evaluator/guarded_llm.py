@@ -843,6 +843,139 @@ class SQLiteDecisionJournal:
                 )
             return event_id
 
+    def reconcile_open_order_events(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+        active_order_ids: typing.Iterable[str],
+        occurred_at: typing.Optional[datetime.datetime] = None,
+    ) -> int:
+        """Append an interrupted state for journal-open orders absent at startup."""
+
+        self.initialize()
+        active_ids = {str(order_id) for order_id in active_order_ids}
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            connection.row_factory = sqlite3.Row
+            stale_events = connection.execute(
+                """
+                SELECT event.*
+                FROM ai_order_events AS event
+                JOIN (
+                    SELECT exchange_name, symbol, order_id, MAX(id) AS latest_id
+                    FROM ai_order_events
+                    WHERE exchange_name = ? AND symbol = ? AND is_from_bot = 1
+                    GROUP BY exchange_name, symbol, order_id
+                ) AS latest ON latest.latest_id = event.id
+                WHERE LOWER(COALESCE(event.status, '')) IN (
+                    'open', 'pending', 'pending_creation'
+                )
+                ORDER BY event.id
+                """,
+                (exchange_name, symbol),
+            ).fetchall()
+
+        reconciled = 0
+        for event in stale_events:
+            if str(event["order_id"]) in active_ids:
+                continue
+            reconciliation_order = {
+                "id": event["order_id"],
+                "status": "interrupted",
+                "side": event["side"],
+                "type": event["order_type"],
+                "amount": event["quantity"],
+                "filled": event["filled_quantity"],
+                "price": event["price"],
+                "average": event["average_price"],
+                "fee": {
+                    "cost": event["fee"],
+                    "currency": event["fee_currency"],
+                },
+                "reduceOnly": bool(event["reduce_only"]),
+                "reconciliation": {
+                    "reason": "missing_from_paper_runtime_at_startup",
+                    "previous_event_id": int(event["id"]),
+                },
+            }
+            before_event_id = int(event["id"])
+            reconciled_event_id = self.record_order_event(
+                exchange_name=exchange_name,
+                symbol=symbol,
+                order=reconciliation_order,
+                update_type="startup_reconciliation",
+                is_from_bot=True,
+                occurred_at=occurred_at,
+            )
+            if reconciled_event_id and reconciled_event_id != before_event_id:
+                reconciled += 1
+        return reconciled
+
+    def get_open_order_restore_candidates(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+    ) -> list[dict]:
+        """Return the latest journal-open paper orders for guarded startup restore.
+
+        The journal remains append-only: callers receive a parsed copy of the
+        original order payload and must independently validate it before
+        recreating anything in the simulator.
+        """
+
+        self.initialize()
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(
+                """
+                SELECT event.*
+                FROM ai_order_events AS event
+                JOIN (
+                    SELECT exchange_name, symbol, order_id, MAX(id) AS latest_id
+                    FROM ai_order_events
+                    WHERE exchange_name = ? AND symbol = ? AND is_from_bot = 1
+                    GROUP BY exchange_name, symbol, order_id
+                ) AS latest ON latest.latest_id = event.id
+                WHERE LOWER(COALESCE(event.status, '')) IN (
+                    'open', 'pending', 'pending_creation'
+                )
+                ORDER BY event.id
+                """,
+                (exchange_name, symbol),
+            ).fetchall()
+
+        candidates = []
+        for row in rows:
+            try:
+                raw_order = json.loads(row["raw_json"])
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(raw_order, dict):
+                continue
+            candidates.append(
+                {
+                    "event_id": int(row["id"]),
+                    "decision_id": (
+                        int(row["decision_id"])
+                        if row["decision_id"] is not None
+                        else None
+                    ),
+                    "order_id": str(row["order_id"]),
+                    "status": str(row["status"] or "").lower(),
+                    "side": str(row["side"] or "").lower(),
+                    "order_type": str(row["order_type"] or "").lower(),
+                    "quantity": self._float_or_none(row["quantity"]),
+                    "filled_quantity": self._float_or_none(
+                        row["filled_quantity"]
+                    ),
+                    "price": self._float_or_none(row["price"]),
+                    "reduce_only": bool(row["reduce_only"]),
+                    "raw_order": raw_order,
+                }
+            )
+        return candidates
+
     @classmethod
     def _normalize_order(cls, order):
         fee_value = order.get("fee")

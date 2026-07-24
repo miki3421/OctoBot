@@ -13,6 +13,8 @@ services:
     environment:
       PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
       AI_DECISIONS_DB_PATH: ${AI_DECISIONS_DB_PATH:-/octobot/user/ai_decisions.sqlite}
+      ENABLE_SIMULATED_ORDERS_STORAGE: "true"
+      OCTOBOT_WEB_HOT_ASSETS: "true"
     ports:
       - "5001:5001"
     volumes:
@@ -21,6 +23,8 @@ services:
       - ../octobot-local/tentacles:/octobot/tentacles
       - ../octobot-local/logs:/octobot/logs
       - ../octobot-local/backtesting:/octobot/backtesting
+      - ../octobot-local/shadow:/shadow:ro
+      - ../octobot-local/scalping:/scalping:ro
 
   trend-shadow:
     image: octobot-local:dev
@@ -75,5 +79,110 @@ services:
           and (now-last).total_seconds() < 172800
           and (now-v14_last).total_seconds() < 172800 else 1)"
       interval: 5m
+      timeout: 10s
+      retries: 3
+
+  market-observer:
+    image: octobot-local:dev
+    container_name: octobot-market-observer
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/market-observer-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      MARKET_OBSERVER_INTERVAL_SECONDS: ${MARKET_OBSERVER_INTERVAL_SECONDS:-900}
+      MARKET_OBSERVER_RETRY_SECONDS: ${MARKET_OBSERVER_RETRY_SECONDS:-60}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/shadow:/shadow
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/shadow/market/health.json'));
+          evidence=json.load(open('/shadow/market/evidence.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          evidence_last=datetime.datetime.fromisoformat(evidence['created_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('mode') == 'observation_only'
+          and value.get('public_data_only') is True
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('symbol_count') == 19
+          and value.get('archive_consistent') is True
+          and value.get('archived_records',0) >= 1
+          and evidence.get('mode') == 'forward_evidence_only'
+          and evidence.get('orders_authorized') is False
+          and evidence.get('automatic_promotion') is False
+          and evidence.get('real_income_authorized') is False
+          and isinstance(evidence.get('strategy_development_ready'), bool)
+          and evidence.get('source_journal',{}).get('sha256')
+          and (now-last).total_seconds() < 2700
+          and (now-evidence_last).total_seconds() < 2700 else 1)"
+      interval: 5m
+      timeout: 10s
+      retries: 3
+
+  scalping-observer:
+    image: octobot-local:dev
+    container_name: octobot-scalping-observer
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/scalping-observer-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      SCALPING_OBSERVER_RETRY_SECONDS: ${SCALPING_OBSERVER_RETRY_SECONDS:-5}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/scalping:/scalping
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/scalping/health.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('mode') == 'scalping_research_only'
+          and value.get('public_data_only') is True
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('symbol') == 'XBTUSDTM'
+          and value.get('book_push_interval_ms') == 100
+          and value.get('database_integrity') == 'ok'
+          and value.get('connected') is True
+          and value.get('book_events',0) >= 1
+          and (now-last).total_seconds() < 20 else 1)"
+      interval: 30s
       timeout: 10s
       retries: 3

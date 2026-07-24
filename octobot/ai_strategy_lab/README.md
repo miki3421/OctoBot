@@ -195,6 +195,13 @@ also report a conservative 75% V3 / 25% relative-value combination with costs
 kept separate. These commands are reproducible negative protocols, not runtime
 strategies.
 
+The local futures paper profile also enforces `max_currency_percent` against
+entry notional. At the configured 10% limit and 10,000 USDT starting equity,
+each new increasing-position order is capped at 1,000 USDT; reduce-only exits
+remain unaffected. The append-only AI journal reconciles paper orders missing
+after a process restart with an `interrupted` event, visible on the
+`AI Decisions` page.
+
 V13 is the fixed 90%-risk-budget version of V3. V14 uses no more than 20% of
 the remaining gross capacity for the persistent same-venue spot/perpetual
 carry sleeve, with every leg and its costs kept separate:
@@ -369,6 +376,111 @@ python3 -m octobot.ai_strategy_lab run-risk-budgeted-carry-shadow \
 Catch-up mode processes missing fully closed UTC days chronologically. It
 refuses mixed, duplicate, out-of-order or already-gapped journals and fails if
 more than seven days are missing; it never silently jumps to the latest day.
+
+The separate `market-observer` service captures evidence that was unavailable
+to the historical carry tests. Every 15-minute UTC bucket it reads public
+KuCoin ticker, contract, current-funding and 20-level order-book endpoints for
+the same 19 research pairs:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cli run-forward-market-observer \
+  --journal ../octobot-local/shadow/market/microstructure.jsonl \
+  --health ../octobot-local/shadow/market/health.json \
+  --lock ../octobot-local/shadow/market/runner.lock
+```
+
+Each append-only record contains executable spot-ask/futures-bid entry basis,
+spot-bid/futures-ask exit basis, spread, quote depth, delta-neutral capacity,
+contract multiplier, open interest, mark/index prices and current/predicted
+funding. It also retrieves the preceding 24 hours of actually settled funding
+for every perpetual, so future P&L labels do not rely on the displayed current
+or predicted value. Futures depth is converted from contracts to quote
+notional. Execution curves report book-derived VWAP and capacity at 100, 500
+and 1,000 USDT for every spot/futures bid/ask side. Public taker fees are stored
+alongside conservative floors of 0.10% spot and 0.06% futures per side. This
+prevents a future 1,000-USDT label from using an infinitesimal top-of-book
+price. A missing symbol, missing settlement, invalid book or non-finite
+economic field rejects the entire bucket; same-bucket retries are deduplicated
+and every row is linked by SHA-256.
+
+The independent `scalping-observer` is a higher-frequency, BTC-only research
+stream. It requests a public Classic Futures WebSocket token, subscribes once
+to the `XBTUSDTM` Level 5 book and public execution topics, then receives
+server-pushed updates without REST polling:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cli run-scalping-observer \
+  --database ../octobot-local/scalping/btc-futures-level5.sqlite \
+  --health ../octobot-local/scalping/health.json \
+  --symbol XBTUSDTM
+```
+
+Level 5 can update every 100 ms when the book changes; executions are
+real-time. SQLite stores exchange and Raspberry receive timestamps, sequence,
+all five bid/ask levels, spread, microprice, five-level imbalance and public
+trade aggressor/size. A second append-only table materializes one-second book
+and trade-flow buckets. Unique exchange sequence/timestamp and trade IDs
+deduplicate reconnect overlap, while WAL plus one-second commits bound the
+uncommitted tail.
+
+The sidecar has no operational profile, API keys or order code. Its health
+file verifies fresh books and SQLite integrity and always declares
+`public_data_only=true`, `credentials_used=false`,
+`orders_authorized=false` and `automatic_promotion=false`. The frozen first
+hypothesis is taker micro-momentum with 5/15/30/60-second features, 1-minute
+context and a 5-minute regime filter. It cannot be evaluated before 30 forward
+days and its simulator must cross the recorded spread, apply conservative
+fees/slippage, stress 250/500/1,000-ms latency and prohibit retroactive fills.
+
+Before a row is appended to the JSONL index it is persisted through an atomic
+rename as a content-addressed file under `shadow/market/records`. Every cycle
+backfills missing archive copies and verifies that archive and journal are the
+same hash chain. A complete archived tail left by a crash between the two
+writes is re-indexed without network access; a mismatch, fork or tampered file
+fails closed without deleting either copy.
+
+Coverage and readiness are audited independently:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cli \
+  evaluate-forward-market-evidence \
+  --journal ../octobot-local/shadow/market/microstructure.jsonl \
+  --output ../octobot-local/shadow/market/evidence.json
+```
+
+Hypothesis development remains locked until the journal covers 60 days with at
+least 95% of the expected 15-minute buckets, no gap over 60 minutes, all 19
+symbols and at least 171 unique settled funding points per symbol. Passing this
+gate permits only offline dataset construction. The observer has no user
+profile, credentials or order endpoint and always records
+`orders_authorized=false`; it cannot promote V14 or turn a funding snapshot
+into an expected annual return. The report also exposes remaining span buckets,
+remaining settlements per symbol and the earliest theoretical timestamp at
+which the temporal requirement could pass. That timestamp is collection
+readiness, not a profitability or income ETA.
+
+After readiness, and never before it, generic execution-aware labels can be
+built at fixed 8-hour, 24-hour and 168-hour horizons:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cli build-forward-carry-dataset \
+  --journal ../octobot-local/shadow/market/microstructure.jsonl \
+  --evidence ../octobot-local/shadow/market/evidence.json \
+  --output ../octobot-local/backtesting/research/forward-carry.npz
+```
+
+The builder verifies the journal hash and recomputes readiness. For each exact
+entry/exit pair it opens 1,000 USDT per leg from the normalized books, then
+closes the exact spot and futures base quantities against the future books.
+Four conservative taker fees use their actual entry/exit notionals; only
+funding settlements after entry and through exit are credited. It refuses a
+stale audit, an unready sample, missing exact exit buckets, incomplete levels,
+or insufficient depth. The compressed dataset and manifest remain
+research-only and contain no signal or order authorization. Loading the NPZ
+rechecks its SHA-256, byte size, feature schema, row alignment, exact horizons,
+finite values and the accounting identity
+`net = 0.5 * (spot + futures + funding) - fees` before exposing any row to a
+model.
 
 Applied shadow weights change only on Sunday UTC. Daily candidate weights,
 closed prices and signed funding remain recorded separately, allowing strictly

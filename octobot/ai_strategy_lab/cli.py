@@ -22,13 +22,17 @@ from octobot.ai_strategy_lab import carry_robustness as carry_robustness_module
 from octobot.ai_strategy_lab import carry_shadow_runner as carry_shadow_runner_module
 from octobot.ai_strategy_lab import ensemble as ensemble_module
 from octobot.ai_strategy_lab import funding as funding_module
+from octobot.ai_strategy_lab import forward_evidence as forward_evidence_module
+from octobot.ai_strategy_lab import forward_carry_dataset as forward_carry_dataset_module
 from octobot.ai_strategy_lab import income_objective as income_objective_module
 from octobot.ai_strategy_lab import experts as experts_module
 from octobot.ai_strategy_lab import market_data as market_data_module
+from octobot.ai_strategy_lab import microstructure as microstructure_module
 from octobot.ai_strategy_lab import model as model_module
 from octobot.ai_strategy_lab import paper_feedback as paper_feedback_module
 from octobot.ai_strategy_lab import prefunded_income as prefunded_income_module
 from octobot.ai_strategy_lab import relative_value as relative_value_module
+from octobot.ai_strategy_lab import scalping_observer as scalping_observer_module
 from octobot.ai_strategy_lab import shadow as shadow_module
 from octobot.ai_strategy_lab import shadow_runner as shadow_runner_module
 from octobot.ai_strategy_lab import shadow_performance as shadow_performance_module
@@ -118,6 +122,11 @@ def create_parser() -> argparse.ArgumentParser:
     archive_parser.add_argument("--output", required=True)
     archive_parser.add_argument("--funding-output")
     archive_parser.add_argument("--cache")
+    archive_parser.add_argument(
+        "--candle-interval",
+        choices=("5m", "15m"),
+        default="15m",
+    )
 
     hourly_archive_parser = subparsers.add_parser(
         "fetch-binance-futures-hourly-archive",
@@ -171,6 +180,11 @@ def create_parser() -> argparse.ArgumentParser:
     kucoin_futures_parser.add_argument("--to-date", required=True)
     kucoin_futures_parser.add_argument("--output", required=True)
     kucoin_futures_parser.add_argument("--allowed-hourly-gaps", type=int, default=0)
+    kucoin_futures_parser.add_argument(
+        "--candle-interval",
+        choices=("5m", "15m", "1h"),
+        default="1h",
+    )
 
     experiment_parser = subparsers.add_parser(
         "run-experiment",
@@ -641,6 +655,84 @@ def create_parser() -> argparse.ArgumentParser:
         help="Sequentially recover at most this many missing days.",
     )
 
+    microstructure_parser = subparsers.add_parser(
+        "run-forward-market-observer",
+        help=(
+            "Append one public-data-only KuCoin funding, basis and "
+            "microstructure observation."
+        ),
+    )
+    microstructure_parser.add_argument("--journal", required=True)
+    microstructure_parser.add_argument("--health", required=True)
+    microstructure_parser.add_argument("--lock", required=True)
+    microstructure_parser.add_argument("--archive-root")
+    microstructure_parser.add_argument(
+        "--interval-minutes", type=int, default=15
+    )
+    microstructure_parser.add_argument(
+        "--timeout-seconds", type=float, default=30.0
+    )
+    microstructure_parser.add_argument(
+        "--maximum-collection-seconds", type=float, default=300.0
+    )
+
+    scalping_observer_parser = subparsers.add_parser(
+        "run-scalping-observer",
+        help=(
+            "Stream public KuCoin BTC Futures Level 5 and trades into "
+            "a research-only SQLite journal."
+        ),
+    )
+    scalping_observer_parser.add_argument("--database", required=True)
+    scalping_observer_parser.add_argument("--health", required=True)
+    scalping_observer_parser.add_argument(
+        "--symbol", default=scalping_observer_module.DEFAULT_SYMBOL
+    )
+    scalping_observer_parser.add_argument(
+        "--health-interval-seconds", type=float, default=5.0
+    )
+    scalping_observer_parser.add_argument(
+        "--commit-interval-seconds", type=float, default=1.0
+    )
+    scalping_observer_parser.add_argument(
+        "--stale-book-seconds", type=float, default=5.0
+    )
+    scalping_observer_parser.add_argument(
+        "--startup-timeout-seconds", type=float, default=30.0
+    )
+    scalping_observer_parser.add_argument(
+        "--run-seconds",
+        type=float,
+        help="Stop cleanly after N seconds; intended for diagnostics.",
+    )
+
+    forward_evidence_parser = subparsers.add_parser(
+        "evaluate-forward-market-evidence",
+        help=(
+            "Audit append-only forward market coverage and strategy "
+            "development readiness."
+        ),
+    )
+    forward_evidence_parser.add_argument("--journal", required=True)
+    forward_evidence_parser.add_argument("--output", required=True)
+
+    forward_carry_dataset_parser = subparsers.add_parser(
+        "build-forward-carry-dataset",
+        help=(
+            "Build execution-aware carry labels only after the frozen "
+            "forward readiness gate passes."
+        ),
+    )
+    forward_carry_dataset_parser.add_argument("--journal", required=True)
+    forward_carry_dataset_parser.add_argument("--evidence", required=True)
+    forward_carry_dataset_parser.add_argument("--output", required=True)
+    forward_carry_dataset_parser.add_argument(
+        "--horizon-hour", action="append", type=int, default=None
+    )
+    forward_carry_dataset_parser.add_argument(
+        "--leg-quote", type=float, default=1_000.0
+    )
+
     shadow_performance_parser = subparsers.add_parser(
         "evaluate-shadow-performance",
         help="Evaluate forward-only shadow P&L and manual-review gates.",
@@ -778,6 +870,14 @@ def main(arguments: typing.Optional[list[str]] = None) -> int:
         return _run_trend_shadow(args)
     if args.command == "run-risk-budgeted-carry-shadow":
         return _run_risk_budgeted_carry_shadow(args)
+    if args.command == "run-forward-market-observer":
+        return _run_forward_market_observer(args)
+    if args.command == "run-scalping-observer":
+        return _run_scalping_observer(args)
+    if args.command == "evaluate-forward-market-evidence":
+        return _evaluate_forward_market_evidence(args)
+    if args.command == "build-forward-carry-dataset":
+        return _build_forward_carry_dataset(args)
     if args.command == "evaluate-shadow-performance":
         return _evaluate_shadow_performance(args)
     if args.command == "evaluate-ensemble":
@@ -920,6 +1020,7 @@ def _fetch_binance_archive(args: argparse.Namespace) -> int:
         args.output,
         funding_output_value=args.funding_output,
         cache_value=args.cache,
+        candle_interval=args.candle_interval,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
@@ -982,6 +1083,7 @@ def _fetch_kucoin_futures_hourly(args: argparse.Namespace) -> int:
             allowed_15m_gaps=args.allowed_hourly_gaps,
         ),
         args.output,
+        candle_interval=args.candle_interval,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
@@ -1739,6 +1841,112 @@ def _run_risk_budgeted_carry_shadow(
         )
     )
     print(json.dumps(_json_safe(result), indent=2, sort_keys=True))
+    return 0
+
+
+def _run_forward_market_observer(args: argparse.Namespace) -> int:
+    result = microstructure_module.run_observation_once(
+        microstructure_module.MicrostructureConfig(
+            journal_path=pathlib.Path(args.journal).resolve(),
+            health_path=pathlib.Path(args.health).resolve(),
+            lock_path=pathlib.Path(args.lock).resolve(),
+            archive_root=(
+                pathlib.Path(args.archive_root).resolve()
+                if args.archive_root
+                else None
+            ),
+            interval_minutes=args.interval_minutes,
+            timeout_seconds=args.timeout_seconds,
+            maximum_collection_seconds=args.maximum_collection_seconds,
+        )
+    )
+    print(json.dumps(_json_safe(result), indent=2, sort_keys=True))
+    return 0
+
+
+def _run_scalping_observer(args: argparse.Namespace) -> int:
+    result = scalping_observer_module.run(
+        scalping_observer_module.ScalpingObserverConfig(
+            database_path=pathlib.Path(args.database).resolve(),
+            health_path=pathlib.Path(args.health).resolve(),
+            symbol=args.symbol,
+            health_interval_seconds=args.health_interval_seconds,
+            commit_interval_seconds=args.commit_interval_seconds,
+            stale_book_seconds=args.stale_book_seconds,
+            startup_timeout_seconds=args.startup_timeout_seconds,
+            run_seconds=args.run_seconds,
+        )
+    )
+    print(json.dumps(_json_safe(result), indent=2, sort_keys=True))
+    return 0
+
+
+def _evaluate_forward_market_evidence(
+    args: argparse.Namespace,
+) -> int:
+    report = forward_evidence_module.evaluate_forward_market_evidence(
+        args.journal
+    )
+    output = pathlib.Path(args.output).resolve()
+    shadow_runner_module._write_json_atomic(output, _json_safe(report))
+    print(
+        json.dumps(
+            {
+                "path": str(output),
+                "strategy_development_ready": report[
+                    "strategy_development_ready"
+                ],
+                "checks": report["checks"],
+                "observed_buckets": report["journal"][
+                    "observed_buckets"
+                ],
+                "expected_buckets": report["journal"][
+                    "expected_buckets"
+                ],
+                "coverage": report["journal"]["coverage"],
+                "minimum_settled_funding_points": report[
+                    "settled_funding"
+                ]["minimum_unique_points"],
+                "readiness_progress": report["readiness_progress"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _build_forward_carry_dataset(args: argparse.Namespace) -> int:
+    dataset = forward_carry_dataset_module.build_forward_carry_dataset(
+        args.journal,
+        args.evidence,
+        horizon_hours=(
+            args.horizon_hour
+            if args.horizon_hour is not None
+            else forward_carry_dataset_module.DEFAULT_HORIZON_HOURS
+        ),
+        leg_quote=args.leg_quote,
+    )
+    manifest = (
+        forward_carry_dataset_module.save_forward_carry_dataset(
+            dataset, args.output
+        )
+    )
+    print(
+        json.dumps(
+            {
+                "path": manifest["output"]["path"],
+                "sha256": manifest["output"]["sha256"],
+                "rows": manifest["row_count"],
+                "horizon_hours": manifest["horizon_hours"],
+                "leg_quote": manifest["leg_quote"],
+                "exclusions": manifest["exclusions"],
+                "orders_authorized": manifest["orders_authorized"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
     return 0
 
 

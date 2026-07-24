@@ -1,0 +1,262 @@
+{% extends "layout.html" %}
+{% set active_page = "strategy_status" %}
+{% set page_title = "Strategy Status" %}
+
+{% macro metric_card(label, value, color="primary", subtitle="") -%}
+<div class="col-6 col-md-4 col-xl-3 mb-3">
+    <div class="card h-100 border-{{ color }}">
+        <div class="card-body py-3 text-center">
+            <div class="text-muted small text-uppercase">{{ label }}</div>
+            <div class="h4 mb-0">{{ value }}</div>
+            {% if subtitle %}<div class="small text-muted mt-1">{{ subtitle }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+{%- endmacro %}
+
+{% block body %}
+<br>
+<div class="card">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-tachometer-alt mr-2"></i>Strategy Status</h2>
+            <div class="text-muted">Stato operativo paper, shadow strategy e raccolta dati forward</div>
+        </div>
+        <a class="btn btn-outline-primary waves-effect" href="{{ url_for('strategy_status') }}">
+            <i class="fas fa-rotate mr-1"></i> Aggiorna
+        </a>
+    </div>
+    <div class="card-body">
+        {% for error in errors %}
+            <div class="alert alert-warning" role="alert">{{ error }}</div>
+        {% endfor %}
+
+        <div class="alert alert-{{ operational.color }} mb-4" role="status">
+            <h4 class="alert-heading mb-1">{{ operational.title }}</h4>
+            <div>{{ operational.description }}</div>
+            <hr>
+            <div class="small">
+                <strong>Segnale</strong> = indicazione della strategia ·
+                <strong>ordine</strong> = richiesta in attesa ·
+                <strong>posizione</strong> = esposizione realmente aperta nel simulatore.
+            </div>
+        </div>
+
+        <div class="card border-primary mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                    <div>
+                        <h4 class="mb-1"><i class="fas fa-paper-plane mr-2"></i>Operatività OctoBot</h4>
+                        <div class="text-muted small">KuCoin Futures · BTC/USDT:USDT · simulatore paper</div>
+                    </div>
+                    <a class="btn btn-sm btn-outline-primary" href="{{ url_for('trading') }}">Apri Trading</a>
+                </div>
+                <div class="row">
+                    {{ metric_card("Ultimo segnale", latest_decision.action or "-", "success" if latest_decision.action == "BUY" else "danger" if latest_decision.action == "SELL" else "secondary", "decisione #" ~ latest_decision.id if latest_decision.id else "") }}
+                    {{ metric_card("Risk Guard", "APPROVATO" if latest_decision.approved else "NEUTRALE / BLOCCATO", "success" if latest_decision.approved else "warning", latest_decision.guard_reason or "") }}
+                    {{ metric_card("Ordini pendenti", orders | length, "info" if orders else "secondary") }}
+                    {{ metric_card("Posizioni aperte", positions | length, "warning" if positions else "success") }}
+                </div>
+                {% if latest_decision %}
+                    <div class="small text-muted mb-3">
+                        Ultima valutazione: <strong>{{ latest_decision.symbol }}</strong> ·
+                        {{ latest_decision.created_at | replace("T", " ") | truncate(26, True, "") }} UTC ·
+                        confidenza {{ "%.0f"|format((latest_decision.confidence or 0) * 100) }}% ·
+                        intensità {{ "%.2f"|format(latest_decision.signal_strength or 0) }}.
+                        “Approvato” non significa “eseguito”.
+                    </div>
+                {% endif %}
+
+                {% if orders %}
+                <h5 class="mt-3">Ordini paper pendenti</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Mercato</th><th>Tipo</th><th>Prezzo</th><th>Quantità</th>
+                                <th>Valore</th><th>Creato</th><th>Modalità</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for order in orders %}
+                            <tr>
+                                <td><strong>{{ order.symbol }}</strong></td>
+                                <td><span class="badge badge-{{ "success" if "BUY" in order.type else "danger" }}">{{ order.type }}</span></td>
+                                <td>{{ order.price }} {{ order.market }}</td>
+                                <td>{{ order.amount }}</td>
+                                <td>{{ "%.2f"|format(order.cost or 0) }} {{ order.market }}</td>
+                                <td class="text-nowrap">{{ order.date }}</td>
+                                <td><span class="badge badge-info">{{ order["SoR"] }}</span></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+
+                {% if positions %}
+                <h5 class="mt-3">Posizioni paper effettive</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>Contratto</th><th>Lato</th><th>Quantità</th><th>Ingresso</th>
+                                <th>Valore</th><th>P&L non realizzato</th><th>Modalità</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for position in positions %}
+                            <tr>
+                                <td><strong>{{ position.symbol }}</strong></td>
+                                <td>{{ position.side | upper }}</td>
+                                <td>{{ position.amount }}</td>
+                                <td>{{ position.entry_price }}</td>
+                                <td>{{ "%.2f"|format(position.value or 0) }} {{ position.market }}</td>
+                                <td class="{{ "text-success" if position.unrealized_pnl > 0 else "text-danger" if position.unrealized_pnl < 0 else "" }}">
+                                    {{ "%+.4f"|format(position.unrealized_pnl or 0) }} {{ position.market }}
+                                </td>
+                                <td><span class="badge badge-info">{{ position["SoR"] }}</span></td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-danger mb-4">
+            <div class="card-body">
+                <h4 class="mb-1"><i class="fas fa-bolt mr-2"></i>Prova scalping BTC</h4>
+                <div class="text-muted small mb-3">
+                    Book Futures Level 5 fino a 100 ms e trade pubblici real-time. Raccolta research-only: nessun segnale o ordine è ancora autorizzato.
+                </div>
+                {% if scalping_health %}
+                <div class="row">
+                    {{ metric_card("Collector", scalping_health.status | upper, "success" if scalping_health.status == "healthy" else "danger", scalping_health.last_book_at or "") }}
+                    {{ metric_card("Book ricevuti", scalping_health.book_events, "info", "%.2f eventi/s"|format(scalping_summary.book_events_per_second)) }}
+                    {{ metric_card("Trade ricevuti", scalping_health.trade_events, "info") }}
+                    {{ metric_card("Aggregati 1s", scalping_health.second_buckets, "info") }}
+                    {{ metric_card("Latenza ultimo book", "%.1f ms"|format(scalping_health.last_book_latency_ms or 0), "secondary") }}
+                    {{ metric_card("Periodo raccolto", "%.4f / %.0f giorni"|format(scalping_summary.span_days, scalping_summary.required_days), "secondary") }}
+                    {{ metric_card("Database", "%.2f MB"|format((scalping_health.database_bytes or 0) / 1048576), "secondary") }}
+                    {{ metric_card("Ordini autorizzati", "NO" if scalping_health.orders_authorized == false else "SÌ", "success" if scalping_health.orders_authorized == false else "danger") }}
+                </div>
+                <div class="progress mb-2" style="height: 1.4rem;">
+                    <div class="progress-bar bg-danger" role="progressbar"
+                         style="width: {{ [scalping_summary.progress * 100, 100] | min }}%; min-width: 3rem;"
+                         aria-valuenow="{{ scalping_summary.progress * 100 }}"
+                         aria-valuemin="0" aria-valuemax="100">
+                        {{ "%.4f%%"|format(scalping_summary.progress * 100) }}
+                    </div>
+                </div>
+                <div class="small text-muted">
+                    Primi risultati economici ammessi dopo 30 giorni forward integri. Più operazioni non implicano più profitto:
+                    la candidata dovrà superare spread, fee, slippage e stress di latenza.
+                </div>
+                {% else %}
+                    <div class="alert alert-secondary mb-0">
+                        Il collector scalping non ha ancora pubblicato il primo stato.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-secondary mb-4">
+            <div class="card-body">
+                <h4 class="mb-1"><i class="fas fa-eye mr-2"></i>Strategia V3 in shadow</h4>
+                <div class="text-muted small mb-3">
+                    Portafoglio controfattuale multi-asset: osserva e misura, ma non può creare ordini.
+                </div>
+                {% if shadow_health %}
+                <div class="row">
+                    {{ metric_card("Collector", shadow_health.status | upper, "success" if shadow_health.status == "healthy" else "danger") }}
+                    {{ metric_card("Ordini autorizzati", "NO" if shadow_health.orders_authorized == false else "SÌ", "success" if shadow_health.orders_authorized == false else "danger") }}
+                    {{ metric_card("Esposizione target", "%.2f%%"|format((shadow_health.target_gross_exposure or 0) * 100), "info") }}
+                    {{ metric_card("Ultimo giorno", shadow_health.as_of_date or "-", "secondary") }}
+                </div>
+                {% endif %}
+                {% if shadow_allocations %}
+                <h5>Target shadow correnti</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Contratto</th><th>Direzione simulata</th><th>Peso target</th></tr></thead>
+                        <tbody>
+                        {% for allocation in shadow_allocations %}
+                            <tr>
+                                <td><strong>{{ allocation.symbol }}</strong></td>
+                                <td><span class="badge badge-{{ "success" if allocation.side == "LONG" else "danger" }}">{{ allocation.side }}</span></td>
+                                <td>{{ "%.3f%%"|format(allocation.weight * 100) }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-secondary small mb-0">
+                    Questi pesi sono soltanto shadow. Non corrispondono a ordini o posizioni nel simulatore OctoBot.
+                </div>
+                {% else %}
+                    <div class="text-muted">Nessuna allocazione shadow non neutrale.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-info mb-4">
+            <div class="card-body">
+                <h4 class="mb-1"><i class="fas fa-microscope mr-2"></i>Raccolta dati forward</h4>
+                <div class="text-muted small mb-3">
+                    Microstruttura, basis, funding e liquidità pubblica. Serve a costruire nuove ipotesi senza contaminazione retrospettiva.
+                </div>
+                {% if evidence %}
+                <div class="row">
+                    {{ metric_card("Stato collector", market_health.status | upper, "success" if market_health.status == "healthy" else "danger", market_health.last_success_at or "") }}
+                    {{ metric_card("Mercati", evidence.journal.symbol_count ~ " / " ~ evidence.thresholds.expected_symbol_count, "info") }}
+                    {{ metric_card("Bucket osservati", evidence.journal.observed_buckets ~ " / " ~ evidence.readiness_progress.required_span_buckets, "info", "%.4f%% span"|format(evidence.readiness_progress.span_progress * 100)) }}
+                    {{ metric_card("Funding minimi", evidence.settled_funding.minimum_unique_points ~ " / " ~ evidence.thresholds.minimum_settlements_per_symbol, "info", "%.2f%%"|format(evidence.readiness_progress.settlement_progress * 100)) }}
+                    {{ metric_card("Copertura", "%.2f%%"|format(evidence.journal.coverage * 100), "success" if evidence.checks.coverage_reached else "warning") }}
+                    {{ metric_card("Bucket mancanti", evidence.journal.missing_buckets, "success" if evidence.journal.missing_buckets == 0 else "danger") }}
+                    {{ metric_card("Sviluppo pronto", "SÌ" if evidence.strategy_development_ready else "NO", "success" if evidence.strategy_development_ready else "warning") }}
+                    {{ metric_card("Prima data possibile", evidence.readiness_progress.earliest_span_ready_at_utc | replace("T", " ") | truncate(17, True, ""), "secondary", "solo requisito temporale") }}
+                </div>
+                <div class="progress mb-2" style="height: 1.4rem;">
+                    <div class="progress-bar" role="progressbar"
+                         style="width: {{ [evidence.readiness_progress.overall_minimum_progress * 100, 100] | min }}%; min-width: 3rem;"
+                         aria-valuenow="{{ evidence.readiness_progress.overall_minimum_progress * 100 }}"
+                         aria-valuemin="0" aria-valuemax="100">
+                        {{ "%.4f%%"|format(evidence.readiness_progress.overall_minimum_progress * 100) }}
+                    </div>
+                </div>
+                <div class="small text-muted">
+                    Mancano almeno {{ evidence.readiness_progress.remaining_observed_buckets_at_minimum_span }} osservazioni valide
+                    e {{ evidence.readiness_progress.minimum_remaining_settlements }} settlement per simbolo.
+                    La data indicata non è una previsione di profitto.
+                </div>
+                {% elif not shadow_ready %}
+                    <div class="alert alert-warning mb-0">I file forward non sono ancora accessibili dal container web.</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card border-warning">
+            <div class="card-body">
+                <h4 class="mb-1"><i class="fas fa-wallet mr-2"></i>Obiettivo income simulato</h4>
+                <div class="text-muted small mb-3">
+                    Nessun reddito reale è autorizzato. Una rata futura è considerata coperta solo dopo aver segregato l'intero blocco cash.
+                </div>
+                {% if income %}
+                <div class="row">
+                    {{ metric_card("Obiettivo", "RAGGIUNTO" if income.achieved else "NON RAGGIUNTO", "success" if income.achieved else "warning") }}
+                    {{ metric_card("Giorni forward", performance.observed_return_days ~ " / 330", "info") }}
+                    {{ metric_card("Rendimento forward", "%+.4f%%"|format((performance.metrics.total_return or 0) * 100), "success" if performance.metrics.total_return > 0 else "danger") }}
+                    {{ metric_card("Riserva", "%.2f / %.2f"|format(income.forward_readiness.reserve_balance, income.forward_readiness.reserve_target), "info", "USDT simulati") }}
+                    {{ metric_card("Rate garantite", income.forward_readiness.guaranteed_future_payments, "success" if income.forward_readiness.guaranteed_future_payments else "secondary") }}
+                    {{ metric_card("Importo mensile", "%.2f USDT"|format(income.forward_readiness.monthly_amount), "secondary", "solo dopo prefinanziamento") }}
+                    {{ metric_card("Shortfall", "%.2f USDT"|format(income.forward_readiness.next_block_shortfall), "warning") }}
+                    {{ metric_card("Pagamenti reali", "DISABILITATI" if income.real_income_authorized == false else "ATTIVI", "success" if income.real_income_authorized == false else "danger") }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

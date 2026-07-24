@@ -16,8 +16,8 @@ from octobot.ai_strategy_lab import indicators
 
 
 SCHEMA_VERSION = 1
-TIME_FRAME_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400}
-REQUIRED_TIME_FRAMES = tuple(TIME_FRAME_SECONDS)
+TIME_FRAME_SECONDS = {"5m": 300, "15m": 900, "1h": 3600, "4h": 14400}
+REQUIRED_TIME_FRAMES = ("15m", "1h", "4h")
 OUTCOME_STOP = -1
 OUTCOME_TIMEOUT = 0
 OUTCOME_TARGET = 1

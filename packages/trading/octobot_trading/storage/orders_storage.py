@@ -131,6 +131,13 @@ class OrdersStorage(abstract_storage.AbstractStorage):
     async def get_startup_order_details(self, order_exchange__id):
         return self.startup_orders.get(order_exchange__id, None)
 
+    def get_all_simulated_startup_orders(self):
+        """Return stored root orders that must be rebuilt by the paper trader."""
+
+        if not self.exchange_manager.is_trader_simulated:
+            return []
+        return list(self.startup_orders.values())
+
     async def _load_startup_orders(self):
         if self.should_store_data():
             self.startup_orders = {

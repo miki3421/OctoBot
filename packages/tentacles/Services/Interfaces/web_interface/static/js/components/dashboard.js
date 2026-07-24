@@ -251,13 +251,113 @@ $(document).ready(function () {
         send_and_interpret_bot_update(request, url, null, undefined, generic_request_failure_callback);
     }
 
+    const chartSeriesToggleIds = [
+        "displayPercentageLongHypothesisToggle",
+        "displayPercentageLongHypothesisH2Toggle",
+        "displayPercentageProbabilityToggle",
+        "displayPercentageCausalToggle",
+        "displayPercentageResearchToggle",
+    ];
+    const chartSeriesStorageKey = "octobot.chart-series.v1";
+
+    const restoreChartSeriesPreferences = () => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(chartSeriesStorageKey));
+            if (!saved || typeof saved !== "object") {
+                return;
+            }
+            chartSeriesToggleIds.forEach((id) => {
+                if (typeof saved[id] === "boolean") {
+                    $(`#${id}`).prop("checked", saved[id]);
+                }
+            });
+        } catch (error) {
+            // Storage can be unavailable in hardened/private browser modes.
+        }
+    }
+
+    const saveChartSeriesPreferences = () => {
+        const values = {};
+        chartSeriesToggleIds.forEach((id) => {
+            values[id] = $(`#${id}`).is(":checked");
+        });
+        try {
+            localStorage.setItem(chartSeriesStorageKey, JSON.stringify(values));
+        } catch (error) {
+            // The controls still work for the current page without storage.
+        }
+    }
+
+    const updateChartSeriesContext = () => {
+        const timeFrame = $("#timeFrameSelect").val();
+        const probabilityControl = $("#displayPercentageProbabilityToggle")
+            .closest(".custom-control");
+        const longHypothesisControl = $("#displayPercentageLongHypothesisToggle")
+            .closest(".custom-control");
+        const longHypothesisH2Control = $("#displayPercentageLongHypothesisH2Toggle")
+            .closest(".custom-control");
+        const causalControl = $("#displayPercentageCausalToggle")
+            .closest(".custom-control");
+        probabilityControl.toggleClass(
+            "text-muted",
+            timeFrame !== "5m" && timeFrame !== "15m"
+        );
+        longHypothesisControl.toggleClass("text-muted", timeFrame !== "15m");
+        longHypothesisH2Control.toggleClass("text-muted", timeFrame !== "15m");
+        causalControl.toggleClass("text-muted", timeFrame !== "1h");
+
+        let help = "La mappa perfetta è retrospettiva e usa dati futuri.";
+        if (timeFrame === "15m") {
+            help = (
+                "15m live: confronta LONG H1 con H2 LONG/SHORT anticipata, " +
+                "confermata dal volume e con direzione obbligatoriamente alternata. " +
+                "I marker sono allineati alla chiusura della " +
+                "candela e restano test visivi non approvati."
+            );
+        } else if (timeFrame === "5m") {
+            help = (
+                "5m: storico locale esteso con aggiornamento pubblico KuCoin " +
+                "ogni minuto; feed di ricerca separato dall'operatività."
+            );
+        } else if (timeFrame === "1h") {
+            help = (
+                "1h: sono disponibili i segnali causali V1 non approvati. " +
+                "La mappa perfetta è retrospettiva."
+            );
+        }
+        $("#chart-series-help").text(
+            `${help} Clicca una voce della legenda Plotly per una singola serie.`
+        );
+    }
+
     const registerConfigUpdates = () => {
         $("#timeFrameSelect").on("change", () => {
             updateDisplayTimeFrame($("#timeFrameSelect").val())
+            updateChartSeriesContext();
             updatePriceGraphs();
         })
         $("#displayOrderToggle").on("change", () => {
             updateDisplayOrders(shouldDisplayOrders());
+            updatePriceGraphs();
+        })
+        $("#displayPercentageResearchToggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPercentageCausalToggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPercentageProbabilityToggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPercentageLongHypothesisToggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPercentageLongHypothesisH2Toggle").on("change", () => {
+            saveChartSeriesPreferences();
             updatePriceGraphs();
         })
     }
@@ -267,6 +367,8 @@ $(document).ready(function () {
 
     let socket = undefined;
 
+    restoreChartSeriesPreferences();
+    updateChartSeriesContext();
     get_version_upgrade();
     init_dashboard_websocket();
     init_graphs();
@@ -278,4 +380,29 @@ $(document).ready(function () {
 let onGraphUpdateCallback = undefined
 function registerGraphUpdateCallback(callback) {
     onGraphUpdateCallback = callback
+}
+
+function shouldDisplayPercentageResearch() {
+    const toggle = $("#displayPercentageResearchToggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPercentageCausal() {
+    const toggle = $("#displayPercentageCausalToggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPercentageProbability() {
+    const toggle = $("#displayPercentageProbabilityToggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPercentageLongHypothesis() {
+    const toggle = $("#displayPercentageLongHypothesisToggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPercentageLongHypothesisH2() {
+    const toggle = $("#displayPercentageLongHypothesisH2Toggle");
+    return toggle.length > 0 && toggle.is(":checked");
 }

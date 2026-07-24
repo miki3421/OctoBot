@@ -54,6 +54,9 @@ class OrderDetails:
 class DailyTradingMode(trading_modes.AbstractTradingMode):
     RECORD_AI_TRADE_EVENTS = "record_ai_trade_events"
     DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
+    PAPER_RESTORE_UPDATE_TYPE = "startup_restore"
+    PAPER_RESTORE_DEPENDENCY_RETRIES = 60
+    PAPER_RESTORE_DEPENDENCY_DELAY = 1
 
     def init_user_inputs(self, inputs: dict) -> None:
         """
@@ -168,7 +171,8 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             "max_currency_percent", commons_enums.UserInputTypes.FLOAT, 100, inputs,
             min_val=0, max_val=100,
             title="Maximum currency percent: Maximum portfolio % to allocate on a given currency. "
-                  "Used to compute buy order amounts. Ignored when 'Amount per buy/entry order' is set.",
+                  "Used to compute spot buy amounts and futures entry notional. "
+                  "Ignored when 'Amount per buy/entry order' is set.",
         )
         self.UI.user_input(
             self.RECORD_AI_TRADE_EVENTS,
@@ -229,7 +233,195 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             self._ai_order_notification_callback,
             symbol=self.symbol,
         )
+        mode_consumer = next(
+            (
+                consumer
+                for consumer in consumers
+                if isinstance(consumer, DailyTradingModeConsumer)
+            ),
+            None,
+        )
+        self._paper_restore_task = asyncio.create_task(
+            self._restore_and_reconcile_after_startup(mode_consumer)
+        )
         return consumers + [order_consumer]
+
+    async def stop(self):
+        restore_task = getattr(self, "_paper_restore_task", None)
+        if restore_task is not None and not restore_task.done():
+            restore_task.cancel()
+            await asyncio.gather(restore_task, return_exceptions=True)
+        await super().stop()
+
+    async def _restore_and_reconcile_after_startup(self, mode_consumer):
+        try:
+            if self.exchange_manager.is_future:
+                for _ in range(self.PAPER_RESTORE_DEPENDENCY_RETRIES):
+                    if self.exchange_manager.exchange.has_pair_contract(
+                        self.symbol
+                    ):
+                        break
+                    await asyncio.sleep(self.PAPER_RESTORE_DEPENDENCY_DELAY)
+                else:
+                    raise TimeoutError(
+                        f"Timed out waiting for {self.symbol} contract before "
+                        "paper order restoration."
+                    )
+
+            active_order_ids = {
+                str(order.order_id)
+                for order in trading_api.get_open_orders(
+                    self.exchange_manager, symbol=self.symbol
+                )
+            }
+            restored_count = await self._restore_paper_orders_from_journal(
+                mode_consumer,
+                active_order_ids,
+            )
+            if restored_count:
+                self.logger.info(
+                    f"Restored {restored_count} guarded paper order(s) "
+                    "from the append-only journal."
+                )
+                active_order_ids = {
+                    str(order.order_id)
+                    for order in trading_api.get_open_orders(
+                        self.exchange_manager, symbol=self.symbol
+                    )
+                }
+            reconciled_count = (
+                self._ai_decision_journal.reconcile_open_order_events(
+                    exchange_name=self.exchange_manager.exchange_name,
+                    symbol=self.symbol,
+                    active_order_ids=active_order_ids,
+                )
+            )
+            if reconciled_count:
+                self.logger.info(
+                    f"Marked {reconciled_count} stale paper order event(s) "
+                    "as interrupted after startup."
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.logger.warning(
+                f"Unable to restore/reconcile simulated AI order events: {error}"
+            )
+
+    @staticmethod
+    def _is_journal_order_restorable(candidate: dict, symbol: str) -> bool:
+        raw_order = candidate.get("raw_order")
+        if not isinstance(raw_order, dict):
+            return False
+        try:
+            quantity = decimal.Decimal(str(candidate.get("quantity")))
+            filled_quantity = decimal.Decimal(
+                str(candidate.get("filled_quantity") or 0)
+            )
+            price = decimal.Decimal(str(candidate.get("price")))
+        except (decimal.InvalidOperation, TypeError, ValueError):
+            return False
+        return (
+            candidate.get("status") in {"open", "pending", "pending_creation"}
+            and candidate.get("side") in {"buy", "sell"}
+            and candidate.get("order_type") == "limit"
+            and candidate.get("reduce_only") is False
+            and quantity > trading_constants.ZERO
+            and filled_quantity == trading_constants.ZERO
+            and price > trading_constants.ZERO
+            and str(candidate.get("order_id")) == str(raw_order.get("id"))
+            and raw_order.get("symbol") == symbol
+            and str(raw_order.get("status", "")).lower()
+            in {"open", "pending", "pending_creation"}
+        )
+
+    async def _restore_paper_orders_from_journal(
+        self,
+        mode_consumer,
+        active_order_ids: set[str],
+    ) -> int:
+        """Restore simple protected entries missing from the paper runtime.
+
+        Native simulated-order storage handles normal future restarts. This
+        journal path is also kept as a guarded bootstrap/fallback, including
+        the first deployment where no native order snapshot exists yet.
+        """
+
+        if mode_consumer is None:
+            return 0
+        candidates = self._ai_decision_journal.get_open_order_restore_candidates(
+            exchange_name=self.exchange_manager.exchange_name,
+            symbol=self.symbol,
+        )
+        restored_count = 0
+        for candidate in candidates:
+            order_id = str(candidate.get("order_id"))
+            if order_id in active_order_ids:
+                continue
+            if not self._is_journal_order_restorable(candidate, self.symbol):
+                self.logger.warning(
+                    f"Skipped unsafe paper order restore candidate {order_id}."
+                )
+                continue
+            current_positions = trading_api.get_positions(
+                self.exchange_manager
+            )
+            if any(
+                position.symbol == self.symbol and not position.is_idle()
+                for position in current_positions
+            ):
+                self.logger.warning(
+                    f"Skipped paper order restore candidate {order_id}: "
+                    f"{self.symbol} already has an open position."
+                )
+                continue
+
+            raw_order = dict(candidate["raw_order"])
+            restored_order = (
+                trading_personal_data.create_order_instance_from_raw(
+                    self.exchange_manager.trader,
+                    raw_order,
+                    force_open_or_pending_creation=True,
+                )
+            )
+            restored_order.is_from_this_octobot = True
+            symbol_market = self.exchange_manager.exchange.get_market_status(
+                self.symbol,
+                with_fixer=False,
+            )
+            restored_order = await mode_consumer._create_order(
+                restored_order,
+                mode_consumer.USE_TARGET_PROFIT_MODE,
+                [],
+                (
+                    mode_consumer.USE_TARGET_PROFIT_MODE
+                    and mode_consumer.USE_STOP_ORDERS
+                ),
+                [],
+                symbol_market,
+                restored_order.tag,
+                None,
+                trading_personal_data.StopFirstActiveOrderSwapStrategy(
+                    trading_constants.ACTIVE_ORDER_STRATEGY_SWAP_TIMEOUT
+                ),
+                None,
+            )
+            if restored_order is None:
+                self.logger.warning(
+                    f"Paper order restore candidate {order_id} was refused "
+                    "by the simulator."
+                )
+                continue
+            self._ai_decision_journal.record_order_event(
+                exchange_name=self.exchange_manager.exchange_name,
+                symbol=self.symbol,
+                order=restored_order.to_dict(),
+                update_type=self.PAPER_RESTORE_UPDATE_TYPE,
+                is_from_bot=True,
+            )
+            active_order_ids.add(str(restored_order.order_id))
+            restored_count += 1
+        return restored_count
 
     async def _ai_order_notification_callback(
         self,
@@ -497,11 +689,17 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
             return 1
 
     def _get_max_amount_from_max_ratio(self, max_ratio, quantity, currency, default_ratio):
-        # TODO ratios in futures trading
         # reduce max amount when self.MAX_CURRENCY_RATIO is defined
-        if self.MAX_CURRENCY_RATIO is None or max_ratio == trading_constants.ONE or self.exchange_manager.is_future:
+        if self.MAX_CURRENCY_RATIO is None or max_ratio == trading_constants.ONE:
             return quantity * default_ratio
-        max_amount_ratio = max_ratio - self._get_ratio(currency)
+        # Futures collateral does not represent the base-asset exposure. Cap the
+        # entry notional directly from total equity; position increases are
+        # already filtered by the caller and exits never enter this branch.
+        max_amount_ratio = (
+            max_ratio
+            if self.exchange_manager.is_future
+            else max_ratio - self._get_ratio(currency)
+        )
         if max_amount_ratio > 0:
             max_amount_in_ref_market = trading_api.get_current_portfolio_value(self.exchange_manager) * \
                                        max_amount_ratio

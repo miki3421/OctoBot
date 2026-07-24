@@ -69,3 +69,28 @@ def test_config_rejects_invalid_period():
     )
     with pytest.raises(ValueError, match="start date"):
         config.validate()
+
+
+def test_five_minute_contiguity_validation():
+    candles = [
+        [index * 300, 100, 101, 99, 100, 1]
+        for index in range(1000)
+    ]
+
+    market_data._validate_contiguous_candles(
+        "BTC/USDT:USDT",
+        candles,
+        interval_seconds=300,
+        allowed_gaps=0,
+        label="5m",
+    )
+
+    candles[500][0] += 300
+    with pytest.raises(ValueError, match="5m gaps"):
+        market_data._validate_contiguous_candles(
+            "BTC/USDT:USDT",
+            candles,
+            interval_seconds=300,
+            allowed_gaps=0,
+            label="5m",
+        )

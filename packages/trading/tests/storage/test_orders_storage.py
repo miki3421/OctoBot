@@ -14,6 +14,7 @@
 #  You should have received a copy of the GNU Lesser General Public
 #  License along with this library.
 import decimal
+from unittest import mock
 
 import octobot_trading.personal_data as personal_data
 import octobot_trading.enums as enums
@@ -80,3 +81,20 @@ class TestRestoreOrderStorageOriginValue:
         origin_value = {}
         restored_origin_value = orders_storage.restore_order_storage_origin_value(origin_value)
         assert restored_origin_value == {}
+
+
+class TestSimulatedStartupOrders:
+    def test_returns_root_snapshots_only_for_simulated_trader(self):
+        storage = object.__new__(orders_storage.OrdersStorage)
+        storage.exchange_manager = mock.Mock(is_trader_simulated=True)
+        storage.startup_orders = {
+            "exchange-1": {"origin_value": {"id": "order-1"}},
+            "exchange-2": {"origin_value": {"id": "order-2"}},
+        }
+
+        assert storage.get_all_simulated_startup_orders() == list(
+            storage.startup_orders.values()
+        )
+
+        storage.exchange_manager.is_trader_simulated = False
+        assert storage.get_all_simulated_startup_orders() == []

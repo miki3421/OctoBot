@@ -43,6 +43,9 @@ def register(blueprint):
             form_to_display = constants.WELCOME_FEEDBACK_FORM_ID
             pnl_symbols = models.get_pnl_history_symbols()
             all_time_frames = models.get_all_watched_time_frames()
+            research_time_frame = octobot_commons.enums.TimeFrames.FIVE_MINUTES
+            if research_time_frame not in all_time_frames:
+                all_time_frames.insert(0, research_time_frame)
             display_time_frame = models.get_display_timeframe()
             display_orders = models.get_display_orders()
             sandbox_exchanges = models.get_sandbox_exchanges()

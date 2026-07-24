@@ -27,7 +27,7 @@ KUCOIN_FUTURES_KLINES_URL = (
     "https://api-futures.kucoin.com/api/v1/kline/query"
 )
 COLLECTOR_SCHEMA_VERSION = 1
-TIME_FRAME_SECONDS = {"15m": 900, "1h": 3600, "4h": 14400}
+TIME_FRAME_SECONDS = {"5m": 300, "15m": 900, "1h": 3600, "4h": 14400}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,8 +63,8 @@ def fetch_binance_archive(
     config.validate()
     if market_type not in {"futures_um", "spot"}:
         raise ValueError("market_type must be futures_um or spot")
-    if candle_interval not in {"15m", "1h"}:
-        raise ValueError("candle_interval must be 15m or 1h")
+    if candle_interval not in {"5m", "15m", "1h"}:
+        raise ValueError("candle_interval must be 5m, 15m or 1h")
     if market_type == "spot" and funding_output_value is not None:
         raise ValueError("spot archives do not contain funding")
     archive_root = (
@@ -140,6 +140,15 @@ def fetch_binance_archive(
                 "1h": aggregate_candles(ordered, 4),
                 "4h": aggregate_candles(ordered, 16),
             }
+        elif candle_interval == "5m":
+            _validate_contiguous_candles(
+                octobot_symbol,
+                ordered,
+                interval_seconds=TIME_FRAME_SECONDS["5m"],
+                allowed_gaps=config.allowed_15m_gaps,
+                label="5m",
+            )
+            series_by_symbol[octobot_symbol] = {"5m": ordered}
         else:
             if len(ordered) < 1000:
                 raise ValueError(
@@ -371,10 +380,16 @@ def fetch_kucoin_spot_hourly(
 def fetch_kucoin_futures_hourly(
     config: BinanceArchiveConfig,
     output_value: typing.Union[str, pathlib.Path],
+    *,
+    candle_interval: str = "1h",
 ) -> dict:
-    """Fetch public KuCoin perpetual 1h candles after the 2025 cutoff."""
+    """Fetch public KuCoin perpetual candles after the 2025 cutoff."""
 
     config.validate()
+    if candle_interval not in {"5m", "15m", "1h"}:
+        raise ValueError("candle_interval must be 5m, 15m or 1h")
+    interval_seconds = TIME_FRAME_SECONDS[candle_interval]
+    granularity_minutes = interval_seconds // 60
     output = pathlib.Path(output_value).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     start = int(
@@ -398,11 +413,11 @@ def fetch_kucoin_futures_hourly(
         while chunk_start < end:
             # KuCoin currently caps futures kline responses at 200 rows.
             # Use 199 intervals because both endpoints can be included.
-            chunk_end = min(end, chunk_start + 199 * 3600 * 1000)
+            chunk_end = min(end, chunk_start + 199 * interval_seconds * 1000)
             query = urllib.parse.urlencode(
                 {
                     "symbol": kucoin_symbol,
-                    "granularity": 60,
+                    "granularity": granularity_minutes,
                     "from": chunk_start,
                     "to": chunk_end,
                 }
@@ -436,13 +451,13 @@ def fetch_kucoin_futures_hourly(
             raise ValueError(
                 f"insufficient KuCoin futures history for {octobot_symbol}"
             )
-        gaps = _find_gaps(ordered, 3600)
+        gaps = _find_gaps(ordered, interval_seconds)
         if len(gaps) > config.allowed_15m_gaps:
             raise ValueError(
-                f"{octobot_symbol} contains {len(gaps)} hourly gaps, "
+                f"{octobot_symbol} contains {len(gaps)} {candle_interval} gaps, "
                 f"allowed={config.allowed_15m_gaps}; first={gaps[0]}"
             )
-        series_by_symbol[octobot_symbol] = {"1h": ordered}
+        series_by_symbol[octobot_symbol] = {candle_interval: ordered}
 
     _write_collector_atomic(
         output,
@@ -463,14 +478,17 @@ def fetch_kucoin_futures_hourly(
             "symbol_mapping": config.symbol_mapping,
             "start_date": config.start_date.isoformat(),
             "end_date": config.end_date.isoformat(),
-            "allowed_hourly_gaps": config.allowed_15m_gaps,
+            "allowed_gaps": config.allowed_15m_gaps,
+            "candle_interval": candle_interval,
         },
         "coverage": {
             symbol: {
-                "rows": len(values["1h"]),
-                "first_open_timestamp": int(values["1h"][0][0]),
-                "last_open_timestamp": int(values["1h"][-1][0]),
-                "gap_count": len(_find_gaps(values["1h"], 3600)),
+                "rows": len(values[candle_interval]),
+                "first_open_timestamp": int(values[candle_interval][0][0]),
+                "last_open_timestamp": int(values[candle_interval][-1][0]),
+                "gap_count": len(
+                    _find_gaps(values[candle_interval], interval_seconds)
+                ),
             }
             for symbol, values in series_by_symbol.items()
         },
@@ -622,12 +640,29 @@ def _validate_contiguous_15m(
     *,
     allowed_gaps: int = 0,
 ) -> None:
+    _validate_contiguous_candles(
+        symbol,
+        candles,
+        interval_seconds=TIME_FRAME_SECONDS["15m"],
+        allowed_gaps=allowed_gaps,
+        label="15m",
+    )
+
+
+def _validate_contiguous_candles(
+    symbol: str,
+    candles: list[list[float]],
+    *,
+    interval_seconds: int,
+    allowed_gaps: int = 0,
+    label: str,
+) -> None:
     if len(candles) < 1000:
-        raise ValueError(f"insufficient 15m candles for {symbol}")
-    gaps = _find_gaps(candles, 900)
+        raise ValueError(f"insufficient {label} candles for {symbol}")
+    gaps = _find_gaps(candles, interval_seconds)
     if len(gaps) > allowed_gaps:
         raise ValueError(
-            f"{symbol} contains {len(gaps)} 15m gaps, "
+            f"{symbol} contains {len(gaps)} {label} gaps, "
             f"allowed={allowed_gaps}; first={gaps[0]}"
         )
 
