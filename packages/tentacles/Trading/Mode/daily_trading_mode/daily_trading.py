@@ -40,6 +40,7 @@ import octobot_trading.modes as trading_modes
 import octobot_trading.modes.script_keywords as script_keywords
 import octobot_trading.enums as trading_enums
 import octobot_trading.personal_data as trading_personal_data
+import octobot_trading.personal_data.orders.orders_storage_operations as orders_storage_operations
 from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
     SQLiteDecisionJournal,
 )
@@ -274,6 +275,20 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                     self.exchange_manager, symbol=self.symbol
                 )
             }
+            native_restored_count = (
+                await self._restore_native_paper_orders(active_order_ids)
+            )
+            if native_restored_count:
+                self.logger.info(
+                    f"Restored {native_restored_count} paper order(s) from "
+                    "native simulated-order storage."
+                )
+                active_order_ids = {
+                    str(order.order_id)
+                    for order in trading_api.get_open_orders(
+                        self.exchange_manager, symbol=self.symbol
+                    )
+                }
             restored_count = await self._restore_paper_orders_from_journal(
                 mode_consumer,
                 active_order_ids,
@@ -307,6 +322,46 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             self.logger.warning(
                 f"Unable to restore/reconcile simulated AI order events: {error}"
             )
+
+    async def _restore_native_paper_orders(
+        self,
+        active_order_ids: set[str],
+    ) -> int:
+        storage = self.exchange_manager.storage_manager.orders_storage
+        if storage is None or not storage.should_store_data():
+            return 0
+        pending_groups = {}
+        restored_count = 0
+        for order_details in storage.get_all_simulated_startup_orders():
+            raw_order = order_details.get(
+                trading_constants.STORAGE_ORIGIN_VALUE,
+                {},
+            )
+            order_id = str(raw_order.get("id") or "")
+            if (
+                not order_id
+                or raw_order.get("symbol") != self.symbol
+                or order_id in active_order_ids
+            ):
+                continue
+            restored_order = (
+                await orders_storage_operations.create_order_from_storage_data(
+                    order_details,
+                    self.exchange_manager,
+                    pending_groups,
+                )
+            )
+            active_order_ids.add(str(restored_order.order_id))
+            restored_count += 1
+        if pending_groups:
+            await (
+                orders_storage_operations
+                .create_missing_virtual_orders_from_storage_order_groups(
+                    pending_groups,
+                    self.exchange_manager,
+                )
+            )
+        return restored_count
 
     @staticmethod
     def _is_journal_order_restorable(candidate: dict, symbol: str) -> bool:

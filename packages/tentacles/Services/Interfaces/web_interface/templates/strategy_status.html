@@ -125,6 +125,122 @@
             </div>
         </div>
 
+        <div class="card border-success mb-4">
+            <div class="card-body">
+                <h4 class="mb-1"><i class="fas fa-flask mr-2"></i>V5 Paper Forward</h4>
+                <div class="text-muted small mb-3">
+                    Modello V5 congelato · BTC Binance Futures · candele chiuse 15m · account OctoBot paper isolato e persistente.
+                    <a href="{{ v5_paper_url }}" target="_blank" rel="noopener">Apri portafoglio V5</a>.
+                </div>
+                {% if v5_paper_health %}
+                {% set v5_metrics = v5_paper_health.metrics or {} %}
+                {% set v5_decision = v5_paper_health.latest_decision or {} %}
+                {% set v5_trade = v5_paper_health.open_trade or {} %}
+                <div class="row">
+                    {{ metric_card("Runner", v5_paper_health.status | upper, "success" if v5_paper_health.status == "healthy" else "danger", v5_paper_health.last_close_at or "") }}
+                    {{ metric_card("Ultima decisione", v5_decision.action or "-", "success" if v5_decision.action == "LONG" else "danger" if v5_decision.action == "SHORT" else "secondary", v5_decision.reason or "") }}
+                    {{ metric_card("Posizione V5", v5_trade.direction or "FLAT", "warning" if v5_trade else "success", ("ingresso " ~ v5_trade.entry_price) if v5_trade else "nessuna esposizione") }}
+                    {{ metric_card("Equity paper", "%.2f USDT"|format(v5_paper_health.equity or 0), "info", "%+.2f USDT"|format(v5_metrics.total_pnl or 0)) }}
+                    {{ metric_card("Trade chiusi", v5_metrics.trades or 0, "info", ("WR %.2f%%"|format(v5_metrics.win_rate_pct)) if v5_metrics.win_rate_pct is not none else "in attesa") }}
+                    {{ metric_card("Profit factor", "%.3f"|format(v5_metrics.profit_factor) if v5_metrics.profit_factor is not none else "-", "info") }}
+                    {{ metric_card("Prossima chiusura", (v5_paper_health.next_evaluation_at or "-") | replace("T", " ") | truncate(17, True, ""), "secondary") }}
+                    {{ metric_card("Broker paper", "ATTIVO" if v5_paper_health.paper_broker_ready else "NON PRONTO", "success" if v5_paper_health.paper_broker_ready else "danger") }}
+                    {{ metric_card("Ordini reali", "DISABILITATI" if v5_paper_health.orders_authorized == false else "ATTIVI", "success" if v5_paper_health.orders_authorized == false else "danger") }}
+                </div>
+                {% if v5_trade %}
+                <div class="alert alert-warning small mb-3">
+                    <strong>{{ v5_trade.direction }}</strong> da {{ v5_trade.entry_price }} ·
+                    attivazione {{ v5_trade.activation_price }} · stop iniziale {{ v5_trade.initial_stop_price }} ·
+                    stop protetto {{ v5_trade.locked_stop_price }} · orizzonte {{ v5_trade.horizon_hours }}h.
+                </div>
+                {% endif %}
+                {% if v5_decision %}
+                <div class="small text-muted">
+                    Valore atteso {{ "%+.4f%%"|format(v5_decision.expected_net_pct or 0) }} ·
+                    P target {{ "%.2f%%"|format(v5_decision.target_probability_pct or 0) }} ·
+                    P stop {{ "%.2f%%"|format(v5_decision.stop_probability_pct or 0) }} ·
+                    target protetto {{ "%.2f%%"|format(v5_decision.target_profit_pct or 0) }} ·
+                    orizzonte {{ v5_decision.horizon_hours or "-" }}h.
+                </div>
+                {% endif %}
+                {% if v5_forward_summary.available %}
+                <hr>
+                <h5 class="mb-1">Cruscotto statistico forward</h5>
+                <div class="text-muted small mb-3">
+                    Lettura descrittiva del journal V5 congelato. Non modifica soglie, modello o decisioni.
+                </div>
+                <div class="row">
+                    {{ metric_card("Decisioni osservate", v5_forward_summary.decisions, "info", "%.2f ore"|format(v5_forward_summary.span_hours)) }}
+                    {{ metric_card("Ingressi accettati", v5_forward_summary.accepted, "success" if v5_forward_summary.accepted else "secondary", "%.2f%% del totale"|format(v5_forward_summary.acceptance_rate_pct)) }}
+                    {{ metric_card("EV medio", "%+.4f%%"|format(v5_forward_summary.mean_expected_net_pct) if v5_forward_summary.mean_expected_net_pct is not none else "-", "info") }}
+                    {{ metric_card("EV massimo", "%+.4f%%"|format(v5_forward_summary.max_expected_net_pct) if v5_forward_summary.max_expected_net_pct is not none else "-", "info", "gate %+.3f%%"|format(v5_forward_summary.expected_net_threshold_pct)) }}
+                    {{ metric_card("Distanza dal gate", "%+.4f%%"|format(v5_forward_summary.distance_to_gate_pct) if v5_forward_summary.distance_to_gate_pct is not none else "-", "warning" if v5_forward_summary.distance_to_gate_pct and v5_forward_summary.distance_to_gate_pct > 0 else "success", "valore positivo = ancora sotto soglia") }}
+                    {{ metric_card("EV positivi", v5_forward_summary.positive_expected_net, "info", "prima del gate operativo") }}
+                    {{ metric_card("Esiti chiusi", v5_forward_summary.trades, "info", "calibrazione non disponibile" if not v5_forward_summary.trades else "solo preliminare") }}
+                    {{ metric_card("Integrità journal", v5_forward_summary.integrity | upper, "success") }}
+                </div>
+                <div class="row">
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead>
+                                    <tr><th>Target scelto dal planner</th><th>Decisioni</th><th>Quota</th></tr>
+                                </thead>
+                                <tbody>
+                                {% for row in v5_forward_summary.target_distribution %}
+                                    <tr>
+                                        <td>{{ "%.2f%%"|format(row.value) }}</td>
+                                        <td>{{ row.count }}</td>
+                                        <td>{{ "%.1f%%"|format(row.share_pct) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 mb-3">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-0">
+                                <thead>
+                                    <tr><th>Orizzonte scelto</th><th>Decisioni</th><th>Quota</th></tr>
+                                </thead>
+                                <tbody>
+                                {% for row in v5_forward_summary.horizon_distribution %}
+                                    <tr>
+                                        <td>{{ row.value }}h</td>
+                                        <td>{{ row.count }}</td>
+                                        <td>{{ "%.1f%%"|format(row.share_pct) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="alert alert-info small mb-0">
+                    {% if not v5_forward_summary.trades %}
+                    Nessun trade chiuso: non esistono ancora win rate o profit factor forward da interpretare.
+                    Le distribuzioni mostrano ciò che il planner preferisce, non operazioni eseguite.
+                    {% else %}
+                    Gli esiti sono ancora descrittivi: non verranno usati per ritoccare la V5 durante il test.
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="alert alert-secondary small mt-3 mb-0">
+                    Journal statistico V5 non ancora disponibile nel container web.
+                </div>
+                {% endif %}
+                {% if v5_paper_health.last_error %}
+                <div class="alert alert-danger small mt-3 mb-0">{{ v5_paper_health.last_error }}</div>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-secondary mb-0">
+                    Il runner V5 non ha ancora pubblicato il primo stato.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card border-danger mb-4">
             <div class="card-body">
                 <h4 class="mb-1"><i class="fas fa-bolt mr-2"></i>Prova scalping BTC</h4>

@@ -1,6 +1,10 @@
 import json
 import datetime
+import types
 
+import numpy
+
+from octobot.ai_strategy_lab import cli
 from octobot.ai_strategy_lab import shadow_performance
 
 
@@ -148,3 +152,40 @@ def test_forward_performance_rejects_wrong_strategy_identity(tmp_path):
         assert "expected strategy" in str(error)
     else:
         raise AssertionError("strategy mismatch must fail closed")
+
+
+def test_cli_shadow_summary_serializes_numpy_gate_values(
+    tmp_path, monkeypatch, capsys
+):
+    report = {
+        "observed_return_days": numpy.int64(4),
+        "paper_review_gate": {
+            "passed": numpy.bool_(False),
+            "checks": {"enough_days": numpy.bool_(False)},
+        },
+        "income_evidence_gate": {
+            "passed": numpy.bool_(False),
+            "checks": {"enough_months": numpy.bool_(False)},
+        },
+    }
+    monkeypatch.setattr(
+        cli.shadow_performance_module,
+        "evaluate_shadow_performance",
+        lambda *args, **kwargs: report,
+    )
+    output = tmp_path / "performance.json"
+    args = types.SimpleNamespace(
+        journal=str(tmp_path / "shadow.jsonl"),
+        output=str(output),
+        initial_capital=10_000.0,
+        fixed_monthly_amount=25.0,
+        strategy="shadow-test",
+    )
+
+    assert cli._evaluate_shadow_performance(args) == 0
+
+    printed = json.loads(capsys.readouterr().out)
+    saved = json.loads(output.read_text(encoding="utf-8"))
+    assert printed["observed_return_days"] == 4
+    assert printed["paper_review_gate"]["passed"] is False
+    assert saved["income_evidence_gate"]["passed"] is False

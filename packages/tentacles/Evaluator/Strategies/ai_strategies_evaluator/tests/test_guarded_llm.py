@@ -809,6 +809,50 @@ class DeterministicRiskGuardTest(unittest.TestCase):
             is_from_bot=True,
         )
 
+    def test_daily_mode_prefers_idempotent_native_order_restore(self):
+        mode = object.__new__(DailyTradingMode)
+        mode.symbol = "BTC/USDT:USDT"
+        mode.exchange_manager = mock.Mock()
+        storage = mode.exchange_manager.storage_manager.orders_storage
+        storage.should_store_data.return_value = True
+        stored_order = {
+            "origin_value": {
+                "id": "native-paper-open",
+                "symbol": "BTC/USDT:USDT",
+            },
+            "co": [{"origin_value": {"id": "protected-stop"}}],
+        }
+        storage.get_all_simulated_startup_orders.return_value = [stored_order]
+        restored_order = mock.Mock(order_id="native-paper-open")
+
+        with mock.patch(
+            "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+            "orders_storage_operations.create_order_from_storage_data",
+            new=mock.AsyncMock(return_value=restored_order),
+        ) as create_order:
+            active_ids = set()
+            restored_count = asyncio.run(
+                DailyTradingMode._restore_native_paper_orders(
+                    mode,
+                    active_ids,
+                )
+            )
+            repeated_count = asyncio.run(
+                DailyTradingMode._restore_native_paper_orders(
+                    mode,
+                    active_ids,
+                )
+            )
+
+        self.assertEqual(restored_count, 1)
+        self.assertEqual(repeated_count, 0)
+        self.assertEqual(active_ids, {"native-paper-open"})
+        create_order.assert_awaited_once_with(
+            stored_order,
+            mode.exchange_manager,
+            {},
+        )
+
     def test_daily_mode_callback_ignores_external_orders(self):
         mode = mock.Mock()
         mode._ai_decision_journal = mock.Mock()

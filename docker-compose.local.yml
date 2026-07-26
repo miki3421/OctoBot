@@ -25,6 +25,7 @@ services:
       - ../octobot-local/backtesting:/octobot/backtesting
       - ../octobot-local/shadow:/shadow:ro
       - ../octobot-local/scalping:/scalping:ro
+      - ../octobot-local/v5-paper:/v5-paper:ro
 
   trend-shadow:
     image: octobot-local:dev
@@ -183,6 +184,111 @@ services:
           and value.get('connected') is True
           and value.get('book_events',0) >= 1
           and (now-last).total_seconds() < 20 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  v5-broker:
+    image: octobot-local:dev
+    container_name: octobot-v5-binance-paper
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/v5-broker-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      OCTOBOT_LOCAL_PROFILE_ID: local_v5_binance_paper
+      OCTOBOT_WEB_HOT_ASSETS: "true"
+      ENABLE_SIMULATED_ORDERS_STORAGE: "true"
+      V5_PAPER_BRIDGE_ENABLED: "true"
+      V5_PAPER_BRIDGE_TOKEN_PATH: /run/secrets/v5-paper-bridge-token
+      V5_PAPER_BRIDGE_DATABASE_PATH: /octobot/user/v5-paper-bridge.sqlite
+    ports:
+      - "5002:5001"
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/v5-broker/user:/octobot/user
+      - ../octobot-local/v5-broker/tentacles:/octobot/tentacles
+      - ../octobot-local/v5-broker/logs:/octobot/logs
+      - ../octobot-local/tentacles:/octobot/reference_tentacles:ro
+      - ../octobot-local/user/reference_tentacles_config:/octobot/user/reference_tentacles_config:ro
+      - ../octobot-local/v5-broker/bridge-token:/run/secrets/v5-paper-bridge-token:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import json,urllib.request;
+          value=json.load(urllib.request.urlopen(
+          'http://127.0.0.1:5001/api/v5-paper/status',timeout=5));
+          raise SystemExit(0 if value.get('ready') is True
+          and value.get('exchange') == 'binance'
+          and value.get('symbol') == 'BTC/USDT:USDT'
+          and value.get('simulated_trader') is True
+          and value.get('real_trader') is False else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  v5-paper:
+    image: octobot-local:dev
+    container_name: octobot-v5-paper
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - python3
+      - -m
+      - octobot.ai_strategy_lab.v5_paper
+      - --model-directory
+      - /octobot/backtesting/research/perfect_map_student_v5/model
+      - --protocol
+      - /octobot/backtesting/research/perfect_map_student_v5/protocol.json
+      - --database
+      - /v5-paper/binance/v5-paper.sqlite
+      - --health
+      - /v5-paper/binance/health.json
+      - --poll-seconds
+      - "30"
+      - --broker-url
+      - http://v5-broker:5001/api/v5-paper/command
+      - --broker-token
+      - /run/secrets/v5-paper-bridge-token
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/backtesting:/octobot/backtesting:ro
+      - ../octobot-local/v5-paper:/v5-paper
+      - ../octobot-local/v5-broker/bridge-token:/run/secrets/v5-paper-bridge-token:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/v5-paper/binance/health.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('mode') == 'v5_forward_paper'
+          and value.get('time_frame') == '15m'
+          and value.get('exchange') == 'binance'
+          and value.get('public_data_only') is True
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is True
+          and value.get('paper_broker_ready') is True
+          and value.get('automatic_promotion') is False
+          and value.get('database_integrity') == 'ok'
+          and value.get('data_lag_seconds',999999) < 1800
+          and (now-last).total_seconds() < 180 else 1)"
       interval: 30s
       timeout: 10s
       retries: 3

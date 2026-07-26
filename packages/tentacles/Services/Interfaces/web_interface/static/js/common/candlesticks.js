@@ -378,17 +378,26 @@ function _percentage_research_hover(trade, stage){
         activation: "Profit lock attivato",
         exit: "Uscita teorica"
     };
+    const maturity = trade.maturity_status === "provisional"
+        ? (
+            `PROVVISORIO: mancano ${trade.future_candles_missing} ` +
+            `candele per completare l'orizzonte`
+        )
+        : "MATURO: orizzonte futuro completo";
     return [
         `<b>${stage_labels[stage]} · ${direction}</b>`,
         `Rendimento lordo: ${trade.gross_return_pct.toFixed(2)}%`,
         `MFE: ${trade.maximum_favorable_excursion_pct.toFixed(2)}%`,
         `MAE: ${trade.maximum_adverse_excursion_pct.toFixed(2)}%`,
         `Uscita: ${trade.exit_reason}`,
+        maturity,
         "Diagnostica retrospettiva: usa candele future"
     ].join("<br>");
 }
 
-function _percentage_marker_trace(x, y, text, name, symbol, color){
+function _percentage_marker_trace(
+    x, y, text, name, symbol, color, opacity=0.95
+){
     return {
         x: x,
         y: y,
@@ -400,7 +409,7 @@ function _percentage_marker_trace(x, y, text, name, symbol, color){
             symbol: symbol,
             color: color,
             size: 12,
-            opacity: 0.95,
+            opacity: opacity,
             line: {
                 color: getTextColor(),
                 width: 1
@@ -415,17 +424,41 @@ function create_percentage_research_traces(research){
     if(!isDefined(research) || !Array.isArray(research.trades) || !research.trades.length){
         return [];
     }
-    const long_line = {x: [], y: []};
-    const short_line = {x: [], y: []};
-    const entries = {
-        LONG: {x: [], y: [], text: []},
-        SHORT: {x: [], y: [], text: []}
+    const maturity_statuses = ["confirmed", "provisional"];
+    const lines = {
+        confirmed: {
+            LONG: {x: [], y: []},
+            SHORT: {x: [], y: []}
+        },
+        provisional: {
+            LONG: {x: [], y: []},
+            SHORT: {x: [], y: []}
+        }
     };
-    const activations = {x: [], y: [], text: []};
-    const exits = {x: [], y: [], text: [], color: []};
+    const entries = {
+        confirmed: {
+            LONG: {x: [], y: [], text: []},
+            SHORT: {x: [], y: [], text: []}
+        },
+        provisional: {
+            LONG: {x: [], y: [], text: []},
+            SHORT: {x: [], y: [], text: []}
+        }
+    };
+    const activations = {
+        confirmed: {x: [], y: [], text: []},
+        provisional: {x: [], y: [], text: []}
+    };
+    const exits = {
+        confirmed: {x: [], y: [], text: [], color: []},
+        provisional: {x: [], y: [], text: [], color: []}
+    };
 
     research.trades.forEach((trade) => {
-        const line = trade.direction === "LONG" ? long_line : short_line;
+        const maturity = trade.maturity_status === "provisional"
+            ? "provisional"
+            : "confirmed";
+        const line = lines[maturity][trade.direction];
         line.x.push(
             trade.entry_time,
             trade.activation_time,
@@ -438,78 +471,124 @@ function create_percentage_research_traces(research){
             trade.exit_price,
             null
         );
-        entries[trade.direction].x.push(trade.entry_time);
-        entries[trade.direction].y.push(trade.entry_price);
-        entries[trade.direction].text.push(_percentage_research_hover(trade, "entry"));
-        activations.x.push(trade.activation_time);
-        activations.y.push(trade.activation_price);
-        activations.text.push(_percentage_research_hover(trade, "activation"));
-        exits.x.push(trade.exit_time);
-        exits.y.push(trade.exit_price);
-        exits.text.push(_percentage_research_hover(trade, "exit"));
-        exits.color.push(trade.direction === "LONG" ? "#198754" : "#dc3545");
+        entries[maturity][trade.direction].x.push(trade.entry_time);
+        entries[maturity][trade.direction].y.push(trade.entry_price);
+        entries[maturity][trade.direction].text.push(
+            _percentage_research_hover(trade, "entry")
+        );
+        activations[maturity].x.push(trade.activation_time);
+        activations[maturity].y.push(trade.activation_price);
+        activations[maturity].text.push(
+            _percentage_research_hover(trade, "activation")
+        );
+        exits[maturity].x.push(trade.exit_time);
+        exits[maturity].y.push(trade.exit_price);
+        exits[maturity].text.push(_percentage_research_hover(trade, "exit"));
+        exits[maturity].color.push(
+            trade.direction === "LONG" ? "#198754" : "#dc3545"
+        );
     });
 
     const traces = [];
-    [
-        [long_line, "#198754", "Long hindsight path"],
-        [short_line, "#dc3545", "Short hindsight path"]
-    ].forEach(([line, color, name]) => {
-        if(line.x.length){
-            traces.push({
-                x: line.x,
-                y: line.y,
-                mode: "lines",
-                name: name,
-                hoverinfo: "skip",
-                line: {
-                    color: color,
-                    width: 2,
-                    dash: "dot"
-                },
-                xaxis: "x",
-                yaxis: "y2"
-            });
+    maturity_statuses.forEach((maturity) => {
+        const provisional = maturity === "provisional";
+        const suffix = provisional ? " · provvisorio" : " · maturo";
+        const opacity = provisional ? 0.42 : 0.95;
+        [
+            [lines[maturity].LONG, "#198754", "Long hindsight path"],
+            [lines[maturity].SHORT, "#dc3545", "Short hindsight path"]
+        ].forEach(([line, color, name]) => {
+            if(line.x.length){
+                traces.push({
+                    x: line.x,
+                    y: line.y,
+                    mode: "lines",
+                    name: name + suffix,
+                    hoverinfo: "skip",
+                    opacity: opacity,
+                    line: {
+                        color: color,
+                        width: 2,
+                        dash: provisional ? "dash" : "dot"
+                    },
+                    xaxis: "x",
+                    yaxis: "y2"
+                });
+            }
+        });
+        [
+            ["LONG", "Long entry", "triangle-up", "#198754"],
+            ["SHORT", "Short entry", "triangle-down", "#dc3545"]
+        ].forEach(([direction, name, symbol, color]) => {
+            const values = entries[maturity][direction];
+            if(values.x.length){
+                traces.push(_percentage_marker_trace(
+                    values.x,
+                    values.y,
+                    values.text,
+                    name + suffix,
+                    provisional ? symbol + "-open" : symbol,
+                    color,
+                    opacity
+                ));
+            }
+        });
+        if(activations[maturity].x.length){
+            traces.push(_percentage_marker_trace(
+                activations[maturity].x,
+                activations[maturity].y,
+                activations[maturity].text,
+                "Profit lock activation" + suffix,
+                provisional ? "diamond-open" : "diamond",
+                "#ffc107",
+                opacity
+            ));
+        }
+        if(exits[maturity].x.length){
+            traces.push(_percentage_marker_trace(
+                exits[maturity].x,
+                exits[maturity].y,
+                exits[maturity].text,
+                "Hindsight exit" + suffix,
+                provisional ? "circle-open" : "circle",
+                exits[maturity].color,
+                opacity
+            ));
         }
     });
-    if(entries.LONG.x.length){
-        traces.push(_percentage_marker_trace(
-            entries.LONG.x,
-            entries.LONG.y,
-            entries.LONG.text,
-            "Long entry",
-            "triangle-up",
-            "#198754"
-        ));
-    }
-    if(entries.SHORT.x.length){
-        traces.push(_percentage_marker_trace(
-            entries.SHORT.x,
-            entries.SHORT.y,
-            entries.SHORT.text,
-            "Short entry",
-            "triangle-down",
-            "#dc3545"
-        ));
-    }
-    traces.push(_percentage_marker_trace(
-        activations.x,
-        activations.y,
-        activations.text,
-        "Profit lock activation",
-        "diamond",
-        "#ffc107"
-    ));
-    const exit_trace = _percentage_marker_trace(
-        exits.x,
-        exits.y,
-        exits.text,
-        "Hindsight exit",
-        "circle",
-        exits.color
-    );
-    traces.push(exit_trace);
     return traces;
+}
+
+function update_percentage_research_maturity_zone(layout, research, enabled){
+    const shapes = isDefined(layout.shapes) ? layout.shapes : [];
+    layout.shapes = shapes.filter(
+        (shape) => shape.name !== "percentage-research-maturity"
+    );
+    if(
+        !enabled
+        || !isDefined(research)
+        || !isDefined(research.maturity)
+        || !isDefined(research.maturity.provisional_start_time)
+    ){
+        return;
+    }
+    layout.shapes.push({
+        name: "percentage-research-maturity",
+        type: "rect",
+        xref: "x",
+        yref: "paper",
+        x0: research.maturity.provisional_start_time,
+        x1: research.maturity.last_closed_time,
+        y0: 0,
+        y1: 1,
+        fillcolor: "rgba(255, 193, 7, 0.10)",
+        line: {
+            color: "rgba(255, 193, 7, 0.65)",
+            width: 1,
+            dash: "dot"
+        },
+        layer: "below"
+    });
 }
 
 function update_percentage_research_annotation(layout, research, enabled){
@@ -545,8 +624,11 @@ function update_percentage_research_annotation(layout, research, enabled){
             `lock +${config.minimum_profit_pct}% dopo +${config.activation_pct}%, ` +
             `stop ${config.initial_stop_pct}%, orizzonte ${config.horizon_candles} candele<br>` +
             `${summary.selected_non_overlapping_trades} trade selezionati · ` +
+            `${summary.confirmed_selected_trades || 0} maturi / ` +
+            `${summary.provisional_selected_trades || 0} provvisori · ` +
             `hit rate storico ${summary.historical_hit_rate_pct.toFixed(1)}% · ` +
-            `massimo composto lordo ${summary.maximum_hindsight_compounded_gross_return_pct.toFixed(1)}%`
+            `massimo composto lordo ${summary.maximum_hindsight_compounded_gross_return_pct.toFixed(1)}%<br>` +
+            `<span style="color:#ffc107">Fascia gialla: orizzonte incompleto, può cambiare.</span>`
         )
     });
 }
@@ -1032,6 +1114,11 @@ function create_or_update_candlestick_graph(element_id, symbol_price_data, symbo
             )
             : [];
         update_percentage_research_annotation(
+            layout,
+            percentage_research,
+            percentage_research_enabled
+        );
+        update_percentage_research_maturity_zone(
             layout,
             percentage_research,
             percentage_research_enabled

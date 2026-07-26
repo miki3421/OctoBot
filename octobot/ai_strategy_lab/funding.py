@@ -17,6 +17,9 @@ import numpy
 KUCOIN_PUBLIC_FUNDING_URL = (
     "https://api-futures.kucoin.com/api/v1/contract/funding-rates"
 )
+BINANCE_PUBLIC_FUNDING_URL = (
+    "https://fapi.binance.com/fapi/v1/fundingRate"
+)
 FUNDING_SCHEMA_VERSION = 1
 
 
@@ -72,6 +75,60 @@ def fetch_kucoin_funding(
         "schema_version": FUNDING_SCHEMA_VERSION,
         "source": KUCOIN_PUBLIC_FUNDING_URL,
         "retrieved_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "start_timestamp_ms": start_timestamp_ms,
+        "end_timestamp_ms": end_timestamp_ms,
+        "symbol_mapping": symbol_mapping,
+        "rates": rates,
+    }
+
+
+def fetch_binance_funding(
+    symbol_mapping: dict[str, str],
+    start_timestamp_ms: int,
+    end_timestamp_ms: int,
+) -> dict:
+    if not symbol_mapping:
+        raise ValueError(
+            "at least one OctoBot-to-Binance symbol mapping is required"
+        )
+    if start_timestamp_ms >= end_timestamp_ms:
+        raise ValueError("funding start timestamp must precede end timestamp")
+    rates = {}
+    for octobot_symbol, binance_symbol in sorted(symbol_mapping.items()):
+        query = urllib.parse.urlencode(
+            {
+                "symbol": binance_symbol,
+                "startTime": start_timestamp_ms,
+                "endTime": end_timestamp_ms,
+                "limit": 1000,
+            }
+        )
+        request = urllib.request.Request(
+            f"{BINANCE_PUBLIC_FUNDING_URL}?{query}",
+            headers={"User-Agent": "OctoBot-AI-Lab/1"},
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = json.load(response)
+        if not isinstance(payload, list):
+            raise RuntimeError(
+                f"Binance funding request failed for {binance_symbol}: "
+                f"{payload}"
+            )
+        points = {}
+        for point in payload:
+            timestamp = int(point["fundingTime"])
+            if start_timestamp_ms <= timestamp <= end_timestamp_ms:
+                points[timestamp] = float(point["fundingRate"])
+        rates[octobot_symbol] = [
+            {"timestamp_ms": timestamp, "rate": points[timestamp]}
+            for timestamp in sorted(points)
+        ]
+    return {
+        "schema_version": FUNDING_SCHEMA_VERSION,
+        "source": BINANCE_PUBLIC_FUNDING_URL,
+        "retrieved_at": datetime.datetime.now(
+            datetime.timezone.utc
+        ).isoformat(),
         "start_timestamp_ms": start_timestamp_ms,
         "end_timestamp_ms": end_timestamp_ms,
         "symbol_mapping": symbol_mapping,

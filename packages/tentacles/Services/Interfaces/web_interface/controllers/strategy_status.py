@@ -10,6 +10,7 @@ import json
 import os
 import pathlib
 import sqlite3
+import urllib.parse
 
 import flask
 
@@ -20,7 +21,22 @@ import tentacles.Services.Interfaces.web_interface.models as models
 DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
 DEFAULT_SHADOW_ROOT = "/shadow"
 DEFAULT_SCALPING_HEALTH_PATH = "/scalping/health.json"
+DEFAULT_V5_PAPER_HEALTH_PATH = "/v5-paper/binance/health.json"
+DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
 SCALPING_RESEARCH_DAYS = 30.0
+
+
+def _service_url(port: int, path: str) -> str:
+    parsed = urllib.parse.urlsplit(flask.request.host_url)
+    hostname = parsed.hostname or "localhost"
+    netloc = (
+        f"[{hostname}]:{port}"
+        if ":" in hostname
+        else f"{hostname}:{port}"
+    )
+    return urllib.parse.urlunsplit(
+        (parsed.scheme or "http", netloc, path, "", "")
+    )
 
 
 def _read_json(path: pathlib.Path) -> dict:
@@ -162,6 +178,168 @@ def _scalping_summary(health: dict) -> dict:
     return summary
 
 
+def _timestamp_iso(timestamp: object) -> str | None:
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(timestamp), tz=datetime.timezone.utc
+        ).isoformat()
+    except (TypeError, ValueError, OSError):
+        return None
+
+
+def _v5_forward_summary(
+    database_path: str, expected_net_threshold_pct: float
+) -> dict:
+    """Read descriptive V5 forward statistics without mutating its journal."""
+
+    path = pathlib.Path(database_path)
+    if not path.is_file():
+        return {"available": False}
+    with sqlite3.connect(
+        f"file:{path}?mode=ro", uri=True, timeout=2
+    ) as connection:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only=ON")
+        integrity = str(
+            connection.execute("PRAGMA quick_check").fetchone()[0]
+        )
+        if integrity != "ok":
+            raise sqlite3.DatabaseError(
+                f"V5 paper database integrity={integrity}"
+            )
+        decision = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS decisions,
+                COALESCE(SUM(accepted), 0) AS accepted,
+                COALESCE(
+                    SUM(CASE WHEN expected_net_pct > 0 THEN 1 ELSE 0 END),
+                    0
+                ) AS positive_expected_net,
+                MIN(close_timestamp) AS first_close_timestamp,
+                MAX(close_timestamp) AS last_close_timestamp,
+                AVG(expected_net_pct) AS mean_expected_net_pct,
+                MAX(expected_net_pct) AS max_expected_net_pct
+            FROM decisions
+            """
+        ).fetchone()
+        trades = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS trades,
+                COALESCE(
+                    SUM(CASE WHEN net_return_pct > 0 THEN 1 ELSE 0 END),
+                    0
+                ) AS wins,
+                COALESCE(
+                    SUM(CASE WHEN pnl > 0 THEN pnl ELSE 0 END),
+                    0
+                ) AS gross_profit,
+                COALESCE(
+                    -SUM(CASE WHEN pnl < 0 THEN pnl ELSE 0 END),
+                    0
+                ) AS gross_loss,
+                COALESCE(SUM(pnl), 0) AS total_pnl
+            FROM trades
+            """
+        ).fetchone()
+        target_distribution = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT target_profit_pct AS value, COUNT(*) AS count
+                FROM decisions
+                WHERE target_profit_pct IS NOT NULL
+                GROUP BY target_profit_pct
+                ORDER BY target_profit_pct
+                """
+            )
+        ]
+        horizon_distribution = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT horizon_hours AS value, COUNT(*) AS count
+                FROM decisions
+                WHERE horizon_hours IS NOT NULL
+                GROUP BY horizon_hours
+                ORDER BY horizon_hours
+                """
+            )
+        ]
+        reason_distribution = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT reason AS value, COUNT(*) AS count
+                FROM decisions
+                GROUP BY reason
+                ORDER BY count DESC, reason
+                """
+            )
+        ]
+
+    decisions = int(decision["decisions"])
+    accepted = int(decision["accepted"])
+    trade_count = int(trades["trades"])
+    first_timestamp = decision["first_close_timestamp"]
+    last_timestamp = decision["last_close_timestamp"]
+    span_hours = (
+        max(0.0, (int(last_timestamp) - int(first_timestamp)) / 3600)
+        if first_timestamp is not None and last_timestamp is not None
+        else 0.0
+    )
+    for distribution in (target_distribution, horizon_distribution):
+        for row in distribution:
+            row["share_pct"] = (
+                float(row["count"]) * 100 / decisions if decisions else 0.0
+            )
+    max_expected_net = decision["max_expected_net_pct"]
+    gross_profit = float(trades["gross_profit"])
+    gross_loss = float(trades["gross_loss"])
+    return {
+        "available": True,
+        "integrity": integrity,
+        "decisions": decisions,
+        "accepted": accepted,
+        "holds": decisions - accepted,
+        "acceptance_rate_pct": (
+            accepted * 100 / decisions if decisions else 0.0
+        ),
+        "positive_expected_net": int(decision["positive_expected_net"]),
+        "mean_expected_net_pct": decision["mean_expected_net_pct"],
+        "max_expected_net_pct": max_expected_net,
+        "expected_net_threshold_pct": expected_net_threshold_pct,
+        "distance_to_gate_pct": (
+            expected_net_threshold_pct - float(max_expected_net)
+            if max_expected_net is not None
+            else None
+        ),
+        "first_close_at": _timestamp_iso(first_timestamp),
+        "last_close_at": _timestamp_iso(last_timestamp),
+        "span_hours": span_hours,
+        "trades": trade_count,
+        "wins": int(trades["wins"]),
+        "win_rate_pct": (
+            int(trades["wins"]) * 100 / trade_count
+            if trade_count
+            else None
+        ),
+        "profit_factor": (
+            gross_profit / gross_loss if gross_loss else None
+        ),
+        "total_pnl": float(trades["total_pnl"]),
+        "calibration_status": (
+            "in_attesa_di_trade_chiusi"
+            if not trade_count
+            else "descrittiva_preliminare"
+        ),
+        "target_distribution": target_distribution,
+        "horizon_distribution": horizon_distribution,
+        "reason_distribution": reason_distribution,
+    }
+
+
 def register(blueprint):
     @blueprint.route("/strategy_status")
     @login.login_required_when_activated
@@ -177,6 +355,14 @@ def register(blueprint):
             os.getenv(
                 "SCALPING_HEALTH_PATH", DEFAULT_SCALPING_HEALTH_PATH
             )
+        )
+        v5_paper_health_path = pathlib.Path(
+            os.getenv(
+                "V5_PAPER_HEALTH_PATH", DEFAULT_V5_PAPER_HEALTH_PATH
+            )
+        )
+        v5_paper_db_path = os.getenv(
+            "V5_PAPER_DB_PATH", DEFAULT_V5_PAPER_DB_PATH
         )
 
         try:
@@ -216,6 +402,23 @@ def register(blueprint):
         except (OSError, ValueError, json.JSONDecodeError) as error:
             scalping_health = {}
             errors.append(f"scalping_health: {error}")
+        try:
+            v5_paper_health = _read_json(v5_paper_health_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            v5_paper_health = {}
+            errors.append(f"v5_paper_health: {error}")
+        try:
+            v5_forward_summary = _v5_forward_summary(
+                v5_paper_db_path,
+                float(
+                    v5_paper_health.get(
+                        "expected_net_threshold_pct", 0.075
+                    )
+                ),
+            )
+        except (OSError, TypeError, ValueError, sqlite3.Error) as error:
+            v5_forward_summary = {"available": False}
+            errors.append(f"v5_forward_summary: {error}")
 
         return flask.render_template(
             "strategy_status.html",
@@ -236,6 +439,9 @@ def register(blueprint):
             ),
             scalping_health=scalping_health,
             scalping_summary=_scalping_summary(scalping_health),
+            v5_paper_health=v5_paper_health,
+            v5_forward_summary=v5_forward_summary,
+            v5_paper_url=_service_url(5002, "/trading"),
             shadow_ready=all(
                 path.is_file()
                 for name, path in files.items()

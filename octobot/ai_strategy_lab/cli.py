@@ -1961,12 +1961,14 @@ def _evaluate_shadow_performance(args: argparse.Namespace) -> int:
     shadow_runner_module._write_json_atomic(output, _json_safe(report))
     print(
         json.dumps(
-            {
-                "path": str(output),
-                "observed_return_days": report["observed_return_days"],
-                "paper_review_gate": report["paper_review_gate"],
-                "income_evidence_gate": report["income_evidence_gate"],
-            },
+            _json_safe(
+                {
+                    "path": str(output),
+                    "observed_return_days": report["observed_return_days"],
+                    "paper_review_gate": report["paper_review_gate"],
+                    "income_evidence_gate": report["income_evidence_gate"],
+                }
+            ),
             indent=2,
             sort_keys=True,
         )

@@ -14,14 +14,41 @@
 #  You should have received a copy of the GNU Lesser General Public
 #  License along with this library.
 import flask
+import hmac
 
 import octobot_services.interfaces.util as interfaces_util
 import tentacles.Services.Interfaces.web_interface.util as util
 import tentacles.Services.Interfaces.web_interface.login as login
 import tentacles.Services.Interfaces.web_interface.models as models
+import tentacles.Services.Interfaces.web_interface.models.v5_paper_bridge as v5_paper_bridge
 
 
 def register(blueprint):
+    @blueprint.route("/v5-paper/status", methods=["GET"])
+    def v5_paper_status():
+        return flask.jsonify(v5_paper_bridge.get_status())
+
+    @blueprint.route("/v5-paper/command", methods=["POST"])
+    def v5_paper_command():
+        try:
+            supplied = flask.request.headers.get(
+                "Authorization", ""
+            ).removeprefix("Bearer ").strip()
+            if not hmac.compare_digest(
+                supplied, v5_paper_bridge.expected_token()
+            ):
+                return util.get_rest_reply("Unauthorized", 401)
+            request_data = flask.request.get_json()
+            if not isinstance(request_data, dict):
+                return util.get_rest_reply("Invalid JSON object", 400)
+            return flask.jsonify(v5_paper_bridge.execute(request_data))
+        except v5_paper_bridge.V5PaperBridgeError as error:
+            return util.get_rest_reply(str(error), 409)
+        except Exception:
+            return util.get_rest_reply(
+                "V5 paper bridge command failed closed", 500
+            )
+
     @blueprint.route("/orders", methods=['GET', 'POST'])
     @login.login_required_when_activated
     def orders():

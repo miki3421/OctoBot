@@ -1,0 +1,19 @@
+{
+  "installation_context": {
+    "octobot_version": "2.1.1"
+  },
+  "tentacle_activation": {
+    "Evaluator": {
+      "BlankStrategyEvaluator": true
+    },
+    "Services": {
+      "GPTService": false,
+      "WebInterface": true
+    },
+    "Trading": {
+      "Binance": true,
+      "BinanceCCXTWebsocketConnector": true,
+      "BlankTradingMode": true
+    }
+  }
+}

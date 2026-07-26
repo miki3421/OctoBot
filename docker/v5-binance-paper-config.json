@@ -1,0 +1,35 @@
+{
+  "accepted_terms": true,
+  "backtesting": {
+    "files": []
+  },
+  "community": {
+    "supabase.auth.token": ""
+  },
+  "exchanges": {
+    "binance": {
+      "enabled": true
+    },
+    "kucoin": {
+      "enabled": false
+    }
+  },
+  "notification": {
+    "global-info": true,
+    "notification-type": [
+      "web"
+    ],
+    "other": true,
+    "price-alerts": false,
+    "trades": true,
+    "trading-script-alerts": false
+  },
+  "profile": "local_v5_binance_paper",
+  "services": {
+    "web": {
+      "auto-open-in-web-browser": false,
+      "password": "",
+      "require-password": false
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "config": {
+    "crypto-currencies": {
+      "Bitcoin": {
+        "enabled": true,
+        "pairs": ["BTC/USDT:USDT"]
+      }
+    },
+    "distribution": "default",
+    "exchanges": {
+      "binance": {
+        "enabled": true,
+        "exchange-type": "future"
+      },
+      "kucoin": {
+        "enabled": false,
+        "exchange-type": "future"
+      }
+    },
+    "trader": {
+      "enabled": false,
+      "load-trade-history": false
+    },
+    "trader-simulator": {
+      "enabled": true,
+      "fees": {
+        "maker": 0.1,
+        "taker": 0.1
+      },
+      "starting-portfolio": {
+        "USDT": 10000
+      }
+    },
+    "trading": {
+      "reference-market": "USDT",
+      "risk": 0.1
+    }
+  },
+  "profile": {
+    "auto_update": false,
+    "avatar": "default_profile.png",
+    "complexity": 1,
+    "description": "Isolated Binance Futures paper account for V5 only.",
+    "extra_backtesting_time_frames": [],
+    "hidden": false,
+    "id": "local_v5_binance_paper",
+    "imported": false,
+    "name": "V5 Binance Futures Paper",
+    "origin_url": null,
+    "read_only": false,
+    "risk": 1,
+    "slug": "",
+    "type": "live"
+  }
+}

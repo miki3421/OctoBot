@@ -122,6 +122,52 @@ def test_analyzer_excludes_open_candle_and_never_authorizes_orders():
     assert all(trade["exit_index"] <= 2 for trade in result["trades"])
 
 
+def test_analyzer_marks_right_edge_as_provisional():
+    rows = [(100, 101.5, 99.5, 100.5)] * 8
+    values = _candles(rows)
+    config = percentage_engine.PercentageEngineConfig(
+        horizon_candles=3,
+        exclude_last_candle=False,
+    )
+
+    result = percentage_engine.analyze_percentage_opportunities(
+        **values, config=config
+    )
+
+    assert result["schema_version"] == 2
+    assert result["maturity"] == {
+        "full_horizon_candles": 3,
+        "last_closed_index": 7,
+        "last_closed_time": "t7",
+        "last_mature_entry_index": 4,
+        "last_mature_entry_time": "t4",
+        "provisional_start_index": 5,
+        "provisional_start_time": "t5",
+        "provisional_entry_candles": 2,
+    }
+    assert result["summary"]["confirmed_evaluated_setups"] == 10
+    assert result["summary"]["provisional_evaluated_setups"] == 4
+
+
+def test_analyzer_handles_history_shorter_than_full_horizon():
+    values = _candles([(100, 101, 99, 100)] * 4)
+    config = percentage_engine.PercentageEngineConfig(
+        horizon_candles=24,
+        exclude_last_candle=False,
+    )
+
+    result = percentage_engine.analyze_percentage_opportunities(
+        **values, config=config
+    )
+
+    assert result["maturity"]["last_mature_entry_index"] is None
+    assert result["maturity"]["last_mature_entry_time"] is None
+    assert result["maturity"]["provisional_start_index"] == 0
+    assert result["summary"]["confirmed_evaluated_setups"] == 0
+    assert result["summary"]["provisional_evaluated_setups"] == 6
+    assert result["summary"]["historical_hit_rate_pct"] == 0
+
+
 def test_non_overlapping_selection_maximizes_compounded_return():
     candidates = [
         {"entry_index": 0, "exit_index": 2, "direction": "LONG", "gross_return_pct": 2.0},

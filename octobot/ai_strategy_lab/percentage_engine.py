@@ -332,20 +332,49 @@ def analyze_percentage_opportunities(
     outcomes: list[dict] = []
     for entry_index in range(last_closed_index):
         for direction in selected_config.directions:
-            outcomes.append(
-                simulate_trade(
-                    time_values,
-                    high_values,
-                    low_values,
-                    close_values,
-                    entry_index,
-                    direction,
-                    last_closed_index,
-                    selected_config,
-                )
+            outcome = simulate_trade(
+                time_values,
+                high_values,
+                low_values,
+                close_values,
+                entry_index,
+                direction,
+                last_closed_index,
+                selected_config,
             )
+            available_future_candles = last_closed_index - entry_index
+            outcome.update(
+                {
+                    "maturity_status": (
+                        "confirmed"
+                        if available_future_candles
+                        >= selected_config.horizon_candles
+                        else "provisional"
+                    ),
+                    "available_future_candles": available_future_candles,
+                    "required_future_candles": (
+                        selected_config.horizon_candles
+                    ),
+                    "future_candles_missing": max(
+                        0,
+                        selected_config.horizon_candles
+                        - available_future_candles,
+                    ),
+                }
+            )
+            outcomes.append(outcome)
 
     reached = [outcome for outcome in outcomes if outcome["target_reached"]]
+    confirmed_outcomes = [
+        outcome
+        for outcome in outcomes
+        if outcome["maturity_status"] == "confirmed"
+    ]
+    confirmed_reached = [
+        outcome
+        for outcome in confirmed_outcomes
+        if outcome["target_reached"]
+    ]
     profitable_candidates = [
         outcome
         for outcome in reached
@@ -358,9 +387,17 @@ def analyze_percentage_opportunities(
     )
     long_count = sum(trade["direction"] == LONG for trade in selected)
     short_count = sum(trade["direction"] == SHORT for trade in selected)
+    confirmed_selected_count = sum(
+        trade["maturity_status"] == "confirmed" for trade in selected
+    )
+    provisional_selected_count = len(selected) - confirmed_selected_count
+    last_mature_entry_index = (
+        last_closed_index - selected_config.horizon_candles
+    )
+    provisional_start_index = max(0, last_mature_entry_index + 1)
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "mode": "hindsight_percentage_research_only",
         "research_only": True,
         "uses_future_outcomes": True,
@@ -370,12 +407,23 @@ def analyze_percentage_opportunities(
         "summary": {
             "closed_candles": last_closed_index + 1,
             "evaluated_setups": len(outcomes),
+            "confirmed_evaluated_setups": len(confirmed_outcomes),
+            "provisional_evaluated_setups": (
+                len(outcomes) - len(confirmed_outcomes)
+            ),
             "target_before_stop": len(reached),
             "historical_hit_rate_pct": (
+                len(confirmed_reached) * 100 / len(confirmed_outcomes)
+                if confirmed_outcomes
+                else 0
+            ),
+            "provisional_inclusive_hit_rate_pct": (
                 len(reached) * 100 / len(outcomes) if outcomes else 0
             ),
             "profitable_candidates": len(profitable_candidates),
             "selected_non_overlapping_trades": len(selected),
+            "confirmed_selected_trades": confirmed_selected_count,
+            "provisional_selected_trades": provisional_selected_count,
             "selected_long_trades": long_count,
             "selected_short_trades": short_count,
             "maximum_hindsight_compounded_gross_return_pct": (
@@ -383,9 +431,31 @@ def analyze_percentage_opportunities(
             )
             * 100,
         },
+        "maturity": {
+            "full_horizon_candles": selected_config.horizon_candles,
+            "last_closed_index": last_closed_index,
+            "last_closed_time": time_values[last_closed_index],
+            "last_mature_entry_index": (
+                last_mature_entry_index
+                if last_mature_entry_index >= 0
+                else None
+            ),
+            "last_mature_entry_time": (
+                time_values[last_mature_entry_index]
+                if last_mature_entry_index >= 0
+                else None
+            ),
+            "provisional_start_index": provisional_start_index,
+            "provisional_start_time": time_values[provisional_start_index],
+            "provisional_entry_candles": (
+                last_closed_index - provisional_start_index
+            ),
+        },
         "trades": selected,
         "warning": (
             "The map is optimized with future candles and is not a live signal, "
-            "backtest result, profitability estimate, or order authorization."
+            "backtest result, profitability estimate, or order authorization. "
+            "Entries in the right-edge maturity zone do not yet have the full "
+            "future horizon and can change as new candles close."
         ),
     }
