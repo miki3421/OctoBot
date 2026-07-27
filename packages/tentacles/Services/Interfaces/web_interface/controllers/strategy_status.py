@@ -23,6 +23,7 @@ DEFAULT_SHADOW_ROOT = "/shadow"
 DEFAULT_SCALPING_HEALTH_PATH = "/scalping/health.json"
 DEFAULT_V5_PAPER_HEALTH_PATH = "/v5-paper/binance/health.json"
 DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
+V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
 
@@ -278,6 +279,22 @@ def _v5_forward_summary(
                 """
             )
         ]
+        ev_rows = list(
+            connection.execute(
+                """
+                SELECT close_timestamp, expected_net_pct, accepted
+                FROM (
+                    SELECT id, close_timestamp, expected_net_pct, accepted
+                    FROM decisions
+                    WHERE expected_net_pct IS NOT NULL
+                    ORDER BY id DESC
+                    LIMIT ?
+                )
+                ORDER BY id
+                """,
+                (V5_EV_SERIES_LIMIT,),
+            )
+        )
 
     decisions = int(decision["decisions"])
     accepted = int(decision["accepted"])
@@ -337,6 +354,20 @@ def _v5_forward_summary(
         "target_distribution": target_distribution,
         "horizon_distribution": horizon_distribution,
         "reason_distribution": reason_distribution,
+        "ev_series": {
+            "timestamps": [
+                _timestamp_iso(row["close_timestamp"])
+                for row in ev_rows
+            ],
+            "expected_net_pct": [
+                float(row["expected_net_pct"]) for row in ev_rows
+            ],
+            "accepted": [
+                bool(row["accepted"]) for row in ev_rows
+            ],
+            "threshold_pct": expected_net_threshold_pct,
+            "maximum_points": V5_EV_SERIES_LIMIT,
+        },
     }
 
 

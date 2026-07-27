@@ -179,6 +179,14 @@
                     {{ metric_card("Esiti chiusi", v5_forward_summary.trades, "info", "calibrazione non disponibile" if not v5_forward_summary.trades else "solo preliminare") }}
                     {{ metric_card("Integrità journal", v5_forward_summary.integrity | upper, "success") }}
                 </div>
+                {% if v5_forward_summary.ev_series.timestamps %}
+                <div class="card border-secondary mb-3">
+                    <div class="card-body py-2">
+                        <div id="v5-ev-history-chart" style="height: 340px;"></div>
+                        <script id="v5-ev-history-data" type="application/json">{{ v5_forward_summary.ev_series | tojson }}</script>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="row">
                     <div class="col-12 col-lg-6 mb-3">
                         <div class="table-responsive">
@@ -376,3 +384,7 @@
     </div>
 </div>
 {% endblock %}
+
+{% block additional_scripts %}
+<script src="{{ url_for('static', filename='js/components/strategy_status.js', u=LAST_UPDATED_STATIC_FILES) }}"></script>
+{% endblock additional_scripts %}

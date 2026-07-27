@@ -344,15 +344,23 @@ def decimal_add_dusts_to_quantity_if_necessary(quantity, price, symbol_market, c
     #     limit_amount = fixed_market_status[Ecmsc.LIMITS.value][Ecmsc.LIMITS_AMOUNT.value]
     #     limit_cost = fixed_market_status[Ecmsc.LIMITS.value][Ecmsc.LIMITS_COST.value]
 
-    min_quantity = limit_amount.get(Ecmsc.LIMITS_AMOUNT_MIN.value, math.nan)
-    min_cost = limit_cost.get(Ecmsc.LIMITS_COST_MIN.value, math.nan)
+    min_quantity_to_consider = None
+    if personal_data.is_valid(limit_amount, Ecmsc.LIMITS_AMOUNT_MIN.value):
+        min_quantity = limit_amount[Ecmsc.LIMITS_AMOUNT_MIN.value]
+        min_quantity_to_consider = decimal.Decimal(str(min_quantity)) * decimal.Decimal(str(1.4))
 
-    # check with 40% more than remaining total not to require huge market moves to sell this asset
-    min_cost_to_consider = decimal.Decimal(str(min_cost)) * decimal.Decimal(str(1.4))
-    min_quantity_to_consider = decimal.Decimal(str(min_quantity)) * decimal.Decimal(str(1.4))
+    min_cost_to_consider = None
+    if personal_data.is_valid(limit_cost, Ecmsc.LIMITS_COST_MIN.value):
+        min_cost = limit_cost[Ecmsc.LIMITS_COST_MIN.value]
+        min_cost_to_consider = decimal.Decimal(str(min_cost)) * decimal.Decimal(str(1.4))
 
-    if remaining_max_total_order_price < min_cost_to_consider \
-            or remaining_portfolio_amount < min_quantity_to_consider:
+    # Check each available limit independently. Some derivatives exchanges expose
+    # a minimum amount but no minimum cost.
+    remaining_cost_is_dust = min_cost_to_consider is not None \
+        and remaining_max_total_order_price < min_cost_to_consider
+    remaining_quantity_is_dust = min_quantity_to_consider is not None \
+        and remaining_portfolio_amount < min_quantity_to_consider
+    if remaining_cost_is_dust or remaining_quantity_is_dust:
         return current_symbol_holding
     else:
         return quantity

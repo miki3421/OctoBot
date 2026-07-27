@@ -161,8 +161,8 @@ $(document).ready(function () {
             update_detail = _find_symbol_details(candle_data.symbol, candle_data.exchange_id);
         }
         if (isDefined(update_detail)) {
-            get_symbol_price_graph(update_detail.elem_id, update_details.exchange_id, "",
-                "", update_details.time_frame, shouldDisplayOrders(), get_in_backtesting_mode(),
+            get_symbol_price_graph(update_detail.elem_id, update_detail.exchange_id, "",
+                update_detail.symbol, update_detail.time_frame, shouldDisplayOrders(), get_in_backtesting_mode(),
                 false, true, 0, candle_data);
             if (re_update) {
                 setTimeout(function () {
@@ -228,7 +228,14 @@ $(document).ready(function () {
             const element = $(this);
             Plotly.purge(element.attr("id"));
             element.empty();
-            get_watched_symbol_price_graph(element, init_updater, no_data_for_graph, time_frame, shouldDisplayOrders());
+            const graphTimeFrame = element.data("fixed-time-frame") || time_frame;
+            get_watched_symbol_price_graph(
+                element,
+                init_updater,
+                no_data_for_graph,
+                graphTimeFrame,
+                shouldDisplayOrders()
+            );
         });
         if (useDefaultGraph) {
             enable_default_graph(time_frame);
@@ -254,6 +261,8 @@ $(document).ready(function () {
     const chartSeriesToggleIds = [
         "displayPercentageLongHypothesisToggle",
         "displayPercentageLongHypothesisH2Toggle",
+        "displayPerfectMapForecastV2Toggle",
+        "displayPerfectMapSimulatedPathToggle",
         "displayPercentageProbabilityToggle",
         "displayPercentageCausalToggle",
         "displayPercentageResearchToggle",
@@ -292,6 +301,10 @@ $(document).ready(function () {
         const timeFrame = $("#timeFrameSelect").val();
         const probabilityControl = $("#displayPercentageProbabilityToggle")
             .closest(".custom-control");
+        const forecastV2Control = $("#displayPerfectMapForecastV2Toggle")
+            .closest(".custom-control");
+        const simulatedPathControl = $("#displayPerfectMapSimulatedPathToggle")
+            .closest(".custom-control");
         const longHypothesisControl = $("#displayPercentageLongHypothesisToggle")
             .closest(".custom-control");
         const longHypothesisH2Control = $("#displayPercentageLongHypothesisH2Toggle")
@@ -302,6 +315,8 @@ $(document).ready(function () {
             "text-muted",
             timeFrame !== "5m" && timeFrame !== "15m"
         );
+        forecastV2Control.toggleClass("text-muted", timeFrame !== "15m");
+        simulatedPathControl.toggleClass("text-muted", timeFrame !== "15m");
         longHypothesisControl.toggleClass("text-muted", timeFrame !== "15m");
         longHypothesisH2Control.toggleClass("text-muted", timeFrame !== "15m");
         causalControl.toggleClass("text-muted", timeFrame !== "1h");
@@ -310,7 +325,9 @@ $(document).ready(function () {
         if (timeFrame === "15m") {
             help = (
                 "15m live: confronta LONG H1 con H2 LONG/SHORT anticipata, " +
-                "confermata dal volume e con direzione obbligatoriamente alternata. " +
+                "la previsione V2, il path prezzo diretto 1h–8h con " +
+                "skill contro prezzo flat e la mappa ideale. " +
+                "H2 resta confermata dal volume e con direzione alternata. " +
                 "I marker sono allineati alla chiusura della " +
                 "candela e restano test visivi non approvati."
             );
@@ -349,6 +366,14 @@ $(document).ready(function () {
             updatePriceGraphs();
         })
         $("#displayPercentageProbabilityToggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPerfectMapForecastV2Toggle").on("change", () => {
+            saveChartSeriesPreferences();
+            updatePriceGraphs();
+        })
+        $("#displayPerfectMapSimulatedPathToggle").on("change", () => {
             saveChartSeriesPreferences();
             updatePriceGraphs();
         })
@@ -394,6 +419,16 @@ function shouldDisplayPercentageCausal() {
 
 function shouldDisplayPercentageProbability() {
     const toggle = $("#displayPercentageProbabilityToggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPerfectMapForecastV2() {
+    const toggle = $("#displayPerfectMapForecastV2Toggle");
+    return toggle.length > 0 && toggle.is(":checked");
+}
+
+function shouldDisplayPerfectMapSimulatedPath() {
+    const toggle = $("#displayPerfectMapSimulatedPathToggle");
     return toggle.length > 0 && toggle.is(":checked");
 }
 

@@ -39,6 +39,8 @@ import octobot_commons.symbols as commons_symbols
 import octobot.ai_strategy_lab.percentage_engine as percentage_engine
 import octobot.ai_strategy_lab.percentage_probability_engine as percentage_probability_engine
 import octobot.ai_strategy_lab.percentage_signal_engine as percentage_signal_engine
+import octobot.ai_strategy_lab.perfect_map_forecaster_v2 as perfect_map_forecaster_v2
+import octobot.ai_strategy_lab.price_path_forecaster_v1 as price_path_forecaster_v1
 
 GET_SYMBOL_SEPARATOR = "|"
 DISPLAY_CANCELLED_TRADES = False
@@ -54,8 +56,32 @@ PERCENTAGE_RESEARCH_5M_COLLECTOR = pathlib.Path(
 KUCOIN_FUTURES_KLINES_URL = "https://api-futures.kucoin.com/api/v1/kline/query"
 PERCENTAGE_RESEARCH_5M_HISTORY_LIMIT = 5000
 PERCENTAGE_RESEARCH_5M_CACHE_SECONDS = 60
+PERCENTAGE_RESEARCH_MARKET_HISTORY_LIMIT = 1024
+PERFECT_MAP_FORECAST_V2_MINIMUM_CANDLES = 801
+PERCENTAGE_RESEARCH_MARKETS = {
+    "BTC/USDT:USDT": {
+        "exchange_symbol": "XBTUSDTM",
+        "time_frames": {
+            "15m": {
+                "granularity_minutes": 15,
+                "candle_seconds": 900,
+            },
+        },
+    },
+    "ETH/USDT:USDT": {
+        "exchange_symbol": "ETHUSDTM",
+        "time_frames": {
+            "15m": {
+                "granularity_minutes": 15,
+                "candle_seconds": 900,
+            },
+        },
+    },
+}
 _percentage_research_5m_live_cache = {}
 _percentage_research_5m_live_lock = threading.Lock()
+_percentage_research_market_live_cache = {}
+_percentage_research_market_live_lock = threading.Lock()
 
 
 def parse_get_symbol(get_symbol):
@@ -371,6 +397,127 @@ def _create_candles_data(exchange_manager, symbol, time_frame, historical_candle
                             "error": str(error),
                         }
                 if time_frame_value == "15m":
+                    symbol_value = str(symbol)
+                    if symbol_value in PERCENTAGE_RESEARCH_MARKETS:
+                        try:
+                            forecast_data = data
+                            forecast_display_times = data_x
+                            forecast_metadata = None
+                            if (
+                                len(data_x)
+                                < PERFECT_MAP_FORECAST_V2_MINIMUM_CANDLES
+                            ):
+                                forecast_data, forecast_metadata = (
+                                    _load_percentage_research_market_live(
+                                        symbol_value, "15m"
+                                    )
+                                )
+                                forecast_display_times = (
+                                    timestamp_util.convert_timestamps_to_datetime(
+                                        forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_TIME.value
+                                        ],
+                                        time_format="%y-%m-%d %H:%M:%S",
+                                        local_timezone=True,
+                                    )
+                                )
+                            forecast = (
+                                perfect_map_forecaster_v2.analyze_chart_forecast(
+                                    times=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_TIME.value
+                                    ],
+                                    display_times=forecast_display_times,
+                                    opens=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_OPEN.value
+                                    ],
+                                    highs=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_HIGH.value
+                                    ],
+                                    lows=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_LOW.value
+                                    ],
+                                    closes=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_CLOSE.value
+                                    ],
+                                    volumes=forecast_data[
+                                        commons_enums.PriceIndexes.IND_PRICE_VOL.value
+                                    ],
+                                    symbol=symbol_value,
+                                )
+                            )
+                            try:
+                                forecast["simulated_path"] = (
+                                    price_path_forecaster_v1.analyze_chart_path(
+                                        times=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_TIME.value
+                                        ],
+                                        display_times=forecast_display_times,
+                                        opens=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_OPEN.value
+                                        ],
+                                        highs=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_HIGH.value
+                                        ],
+                                        lows=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_LOW.value
+                                        ],
+                                        closes=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_CLOSE.value
+                                        ],
+                                        volumes=forecast_data[
+                                            commons_enums.PriceIndexes.IND_PRICE_VOL.value
+                                        ],
+                                        symbol=symbol_value,
+                                    )
+                                )
+                            except (OSError, TypeError, ValueError) as error:
+                                forecast.pop("simulated_path", None)
+                                forecast["simulated_path_error"] = str(error)
+                            visible_start = data_x[0]
+                            forecast["points"] = [
+                                point
+                                for point in forecast["points"]
+                                if point["time"] >= visible_start
+                            ]
+                            forecast["summary"][
+                                "visible_watch_zones"
+                            ] = sum(
+                                point["status"] == "watch"
+                                for point in forecast["points"]
+                            )
+                            forecast["summary"][
+                                "visible_candidate_zones"
+                            ] = sum(
+                                point["status"] == "candidate"
+                                for point in forecast["points"]
+                            )
+                            if forecast_metadata is not None:
+                                forecast.update(
+                                    {
+                                        "data_source": forecast_metadata[
+                                            "source"
+                                        ],
+                                        "snapshot_last_candle": (
+                                            forecast_display_times[-1]
+                                        ),
+                                    }
+                                )
+                            result_dict["perfect_map_forecast_v2"] = (
+                                forecast
+                            )
+                        except (OSError, TypeError, ValueError) as error:
+                            result_dict["perfect_map_forecast_v2"] = {
+                                "schema_version": 1,
+                                "mode": "perfect_map_forecaster_v2",
+                                "research_only": True,
+                                "diagnostic_reuse": True,
+                                "orders_authorized": False,
+                                "paper_orders_authorized": False,
+                                "automatic_promotion": False,
+                                "time_frame": "15m",
+                                "asset": symbol_value.split("/", 1)[0],
+                                "error": str(error),
+                            }
                     try:
                         result_dict["percentage_long_hypothesis"] = (
                             percentage_probability_engine.analyze_long_15m_hypothesis(
@@ -496,17 +643,22 @@ def _load_percentage_research_5m_snapshot() -> list[np.ndarray]:
     return [values[:, index] for index in range(6)]
 
 
-def _fetch_public_kucoin_5m(start_timestamp: int, end_timestamp: int) -> list[list[float]]:
+def _fetch_public_kucoin_candles(
+    exchange_symbol: str,
+    granularity_minutes: int,
+    start_timestamp: int,
+    end_timestamp: int,
+) -> list[list[float]]:
     candles = {}
-    interval_seconds = 300
+    interval_seconds = granularity_minutes * 60
     chunk_start = start_timestamp * 1000
     end = end_timestamp * 1000
     while chunk_start <= end:
         chunk_end = min(end, chunk_start + 199 * interval_seconds * 1000)
         query = urllib.parse.urlencode(
             {
-                "symbol": "XBTUSDTM",
-                "granularity": 5,
+                "symbol": exchange_symbol,
+                "granularity": granularity_minutes,
                 "from": chunk_start,
                 "to": chunk_end,
             }
@@ -518,7 +670,9 @@ def _fetch_public_kucoin_5m(start_timestamp: int, end_timestamp: int) -> list[li
         with urllib.request.urlopen(request, timeout=20) as response:
             payload = json.load(response)
         if payload.get("code") != "200000":
-            raise RuntimeError(f"KuCoin public 5m request failed: {payload}")
+            raise RuntimeError(
+                f"KuCoin public candle request failed: {payload}"
+            )
         for row in payload.get("data", []):
             timestamp = int(row[0]) // 1000
             if start_timestamp <= timestamp <= end_timestamp:
@@ -534,6 +688,146 @@ def _fetch_public_kucoin_5m(start_timestamp: int, end_timestamp: int) -> list[li
             break
         chunk_start = chunk_end
     return [candles[key] for key in sorted(candles)]
+
+
+def _fetch_public_kucoin_5m(
+    start_timestamp: int, end_timestamp: int
+) -> list[list[float]]:
+    return _fetch_public_kucoin_candles(
+        "XBTUSDTM", 5, start_timestamp, end_timestamp
+    )
+
+
+def _load_percentage_research_market_live(
+    symbol: str, time_frame: str
+) -> tuple[list[np.ndarray], dict]:
+    market = PERCENTAGE_RESEARCH_MARKETS[symbol]
+    time_frame_config = market["time_frames"][time_frame]
+    cache_key = (symbol, time_frame)
+    with _percentage_research_market_live_lock:
+        now = time.time()
+        cached = _percentage_research_market_live_cache.get(cache_key)
+        if (
+            cached
+            and now - cached["loaded_at"]
+            < PERCENTAGE_RESEARCH_5M_CACHE_SECONDS
+        ):
+            return cached["candles"], cached["metadata"]
+        candle_seconds = time_frame_config["candle_seconds"]
+        end_timestamp = int(now // candle_seconds * candle_seconds)
+        start_timestamp = (
+            end_timestamp
+            - (PERCENTAGE_RESEARCH_MARKET_HISTORY_LIMIT - 1)
+            * candle_seconds
+        )
+        try:
+            rows = _fetch_public_kucoin_candles(
+                market["exchange_symbol"],
+                time_frame_config["granularity_minutes"],
+                start_timestamp,
+                end_timestamp,
+            )
+            if len(rows) < 150:
+                raise ValueError(
+                    f"{symbol} public research feed has insufficient candles"
+                )
+            timestamps = np.asarray(
+                [int(row[0]) for row in rows], dtype=np.int64
+            )
+            if np.any(np.diff(timestamps) != candle_seconds):
+                raise ValueError(
+                    f"{symbol} public research feed contains candle gaps"
+                )
+            values = np.asarray(rows, dtype=float)
+            candles = [values[:, index] for index in range(6)]
+            metadata = {
+                "live": True,
+                "offline": False,
+                "research_only": True,
+                "orders_authorized": False,
+                "symbol": symbol,
+                "time_frame": time_frame,
+                "source": (
+                    f"feed pubblico KuCoin Futures "
+                    f"{market['exchange_symbol']} {time_frame}"
+                ),
+                "warning": (
+                    f"Feed {symbol} research-only: non è sottoscritto "
+                    "dal decisore operativo e non autorizza ordini."
+                ),
+                "last_candle_timestamp": int(values[-1, 0]),
+            }
+        except (OSError, RuntimeError, TimeoutError, ValueError) as error:
+            if not cached:
+                raise
+            candles = cached["candles"]
+            metadata = {
+                **cached["metadata"],
+                "live": False,
+                "offline": True,
+                "warning": (
+                    "Feed pubblico ETH temporaneamente non disponibile; "
+                    "visualizzazione dell'ultimo snapshot in memoria."
+                ),
+                "error": str(error),
+            }
+        _percentage_research_market_live_cache[cache_key] = {
+            "loaded_at": now,
+            "candles": candles,
+            "metadata": metadata,
+        }
+        return candles, metadata
+
+
+def _mark_cross_asset_research(
+    result: dict, symbol: str, metadata: dict
+) -> None:
+    result["research_only"] = True
+    result["orders_authorized"] = False
+    result["research_snapshot"] = {
+        **metadata,
+        "last_candle": result["candles"][
+            enums.PriceStrings.STR_PRICE_TIME.value
+        ][-1],
+    }
+    if "percentage_research" in result:
+        result["percentage_research"].update(
+            {
+                "source_symbol": symbol,
+                "data_source": metadata["source"],
+            }
+        )
+    warning = (
+        "Modello e soglie BTC applicati a ETH soltanto come confronto "
+        "visivo cross-asset; non sono validati per ETH."
+    )
+    for key in (
+        "percentage_probability",
+        "percentage_long_hypothesis",
+        "percentage_long_hypothesis_h2",
+    ):
+        if key in result:
+            result[key].update(
+                {
+                    "source_symbol": symbol,
+                    "data_source": metadata["source"],
+                    "snapshot_last_candle": result["candles"][
+                        enums.PriceStrings.STR_PRICE_TIME.value
+                    ][-1],
+                    "cross_asset_unvalidated": True,
+                    "cross_asset_warning": warning,
+                }
+            )
+    if "perfect_map_forecast_v2" in result:
+        result["perfect_map_forecast_v2"].update(
+            {
+                "source_symbol": symbol,
+                "data_source": metadata["source"],
+                "snapshot_last_candle": result["candles"][
+                    enums.PriceStrings.STR_PRICE_TIME.value
+                ][-1],
+            }
+        )
 
 
 def _load_percentage_research_5m_live() -> tuple[list[np.ndarray], dict]:
@@ -599,6 +893,37 @@ def get_currency_price_graph_update(exchange_id, symbol, time_frame, list_arrays
     if time_frame is not None:
         try:
             time_frame = _ensure_time_frame(time_frame)
+            if (
+                symbol_id == "ETH/USDT:USDT"
+                and time_frame
+                in PERCENTAGE_RESEARCH_MARKETS[symbol_id]["time_frames"]
+                and not in_backtesting
+            ):
+                research_candles, research_metadata = (
+                    _load_percentage_research_market_live(
+                        symbol_id, time_frame
+                    )
+                )
+                if minimal_candles:
+                    research_candles = [
+                        column[-2:] for column in research_candles
+                    ]
+                result = _create_candles_data(
+                    exchange_manager,
+                    symbol_id,
+                    time_frame,
+                    research_candles,
+                    [math.nan],
+                    bot_api,
+                    list_arrays,
+                    in_backtesting,
+                    True,
+                    True,
+                )
+                _mark_cross_asset_research(
+                    result, symbol_id, research_metadata
+                )
+                return result
             if (
                 time_frame == "5m"
                 and symbol_id == "BTC/USDT:USDT"

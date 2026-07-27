@@ -1689,3 +1689,91 @@ async def test_target_profit_mode_futures_trading(future_tools):
     short_orders_2 = await consumer.create_new_orders(symbol, decimal.Decimal(str(1)), trading_enums.EvaluatorStates.SHORT.value)
     # did not create order as increasing position is disabled
     assert short_orders_2 == []
+
+
+@pytest.mark.parametrize(
+    "state,final_note,entry_class,entry_type,take_profit_class,stop_factor,take_profit_factor",
+    (
+        (
+            trading_enums.EvaluatorStates.LONG.value,
+            decimal.Decimal("-0.3833333333333333"),
+            trading_personal_data.BuyMarketOrder,
+            trading_enums.TraderOrderType.BUY_MARKET,
+            trading_personal_data.SellLimitOrder,
+            decimal.Decimal("0.98"),
+            decimal.Decimal("1.04"),
+        ),
+        (
+            trading_enums.EvaluatorStates.SHORT.value,
+            decimal.Decimal("0.3833333333333333"),
+            trading_personal_data.SellMarketOrder,
+            trading_enums.TraderOrderType.SELL_MARKET,
+            trading_personal_data.BuyLimitOrder,
+            decimal.Decimal("1.02"),
+            decimal.Decimal("0.96"),
+        ),
+    ),
+)
+async def test_market_entry_orders_futures_with_protections(
+    future_tools,
+    state,
+    final_note,
+    entry_class,
+    entry_type,
+    take_profit_class,
+    stop_factor,
+    take_profit_factor,
+):
+    exchange_manager, _, symbol, consumer, last_btc_price = future_tools
+
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder\
+        .value_converter.last_prices_by_trading_pair[symbol] = last_btc_price
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder.portfolio_current_value = \
+        decimal.Decimal("2000")
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder\
+        .current_crypto_currencies_values["BTC"] = last_btc_price
+    exchange_manager.trader.enable_inactive_orders = True
+    consumer.USE_MARKET_ENTRY_ORDERS = True
+    consumer.USE_TARGET_PROFIT_MODE = True
+    consumer.TARGET_PROFIT_ENABLE_POSITION_INCREASE = False
+    consumer.USE_STOP_ORDERS = True
+    consumer.TARGET_PROFIT_TAKE_PROFIT = decimal.Decimal("0.04")
+    consumer.TARGET_PROFIT_STOP_LOSS = decimal.Decimal("0.02")
+    consumer.MAX_CURRENCY_RATIO = decimal.Decimal("0.1")
+
+    orders = await consumer.create_new_orders(
+        symbol,
+        final_note,
+        state,
+    )
+
+    assert len(orders) == 1
+    entry = orders[0]
+    assert isinstance(entry, entry_class)
+    assert entry.order_type is entry_type
+    assert entry.status is trading_enums.OrderStatus.FILLED
+    assert entry.filled_quantity == entry.origin_quantity
+    assert entry.origin_quantity * last_btc_price <= decimal.Decimal("200")
+    assert len(entry.chained_orders) == 2
+    stop_loss, take_profit = entry.chained_orders
+    assert isinstance(stop_loss, trading_personal_data.StopLossOrder)
+    assert isinstance(take_profit, take_profit_class)
+    assert stop_loss.reduce_only is True
+    assert take_profit.reduce_only is True
+    symbol_market = exchange_manager.exchange.get_market_status(
+        symbol,
+        with_fixer=False,
+    )
+    assert stop_loss.origin_price == trading_personal_data.decimal_adapt_price(
+        symbol_market,
+        entry.origin_price * stop_factor,
+    )
+    assert take_profit.origin_price == trading_personal_data.decimal_adapt_price(
+        symbol_market,
+        entry.origin_price * take_profit_factor,
+    )
+    position = exchange_manager.exchange_personal_data.positions_manager.get_symbol_position(
+        symbol,
+        trading_enums.PositionSide.BOTH,
+    )
+    assert not position.is_idle()

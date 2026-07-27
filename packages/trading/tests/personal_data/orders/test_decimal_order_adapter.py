@@ -159,6 +159,33 @@ async def test_decimal_add_dusts_to_quantity_if_necessary():
                                                                     symbol_market,
                                                                     current_symbol_holding) == quantity
 
+    # Derivatives markets can expose an amount limit without a cost limit.
+    symbol_market[Ecmsc.LIMITS.value][Ecmsc.LIMITS_AMOUNT.value][
+        Ecmsc.LIMITS_AMOUNT_MIN.value
+    ] = 0.5
+    symbol_market[Ecmsc.LIMITS.value][Ecmsc.LIMITS_COST.value][
+        Ecmsc.LIMITS_COST_MIN.value
+    ] = None
+    current_symbol_holding = decimal.Decimal(str(5))
+    quantity = decimal.Decimal(str(4))
+    price = decimal.Decimal(str(1))
+    assert personal_data.decimal_add_dusts_to_quantity_if_necessary(
+        quantity, price, symbol_market, current_symbol_holding
+    ) == quantity
+
+    quantity = decimal.Decimal(str(4.5))
+    assert personal_data.decimal_add_dusts_to_quantity_if_necessary(
+        quantity, price, symbol_market, current_symbol_holding
+    ) == current_symbol_holding
+
+    # Missing limits must not raise or arbitrarily increase the order quantity.
+    symbol_market[Ecmsc.LIMITS.value][Ecmsc.LIMITS_AMOUNT.value][
+        Ecmsc.LIMITS_AMOUNT_MIN.value
+    ] = None
+    assert personal_data.decimal_add_dusts_to_quantity_if_necessary(
+        quantity, price, symbol_market, current_symbol_holding
+    ) == quantity
+
 
 async def test_decimal_check_and_adapt_order_details_if_necessary():
     symbol_market = {

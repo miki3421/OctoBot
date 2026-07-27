@@ -51,6 +51,15 @@ class TestV5ForwardSummary(unittest.TestCase):
             self.assertEqual(result["profit_factor"], 2.0)
             self.assertEqual(result["total_pnl"], 5.0)
             self.assertEqual(result["target_distribution"][0]["count"], 1)
+            self.assertEqual(
+                result["ev_series"]["expected_net_pct"], [-0.10, 0.09]
+            )
+            self.assertEqual(
+                result["ev_series"]["accepted"], [False, True]
+            )
+            self.assertEqual(
+                result["ev_series"]["threshold_pct"], 0.075
+            )
 
     def test_missing_journal_is_not_an_error(self):
         result = status._v5_forward_summary(

@@ -9,6 +9,7 @@
   "use_stop_orders": true,
   "use_prices_close_to_current_price": false,
   "close_to_current_price_difference": 0.005,
+  "use_market_entry_orders": true,
   "buy_with_maximum_size_orders": false,
   "sell_with_maximum_size_orders": false,
   "buy_order_amount": "",

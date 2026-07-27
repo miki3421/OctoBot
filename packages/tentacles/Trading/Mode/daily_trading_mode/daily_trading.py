@@ -90,6 +90,14 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             }
         )
         self.UI.user_input(
+            DailyTradingModeConsumer.USE_MARKET_ENTRY_ORDERS_KEY,
+            commons_enums.UserInputTypes.BOOLEAN,
+            False,
+            inputs,
+            title="Market entry orders: Use market orders for new LONG/SHORT positions. "
+                  "Explicitly priced and reduce-only orders keep their requested order type.",
+        )
+        self.UI.user_input(
             "target_profits_mode_take_profit", commons_enums.UserInputTypes.FLOAT, 5, inputs,
             min_val=0,
             title="[Target profits mode] Take profit: percent profits to compute the take profit order price from. "
@@ -509,6 +517,7 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
 
 
 class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
+    USE_MARKET_ENTRY_ORDERS_KEY = "use_market_entry_orders"
     PRICE_KEY = "PRICE"
     VOLUME_KEY = "VOLUME"
     STOP_PRICE_KEY = "STOP_PRICE"
@@ -569,6 +578,10 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
 
         self.USE_TARGET_PROFIT_MODE = trading_config.get("target_profits_mode", False)
         self.USE_CLOSE_TO_CURRENT_PRICE = trading_config.get("use_prices_close_to_current_price", False)
+        self.USE_MARKET_ENTRY_ORDERS = trading_config.get(
+            self.USE_MARKET_ENTRY_ORDERS_KEY,
+            False,
+        )
         self.CLOSE_TO_CURRENT_PRICE_DEFAULT_RATIO = decimal.Decimal(str(
             trading_config.get("close_to_current_price_difference") or 0.02
         ))
@@ -956,6 +969,17 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                 data.get(self.STOP_PRICE_KEY, decimal.Decimal(math.nan))
             )
             create_stop_only = data.get(self.STOP_ONLY, False)
+            if (
+                self.USE_MARKET_ENTRY_ORDERS
+                and increasing_position
+                and not create_stop_only
+                and not user_reduce_only
+                and not user_price
+            ):
+                if state == trading_enums.EvaluatorStates.SHORT.value:
+                    state = trading_enums.EvaluatorStates.VERY_SHORT.value
+                elif state == trading_enums.EvaluatorStates.LONG.value:
+                    state = trading_enums.EvaluatorStates.VERY_LONG.value
             if create_stop_only and (not user_stop_price or user_stop_price.is_nan()):
                 self.logger.error("Stop price is required to create a stop order")
                 return []

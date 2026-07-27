@@ -190,6 +190,30 @@
                             <div class="custom-control custom-switch mr-4">
                                 <input type="checkbox"
                                        class="custom-control-input chart-series-toggle"
+                                       id="displayPerfectMapForecastV2Toggle"
+                                       checked>
+                                <label class="custom-control-label"
+                                       for="displayPerfectMapForecastV2Toggle"
+                                       title="V2 causale: probabilità separata di espansione, direzione e percorso TP/SL/timeout; non approvata">
+                                    Previsione V2
+                                    <span class="badge badge-dark">15m research</span>
+                                </label>
+                            </div>
+                            <div class="custom-control custom-switch mr-4">
+                                <input type="checkbox"
+                                       class="custom-control-input chart-series-toggle"
+                                       id="displayPerfectMapSimulatedPathToggle"
+                                       checked>
+                                <label class="custom-control-label"
+                                       for="displayPerfectMapSimulatedPathToggle"
+                                       title="Previsione causale diretta delle chiusure a 1h/2h/4h/6h/8h, fascia quantile e confronto contro prezzo invariato">
+                                    Path prezzo 1–8h
+                                    <span class="badge badge-secondary">15m research</span>
+                                </label>
+                            </div>
+                            <div class="custom-control custom-switch mr-4">
+                                <input type="checkbox"
+                                       class="custom-control-input chart-series-toggle"
                                        id="displayPercentageProbabilityToggle"
                                        checked>
                                 <label class="custom-control-label"
@@ -226,9 +250,13 @@
                     </div>
                 </div>
                 <div class="small text-muted" id="chart-series-help">
-                    Su 15m confronti H1 e H2 LONG/SHORT alternata; su 5m lo storico
-                    aggiornato dal feed pubblico; su 1h i segnali causali.
-                    Puoi anche cliccare le singole voci della legenda Plotly.
+                    Su 15m confronti H1, H2 LONG/SHORT alternata, previsione V2
+                    e path prezzo diretto 1h–8h con skill contro prezzo flat;
+                    su 5m lo storico aggiornato dal feed pubblico; su 1h i segnali causali.
+                    Marker: Probabilità ▲ LONG verde-acqua / ▼ SHORT arancione;
+                    V2 ○ watch e ▲/▼ candidata; H2 ▲ LONG blu / ▼ SHORT rosso;
+                    Mappa perfetta ▲ LONG verde / ▼ SHORT rosso.
+                    Sono diagnostici o test visivi: nessun marker crea ordini.
                 </div>
             </div>
             <div class="card-body d-none text-center" id="loadingMarketsDiv">
@@ -255,6 +283,21 @@
                         <div class="watched-symbol-graph" id="{{pair}}_graph-symbol-price" symbol="{{pair}}"></div>
                     </div>
                 {% endfor %}
+                <div class="card-body candle-graph border-top"
+                     id="eth-research-comparison-graph"
+                     backtesting_mode={{backtesting_mode}}>
+                    <div class="small text-muted mb-2">
+                        <span class="badge badge-info">ETH confronto research-only</span>
+                        Feed pubblico KuCoin Futures 15m. H1, H2 e probabilità
+                        riutilizzano il modello BTC e non sono validati per ETH;
+                        questo grafico non può creare ordini.
+                    </div>
+                    <div class="watched-symbol-graph"
+                         id="eth-research-graph-symbol-price"
+                         symbol="ETH|USDT:USDT"
+                         data-fixed-time-frame="15m"
+                         data-research-only="true"></div>
+                </div>
                 <div class="card-body candle-graph d-none" id="first_symbol_graph" update-url="{{ url_for('first_symbol') }}" backtesting_mode={{backtesting_mode}}>
                     <div id="graph-symbol-price"></div>
                 </div>
