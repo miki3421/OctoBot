@@ -268,6 +268,7 @@ $(document).ready(function () {
         "displayPercentageResearchToggle",
     ];
     const chartSeriesStorageKey = "octobot.chart-series.v1";
+    const rejectedPathMigrationKey = "octobot.rejected-path-v1-hidden";
 
     const restoreChartSeriesPreferences = () => {
         try {
@@ -294,6 +295,18 @@ $(document).ready(function () {
             localStorage.setItem(chartSeriesStorageKey, JSON.stringify(values));
         } catch (error) {
             // The controls still work for the current page without storage.
+        }
+    }
+
+    const hideRejectedPathOnce = () => {
+        try {
+            if (localStorage.getItem(rejectedPathMigrationKey) !== "true") {
+                $("#displayPerfectMapSimulatedPathToggle")
+                    .prop("checked", false);
+                localStorage.setItem(rejectedPathMigrationKey, "true");
+            }
+        } catch (error) {
+            $("#displayPerfectMapSimulatedPathToggle").prop("checked", false);
         }
     }
 
@@ -325,8 +338,8 @@ $(document).ready(function () {
         if (timeFrame === "15m") {
             help = (
                 "15m live: confronta LONG H1 con H2 LONG/SHORT anticipata, " +
-                "la previsione V2, il path prezzo diretto 1h–8h con " +
-                "skill contro prezzo flat e la mappa ideale. " +
+                "la previsione V2 e la mappa ideale. Il path prezzo V1 " +
+                "è respinto dall'audit ed è spento di default. " +
                 "H2 resta confermata dal volume e con direzione alternata. " +
                 "I marker sono allineati alla chiusura della " +
                 "candela e restano test visivi non approvati."
@@ -393,6 +406,7 @@ $(document).ready(function () {
     let socket = undefined;
 
     restoreChartSeriesPreferences();
+    hideRejectedPathOnce();
     updateChartSeriesContext();
     get_version_upgrade();
     init_dashboard_websocket();

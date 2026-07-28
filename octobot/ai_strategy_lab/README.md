@@ -423,6 +423,25 @@ and trade-flow buckets. Unique exchange sequence/timestamp and trade IDs
 deduplicate reconnect overlap, while WAL plus one-second commits bound the
 uncommitted tail.
 
+The known 27 July BTC sell-off can be reproduced as a diagnostic case study
+without stopping the live collector or opening orders:
+
+```bash
+python3 -m octobot.ai_strategy_lab.scalping_crash_case_study \
+  write-protocol \
+  --output ../octobot-local/backtesting/research/scalping_crash_case_v1
+python3 -m octobot.ai_strategy_lab.scalping_crash_case_study \
+  evaluate \
+  --database ../octobot-local/scalping/btc-futures-level5.sqlite \
+  --output ../octobot-local/backtesting/research/scalping_crash_case_v1
+```
+
+The evaluator takes one read-only SQLite snapshot, persists its complete
+15-minute extraction and explicitly treats the observed sell-off as
+development evidence. Its post-event hypothesis is only a future long-entry
+veto; it cannot be interpreted as a short signal or connected to paper
+trading before the frozen 30-day forward gate.
+
 The sidecar has no operational profile, API keys or order code. Its health
 file verifies fresh books and SQLite integrity and always declares
 `public_data_only=true`, `credentials_used=false`,

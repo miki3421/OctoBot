@@ -1171,7 +1171,7 @@ function update_perfect_map_simulated_path_annotation(
         bgcolor: "rgba(20, 20, 20, 0.84)",
         font: {color: "#ffffff", size: 11},
         text: (
-            `<b>${isDirectPricePath ? "Previsione prezzo diretta" : "Path simulato"} ` +
+            `<b>${isDirectPricePath ? "PATH V1 RESPINTO — audit diagnostico" : "Path simulato"} ` +
             `${forecast.asset} 15m → 1h / 8h — NON segnale</b><br>` +
             directPathText +
             `accuratezza direzionale totale: 4h ` +
@@ -1186,7 +1186,18 @@ function update_perfect_map_simulated_path_annotation(
             `${_format_path_percentage(fourHours.empirical_band_coverage_pct)} / ` +
             `${_format_path_percentage(eightHours.empirical_band_coverage_pct)}` +
             directAuditText +
-            `<br>causale e research-only; accuratezza non equivale a win rate`
+            (
+                isDirectPricePath
+                    ? (
+                        `<br><span style="color:#ff6b6b">Audit fallito: ` +
+                        `nessuna skill stabile contro prezzo flat; non usare ` +
+                        `per decisioni.</span>`
+                    )
+                    : (
+                        `<br>causale e research-only; accuratezza non equivale ` +
+                        `a win rate`
+                    )
+            )
         )
     });
 }
