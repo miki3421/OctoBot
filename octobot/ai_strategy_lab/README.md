@@ -442,8 +442,9 @@ development evidence. Its post-event hypothesis is only a future long-entry
 veto; it cannot be interpreted as a short signal or connected to paper
 trading before the frozen 30-day forward gate.
 
-The sidecar has no operational profile, API keys or order code. Its health
-file verifies fresh books and SQLite integrity and always declares
+The sidecar has no operational profile, API keys or order code. Its live
+health file verifies fresh books and lightweight SQLite operability and always
+declares
 `public_data_only=true`, `credentials_used=false`,
 `orders_authorized=false` and `automatic_promotion=false`. The frozen first
 hypothesis is taker micro-momentum with 5/15/30/60-second features, 1-minute

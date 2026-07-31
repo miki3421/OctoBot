@@ -26,7 +26,8 @@ TRADE_TOPIC_TEMPLATE = "/contractMarket/execution:{symbol}"
 BOOK_PUSH_INTERVAL_MS = 100
 AGGREGATION_INTERVAL_MS = 1_000
 DEPTH_LEVELS = 5
-INTEGRITY_CHECK_INTERVAL_SECONDS = 3_600
+DATABASE_INTEGRITY_STATUS = "deferred_offline"
+DATABASE_INTEGRITY_CHECK_MODE = "explicit_offline_only"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -239,10 +240,6 @@ class ScalpingStore:
         self.first_book_ts_ns = counts["first_book_ns"]
         self.latest_book_ts_ns = counts["last_book_ns"]
         self.latest_bucket_ts_s = counts["last_bucket_s"]
-        self.integrity_status = str(
-            self.connection.execute("PRAGMA quick_check").fetchone()[0]
-        )
-        self.last_integrity_check_monotonic = time.monotonic()
         self.started_at = _utc_now().isoformat()
         self.connection.execute(
             """
@@ -549,21 +546,29 @@ class ScalpingStore:
             "last_book_ns": self.latest_book_ts_ns,
         }
 
-    def quick_check(self, *, force: bool = False) -> str:
+    def quick_check(self) -> str:
+        """Run an explicit full check; never call this from the live loop."""
+
         self.commit_if_due(force=True)
-        now = time.monotonic()
-        if (
-            force
-            or now - self.last_integrity_check_monotonic
-            >= INTEGRITY_CHECK_INTERVAL_SECONDS
-        ):
-            self.integrity_status = str(
-                self.connection.execute(
-                    "PRAGMA quick_check"
-                ).fetchone()[0]
-            )
-            self.last_integrity_check_monotonic = now
-        return self.integrity_status
+        return str(
+            self.connection.execute("PRAGMA quick_check").fetchone()[0]
+        )
+
+    def operational_check(self) -> bool:
+        """Verify the active connection without scanning the event tables."""
+
+        try:
+            row = self.connection.execute(
+                """
+                SELECT schema_version
+                FROM scalping_sessions
+                WHERE session_id = ? AND status = 'running'
+                """,
+                (self.session_id,),
+            ).fetchone()
+            return row is not None and int(row[0]) == SCHEMA_VERSION
+        except (sqlite3.DatabaseError, TypeError, ValueError):
+            return False
 
     def close(self, status: str, reason: str | None = None) -> None:
         self.commit_if_due(force=True)
@@ -610,7 +615,7 @@ def build_health(
     error: BaseException | None = None,
 ) -> dict:
     counts = store.health_counts()
-    integrity = store.quick_check()
+    database_operational = store.operational_check()
     now = _utc_now()
     last_book_age = (
         (
@@ -623,9 +628,14 @@ def build_health(
         status == "healthy"
         and connected
         and counts["book_events"] > 0
-        and integrity == "ok"
+        and database_operational
         and last_book_age is not None
         and last_book_age <= config.stale_book_seconds
+    )
+    reported_status = (
+        "healthy"
+        if healthy
+        else "unhealthy" if status == "healthy" else status
     )
     database_bytes = sum(
         path.stat().st_size
@@ -643,7 +653,7 @@ def build_health(
     value = {
         "schema_version": SCHEMA_VERSION,
         "mode": "scalping_research_only",
-        "status": "healthy" if healthy else status,
+        "status": reported_status,
         "public_data_only": True,
         "credentials_used": False,
         "orders_authorized": False,
@@ -654,7 +664,9 @@ def build_health(
         "aggregation_interval_ms": AGGREGATION_INTERVAL_MS,
         "database_path": str(config.database_path),
         "database_bytes": database_bytes,
-        "database_integrity": integrity,
+        "database_operational": database_operational,
+        "database_integrity": DATABASE_INTEGRITY_STATUS,
+        "database_integrity_check_mode": DATABASE_INTEGRITY_CHECK_MODE,
         "session_id": store.session_id,
         "session_started_at": store.started_at,
         "connected": connected,

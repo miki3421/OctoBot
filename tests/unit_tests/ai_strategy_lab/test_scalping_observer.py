@@ -151,7 +151,9 @@ def test_store_is_append_only_deduplicated_and_materializes_seconds(
         ).fetchone()[0] == "completed"
 
 
-def test_health_is_fail_closed_and_never_authorizes_orders(tmp_path):
+def test_health_is_fail_closed_and_never_authorizes_orders(
+    tmp_path, monkeypatch
+):
     config = _config(tmp_path)
     store = scalping_observer.ScalpingStore(config, "session-1")
     now_ns = time.time_ns()
@@ -161,6 +163,11 @@ def test_health_is_fail_closed_and_never_authorizes_orders(tmp_path):
             now_ns,
         )
     )
+
+    def fail_if_full_check_runs():
+        raise AssertionError("live health must not scan the full database")
+
+    monkeypatch.setattr(store, "quick_check", fail_if_full_check_runs)
 
     health = scalping_observer.build_health(
         config,
@@ -177,8 +184,41 @@ def test_health_is_fail_closed_and_never_authorizes_orders(tmp_path):
     assert health["orders_authorized"] is False
     assert health["automatic_promotion"] is False
     assert health["book_push_interval_ms"] == 100
-    assert health["database_integrity"] == "ok"
+    assert health["database_operational"] is True
+    assert health["database_integrity"] == "deferred_offline"
+    assert (
+        health["database_integrity_check_mode"]
+        == "explicit_offline_only"
+    )
     assert health["book_events"] == 1
+    store.close("completed")
+
+
+def test_health_reports_unhealthy_when_database_is_not_operational(
+    tmp_path, monkeypatch
+):
+    config = _config(tmp_path)
+    store = scalping_observer.ScalpingStore(config, "session-1")
+    now_ns = time.time_ns()
+    store.record_book(
+        scalping_observer.parse_book_message(
+            _book_message(now_ns // 1_000_000),
+            now_ns,
+        )
+    )
+    monkeypatch.setattr(store, "operational_check", lambda: False)
+
+    health = scalping_observer.build_health(
+        config,
+        store,
+        status="healthy",
+        connected=True,
+        subscriptions_acknowledged=2,
+    )
+
+    assert health["status"] == "unhealthy"
+    assert health["database_operational"] is False
+    assert health["orders_authorized"] is False
     store.close("completed")
 
 

@@ -180,7 +180,9 @@ services:
           and value.get('automatic_promotion') is False
           and value.get('symbol') == 'XBTUSDTM'
           and value.get('book_push_interval_ms') == 100
-          and value.get('database_integrity') == 'ok'
+          and value.get('database_operational') is True
+          and value.get('database_integrity') == 'deferred_offline'
+          and value.get('database_integrity_check_mode') == 'explicit_offline_only'
           and value.get('connected') is True
           and value.get('book_events',0) >= 1
           and (now-last).total_seconds() < 20 else 1)"
