@@ -574,7 +574,7 @@ class DeterministicRiskGuard:
 class SQLiteDecisionJournal:
     """Append-only local audit trail for every LLM decision and rejection."""
 
-    SCHEMA_VERSION = 3
+    SCHEMA_VERSION = 4
 
     def __init__(self, database_path: str):
         self.database_path = pathlib.Path(database_path)
@@ -690,6 +690,29 @@ class SQLiteDecisionJournal:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_ai_position_outcomes_decision "
                 "ON ai_position_outcomes(decision_id, exit_at)"
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ai_protected_exit_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL,
+                    event_key TEXT NOT NULL UNIQUE,
+                    exchange_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    entry_order_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    entry_price REAL NOT NULL,
+                    observed_price REAL,
+                    stop_price REAL,
+                    payload_json TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_ai_protected_exit_entry "
+                "ON ai_protected_exit_events("
+                "exchange_name, symbol, entry_order_id, id)"
             )
 
     def record(
@@ -975,6 +998,174 @@ class SQLiteDecisionJournal:
                 }
             )
         return candidates
+
+    def get_open_position_entry(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+    ) -> typing.Optional[dict]:
+        """Return the latest journal entry that has no recorded position exit."""
+
+        self.initialize()
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                """
+                SELECT event.id, event.created_at, event.decision_id,
+                       event.order_id, event.side, event.filled_quantity,
+                       event.quantity, event.price, event.average_price,
+                       event.raw_json
+                FROM ai_order_events AS event
+                WHERE event.exchange_name = ? AND event.symbol = ?
+                      AND event.status = 'filled'
+                      AND event.reduce_only = 0
+                      AND NOT EXISTS (
+                          SELECT 1 FROM ai_position_outcomes AS outcome
+                          WHERE outcome.entry_event_id = event.id
+                      )
+                ORDER BY event.id DESC
+                LIMIT 1
+                """,
+                (exchange_name, symbol),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            raw_order = json.loads(row["raw_json"])
+        except (json.JSONDecodeError, TypeError):
+            raw_order = None
+        return {
+            "event_id": int(row["id"]),
+            "created_at": datetime.datetime.fromisoformat(row["created_at"]),
+            "decision_id": (
+                int(row["decision_id"])
+                if row["decision_id"] is not None
+                else None
+            ),
+            "entry_order_id": str(row["order_id"]),
+            "side": str(row["side"] or "").lower(),
+            "quantity": self._float_or_none(
+                row["filled_quantity"] or row["quantity"]
+            ),
+            "entry_price": self._float_or_none(
+                row["average_price"] or row["price"]
+            ),
+            "raw_order": raw_order if isinstance(raw_order, dict) else None,
+        }
+
+    def record_protected_exit_event(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+        entry_order_id: str,
+        event_type: str,
+        entry_price: typing.Any,
+        observed_price: typing.Any = None,
+        stop_price: typing.Any = None,
+        payload: typing.Optional[dict] = None,
+        occurred_at: typing.Optional[datetime.datetime] = None,
+    ) -> typing.Optional[int]:
+        """Append an idempotent protected-profit lifecycle event."""
+
+        self.initialize()
+        occurred_at = occurred_at or datetime.datetime.now(
+            datetime.timezone.utc
+        )
+        if occurred_at.tzinfo is None:
+            occurred_at = occurred_at.replace(tzinfo=datetime.timezone.utc)
+        entry_price_value = self._float_or_none(entry_price)
+        observed_price_value = self._float_or_none(observed_price)
+        stop_price_value = self._float_or_none(stop_price)
+        if (
+            not exchange_name
+            or not symbol
+            or not entry_order_id
+            or not event_type
+            or entry_price_value is None
+            or entry_price_value <= 0
+        ):
+            raise ValueError(
+                "protected exit event requires exchange, symbol, entry, "
+                "event type and positive entry price"
+            )
+        normalized_payload = payload or {}
+        event_identity = {
+            "exchange_name": exchange_name,
+            "symbol": symbol,
+            "entry_order_id": str(entry_order_id),
+            "event_type": str(event_type),
+        }
+        event_key = hashlib.sha256(
+            json.dumps(
+                event_identity,
+                sort_keys=True,
+                ensure_ascii=False,
+                default=str,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO ai_protected_exit_events (
+                    created_at, schema_version, event_key, exchange_name,
+                    symbol, entry_order_id, event_type, entry_price,
+                    observed_price, stop_price, payload_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    occurred_at.isoformat(),
+                    self.SCHEMA_VERSION,
+                    event_key,
+                    exchange_name,
+                    symbol,
+                    str(entry_order_id),
+                    str(event_type),
+                    entry_price_value,
+                    observed_price_value,
+                    stop_price_value,
+                    json.dumps(
+                        normalized_payload,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        default=str,
+                    ),
+                ),
+            )
+            if cursor.rowcount:
+                return int(cursor.lastrowid)
+            row = connection.execute(
+                """
+                SELECT id FROM ai_protected_exit_events
+                WHERE event_key = ?
+                """,
+                (event_key,),
+            ).fetchone()
+            return int(row[0]) if row else None
+
+    def get_protected_exit_event_types(
+        self,
+        *,
+        exchange_name: str,
+        symbol: str,
+        entry_order_id: str,
+    ) -> set[str]:
+        """Return recorded lifecycle event types for an open entry."""
+
+        self.initialize()
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            rows = connection.execute(
+                """
+                SELECT event_type
+                FROM ai_protected_exit_events
+                WHERE exchange_name = ? AND symbol = ?
+                      AND entry_order_id = ?
+                """,
+                (exchange_name, symbol, str(entry_order_id)),
+            ).fetchall()
+        return {str(row[0]) for row in rows}
 
     @classmethod
     def _normalize_order(cls, order):

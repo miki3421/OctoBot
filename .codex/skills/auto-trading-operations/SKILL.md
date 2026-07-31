@@ -41,8 +41,9 @@ segnale/ordine.
 - In qualunque errore (timeout, JSON/schema invalido, dati insufficienti o
   rifiuto del guard) emetti un segnale neutro e non creare ordini.
 - Le protezioni operative restano deterministiche per entrambe le direzioni:
-  esposizione massima 10%, stop loss 2% e take profit 4% tramite
-  `DailyTradingMode`.
+  esposizione massima 10%, stop iniziale 1%, attivazione a +1,2%, stop
+  protetto a +1%, uscita massima dopo 24 ore e nessun take profit fisso,
+  tramite `DailyTradingMode` esclusivamente in paper trading.
 - Non eseguire chiamate LLM in backtesting salvo abilitazione esplicita. Usa il
   replay del segnale guardato registrato per lo stesso timestamp di chiusura
   candela; se manca una riga, pubblica un segnale neutro e non creare ordini.

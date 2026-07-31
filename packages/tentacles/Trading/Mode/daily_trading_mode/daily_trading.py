@@ -14,6 +14,7 @@
 #  You should have received a copy of the GNU Lesser General Public
 #  License along with this library.
 import asyncio
+import datetime
 import decimal
 import math
 import dataclasses
@@ -54,6 +55,11 @@ class OrderDetails:
 
 class DailyTradingMode(trading_modes.AbstractTradingMode):
     RECORD_AI_TRADE_EVENTS = "record_ai_trade_events"
+    PROTECTED_PROFIT_MODE = "protected_profit_mode"
+    PROTECTED_PROFIT_INITIAL_STOP = "protected_profit_initial_stop"
+    PROTECTED_PROFIT_ACTIVATION = "protected_profit_activation"
+    PROTECTED_PROFIT_LOCKED_STOP = "protected_profit_locked_stop"
+    PROTECTED_PROFIT_MAX_HOURS = "protected_profit_max_hours"
     DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
     PAPER_RESTORE_UPDATE_TYPE = "startup_restore"
     PAPER_RESTORE_DEPENDENCY_RETRIES = 60
@@ -108,6 +114,81 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                   "target_profits_mode": True
                 }
             }
+        )
+        self.UI.user_input(
+            self.PROTECTED_PROFIT_MODE,
+            commons_enums.UserInputTypes.BOOLEAN,
+            False,
+            inputs,
+            title=(
+                "Protected profit mode: replace the fixed take-profit order "
+                "with an initial stop, a profit-lock activation and a maximum "
+                "holding time. Paper trading only."
+            ),
+            editor_options={
+                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
+                    "target_profits_mode": True
+                }
+            },
+        )
+        self.UI.user_input(
+            self.PROTECTED_PROFIT_INITIAL_STOP,
+            commons_enums.UserInputTypes.FLOAT,
+            1.0,
+            inputs,
+            min_val=0,
+            max_val=100,
+            title="[Protected profit] Initial stop loss percentage.",
+            editor_options={
+                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
+                    self.PROTECTED_PROFIT_MODE: True
+                }
+            },
+        )
+        self.UI.user_input(
+            self.PROTECTED_PROFIT_ACTIVATION,
+            commons_enums.UserInputTypes.FLOAT,
+            1.2,
+            inputs,
+            min_val=0,
+            title=(
+                "[Protected profit] Favorable move required before moving "
+                "the stop into profit."
+            ),
+            editor_options={
+                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
+                    self.PROTECTED_PROFIT_MODE: True
+                }
+            },
+        )
+        self.UI.user_input(
+            self.PROTECTED_PROFIT_LOCKED_STOP,
+            commons_enums.UserInputTypes.FLOAT,
+            1.0,
+            inputs,
+            min_val=0,
+            title=(
+                "[Protected profit] Minimum profit percentage protected after "
+                "activation."
+            ),
+            editor_options={
+                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
+                    self.PROTECTED_PROFIT_MODE: True
+                }
+            },
+        )
+        self.UI.user_input(
+            self.PROTECTED_PROFIT_MAX_HOURS,
+            commons_enums.UserInputTypes.FLOAT,
+            24.0,
+            inputs,
+            min_val=0,
+            title="[Protected profit] Maximum position holding time in hours.",
+            editor_options={
+                commons_enums.UserInputOtherSchemaValuesTypes.DEPENDENCIES.value: {
+                    self.PROTECTED_PROFIT_MODE: True
+                }
+            },
         )
         self.UI.user_input(
             "use_stop_orders", commons_enums.UserInputTypes.BOOLEAN, True, inputs,
@@ -216,17 +297,32 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
 
     async def create_consumers(self) -> list:
         consumers = await super().create_consumers()
-        if not self.trading_config.get(self.RECORD_AI_TRADE_EVENTS, False):
+        self._protected_exit_enabled = bool(
+            self.trading_config.get(self.PROTECTED_PROFIT_MODE, False)
+        )
+        self._protected_exit_ready = False
+        self._protected_exit_lock = asyncio.Lock()
+        self._protected_exit_entry_cache = None
+        record_trade_events = bool(
+            self.trading_config.get(self.RECORD_AI_TRADE_EVENTS, False)
+        )
+        if not (record_trade_events or self._protected_exit_enabled):
             return consumers
         if self.exchange_manager.is_backtesting:
-            self.logger.info(
-                "AI trade event journaling is disabled during backtesting."
-            )
+            if record_trade_events:
+                self.logger.info(
+                    "AI trade event journaling is disabled during backtesting."
+                )
+            if self._protected_exit_enabled:
+                self.logger.info(
+                    "Protected-profit runtime management is disabled during "
+                    "backtesting; use the causal research backtester instead."
+                )
             return consumers
         if not trading_api.is_trader_simulated(self.exchange_manager):
             self.logger.error(
-                "AI trade event journaling requires the paper trader; "
-                "no order event consumer was started."
+                "AI trade journaling and protected-profit management require "
+                "the paper trader; no runtime consumer was started."
             )
             return consumers
         self._ai_decision_journal = SQLiteDecisionJournal(
@@ -235,6 +331,7 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                 self.DEFAULT_AI_DECISIONS_DB_PATH,
             )
         )
+        self._ai_decision_journal.initialize()
         order_consumer = await exchanges_channel.get_chan(
             trading_personal_data.OrdersChannel.get_name(),
             self.exchange_manager.id,
@@ -242,6 +339,16 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             self._ai_order_notification_callback,
             symbol=self.symbol,
         )
+        additional_consumers = [order_consumer]
+        if self._protected_exit_enabled:
+            mark_price_consumer = await exchanges_channel.get_chan(
+                trading_constants.MARK_PRICE_CHANNEL,
+                self.exchange_manager.id,
+            ).new_consumer(
+                callback=self._protected_exit_mark_price_callback,
+                symbol=self.symbol,
+            )
+            additional_consumers.append(mark_price_consumer)
         mode_consumer = next(
             (
                 consumer
@@ -253,7 +360,7 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
         self._paper_restore_task = asyncio.create_task(
             self._restore_and_reconcile_after_startup(mode_consumer)
         )
-        return consumers + [order_consumer]
+        return consumers + additional_consumers
 
     async def stop(self):
         restore_task = getattr(self, "_paper_restore_task", None)
@@ -297,6 +404,14 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                         self.exchange_manager, symbol=self.symbol
                     )
                 }
+            restored_position = (
+                await self._restore_paper_position_from_journal()
+            )
+            if restored_position:
+                self.logger.info(
+                    f"Restored the {self.symbol} simulated futures position "
+                    "from its append-only entry event."
+                )
             restored_count = await self._restore_paper_orders_from_journal(
                 mode_consumer,
                 active_order_ids,
@@ -330,6 +445,21 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             self.logger.warning(
                 f"Unable to restore/reconcile simulated AI order events: {error}"
             )
+        finally:
+            self._protected_exit_ready = True
+            if self._protected_exit_enabled:
+                try:
+                    mark_price = (
+                        await self.exchange_manager.exchange_symbols_data
+                        .get_exchange_symbol_data(self.symbol)
+                        .prices_manager.get_mark_price(timeout=10)
+                    )
+                    await self._manage_protected_exit(mark_price)
+                except Exception as error:
+                    self.logger.warning(
+                        "Unable to run protected-profit startup check for "
+                        f"{self.symbol}: {error}"
+                    )
 
     async def _restore_native_paper_orders(
         self,
@@ -370,6 +500,117 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                 )
             )
         return restored_count
+
+    async def _restore_paper_position_from_journal(self) -> bool:
+        """Replay one validated paper fill when futures position state was lost."""
+
+        if not self.exchange_manager.is_future:
+            return False
+        if any(
+            position.symbol == self.symbol and not position.is_idle()
+            for position in trading_api.get_positions(self.exchange_manager)
+        ):
+            return False
+        entry = self._ai_decision_journal.get_open_position_entry(
+            exchange_name=self.exchange_manager.exchange_name,
+            symbol=self.symbol,
+        )
+        if entry is None or not isinstance(entry.get("raw_order"), dict):
+            return False
+        if entry.get("side") not in {"buy", "sell"}:
+            return False
+        expected_side = (
+            trading_enums.TradeOrderSide.SELL
+            if entry.get("side") == "buy"
+            else trading_enums.TradeOrderSide.BUY
+        )
+        try:
+            expected_quantity = decimal.Decimal(str(entry.get("quantity")))
+            expected_price = decimal.Decimal(str(entry.get("entry_price")))
+        except decimal.InvalidOperation:
+            return False
+        if (
+            expected_quantity <= trading_constants.ZERO
+            or expected_price <= trading_constants.ZERO
+        ):
+            return False
+        protective_stops = [
+            order
+            for order in trading_api.get_open_orders(
+                self.exchange_manager,
+                symbol=self.symbol,
+            )
+            if (
+                order.reduce_only
+                and order.side is expected_side
+                and trading_personal_data.is_stop_order(order.order_type)
+                and order.origin_quantity == expected_quantity
+            )
+        ]
+        if len(protective_stops) != 1:
+            self.logger.warning(
+                "Skipped simulated position restore for "
+                f"{self.symbol}: expected exactly one matching stop, found "
+                f"{len(protective_stops)}."
+            )
+            return False
+        restored_entry = (
+            trading_personal_data.create_order_instance_from_raw(
+                self.exchange_manager.trader,
+                entry["raw_order"],
+            )
+        )
+        if (
+            restored_entry.order_id != entry["entry_order_id"]
+            or restored_entry.symbol != self.symbol
+            or restored_entry.reduce_only
+            or not restored_entry.is_filled()
+            or restored_entry.filled_quantity != expected_quantity
+            or restored_entry.filled_price != expected_price
+        ):
+            self.logger.error(
+                f"Refused unsafe simulated position restore for {self.symbol}."
+            )
+            return False
+        await (
+            self.exchange_manager.exchange_personal_data
+            .handle_portfolio_and_position_update_from_order(
+                restored_entry,
+                require_exchange_update=False,
+                should_notify=True,
+            )
+        )
+        position = next(
+            (
+                candidate
+                for candidate in trading_api.get_positions(
+                    self.exchange_manager
+                )
+                if (
+                    candidate.symbol == self.symbol
+                    and not candidate.is_idle()
+                )
+            ),
+            None,
+        )
+        if (
+            position is None
+            or position.quantity.copy_abs() != expected_quantity.copy_abs()
+            or position.entry_price != expected_price
+        ):
+            raise RuntimeError(
+                f"Restored {self.symbol} paper position differs from its fill."
+            )
+        self._ai_decision_journal.record_protected_exit_event(
+            exchange_name=self.exchange_manager.exchange_name,
+            symbol=self.symbol,
+            entry_order_id=entry["entry_order_id"],
+            event_type="position_restored",
+            entry_price=expected_price,
+            stop_price=protective_stops[0].origin_price,
+            payload={"source": "append_only_entry_event"},
+        )
+        return True
 
     @staticmethod
     def _is_journal_order_restorable(candidate: dict, symbol: str) -> bool:
@@ -511,6 +752,256 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                 f"Unable to append simulated AI order event: {error}"
             )
 
+    async def _protected_exit_mark_price_callback(
+        self,
+        exchange,
+        exchange_id,
+        cryptocurrency,
+        symbol,
+        mark_price,
+    ):
+        if (
+            not self._protected_exit_enabled
+            or not self._protected_exit_ready
+            or symbol != self.symbol
+        ):
+            return
+        await self._manage_protected_exit(mark_price)
+
+    async def _manage_protected_exit(self, mark_price):
+        async with self._protected_exit_lock:
+            position = next(
+                (
+                    candidate
+                    for candidate in trading_api.get_positions(
+                        self.exchange_manager
+                    )
+                    if (
+                        candidate.symbol == self.symbol
+                        and not candidate.is_idle()
+                    )
+                ),
+                None,
+            )
+            if position is None:
+                self._protected_exit_entry_cache = None
+                return
+            entry = getattr(self, "_protected_exit_entry_cache", None)
+            position_entry_price = decimal.Decimal(str(position.entry_price))
+            position_quantity = position.quantity.copy_abs()
+            position_entry_side = (
+                "buy"
+                if position.size > trading_constants.ZERO
+                else "sell"
+            )
+            if not (
+                entry
+                and entry.get("side") == position_entry_side
+                and decimal.Decimal(str(entry.get("entry_price")))
+                == position_entry_price
+                and decimal.Decimal(str(entry.get("quantity"))).copy_abs()
+                == position_quantity
+            ):
+                entry = self._ai_decision_journal.get_open_position_entry(
+                    exchange_name=self.exchange_manager.exchange_name,
+                    symbol=self.symbol,
+                )
+                if entry is not None:
+                    self._protected_exit_entry_cache = entry
+            if entry is None:
+                self.logger.warning(
+                    "Protected-profit management is fail-closed for "
+                    f"{self.symbol}: journal entry is missing."
+                )
+                return
+            entry_price = position_entry_price
+            current_price = decimal.Decimal(str(mark_price))
+            if (
+                not entry_price.is_finite()
+                or entry_price <= trading_constants.ZERO
+                or not current_price.is_finite()
+                or current_price <= trading_constants.ZERO
+            ):
+                return
+            is_long = position.size > trading_constants.ZERO
+            activation_ratio = decimal.Decimal(str(
+                self.trading_config.get(
+                    self.PROTECTED_PROFIT_ACTIVATION, 1.2
+                )
+            )) / trading_constants.ONE_HUNDRED
+            locked_ratio = decimal.Decimal(str(
+                self.trading_config.get(
+                    self.PROTECTED_PROFIT_LOCKED_STOP, 1.0
+                )
+            )) / trading_constants.ONE_HUNDRED
+            max_hours = decimal.Decimal(str(
+                self.trading_config.get(
+                    self.PROTECTED_PROFIT_MAX_HOURS, 24.0
+                )
+            ))
+            activation_price = entry_price * (
+                trading_constants.ONE
+                + activation_ratio * (1 if is_long else -1)
+            )
+            locked_stop_price = entry_price * (
+                trading_constants.ONE
+                + locked_ratio * (1 if is_long else -1)
+            )
+            symbol_market = self.exchange_manager.exchange.get_market_status(
+                self.symbol,
+                with_fixer=False,
+            )
+            locked_stop_price = trading_personal_data.decimal_adapt_price(
+                symbol_market,
+                locked_stop_price,
+            )
+            entry_at = entry["created_at"]
+            if entry_at.tzinfo is None:
+                entry_at = entry_at.replace(tzinfo=datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            if now >= entry_at + datetime.timedelta(hours=float(max_hours)):
+                await self._close_position_at_horizon(
+                    position,
+                    entry,
+                    entry_price,
+                    current_price,
+                    max_hours,
+                    now,
+                )
+                return
+
+            stop_order = next(
+                (
+                    order
+                    for order in trading_api.get_open_orders(
+                        self.exchange_manager,
+                        symbol=self.symbol,
+                    )
+                    if (
+                        order.reduce_only
+                        and trading_personal_data.is_stop_order(
+                            order.order_type
+                        )
+                    )
+                ),
+                None,
+            )
+            if stop_order is None:
+                self.logger.error(
+                    f"Protected-profit stop is missing for {self.symbol}."
+                )
+                return
+            already_locked = (
+                stop_order.origin_price >= locked_stop_price
+                if is_long
+                else stop_order.origin_price <= locked_stop_price
+            )
+            activation_touched = (
+                current_price >= activation_price
+                if is_long
+                else current_price <= activation_price
+            )
+            if not activation_touched or already_locked:
+                return
+            edited = await self.exchange_manager.trader.edit_order(
+                stop_order,
+                edited_price=locked_stop_price,
+                edited_stop_price=locked_stop_price,
+                edited_current_price=current_price,
+            )
+            if not edited:
+                self.logger.error(
+                    f"Unable to protect profit for {self.symbol}."
+                )
+                return
+            self._ai_decision_journal.record_protected_exit_event(
+                exchange_name=self.exchange_manager.exchange_name,
+                symbol=self.symbol,
+                entry_order_id=entry["entry_order_id"],
+                event_type="profit_lock_activated",
+                entry_price=entry_price,
+                observed_price=current_price,
+                stop_price=locked_stop_price,
+                payload={
+                    "activation_price": str(activation_price),
+                    "direction": "long" if is_long else "short",
+                },
+            )
+            self.logger.info(
+                f"Protected {self.symbol} {'LONG' if is_long else 'SHORT'} "
+                f"profit at {locked_stop_price} after activation "
+                f"{activation_price}."
+            )
+
+    async def _close_position_at_horizon(
+        self,
+        position,
+        entry,
+        entry_price,
+        current_price,
+        max_hours,
+        occurred_at,
+    ):
+        entry_at = entry["created_at"]
+        if entry_at.tzinfo is None:
+            entry_at = entry_at.replace(tzinfo=datetime.timezone.utc)
+        horizon_at = entry_at + datetime.timedelta(hours=float(max_hours))
+        self._ai_decision_journal.record_protected_exit_event(
+            exchange_name=self.exchange_manager.exchange_name,
+            symbol=self.symbol,
+            entry_order_id=entry["entry_order_id"],
+            event_type="horizon_exit_requested",
+            entry_price=entry_price,
+            observed_price=current_price,
+            payload={
+                "maximum_holding_hours": str(max_hours),
+                "overdue_seconds": max(
+                    0,
+                    int((occurred_at - horizon_at).total_seconds()),
+                ),
+                "policy_version": "protected-profit-v1",
+                "direction": (
+                    "long"
+                    if position.size > trading_constants.ZERO
+                    else "short"
+                ),
+            },
+        )
+        created_orders = await self.exchange_manager.trader.close_position(
+            position,
+            emit_trading_signals=False,
+        )
+        if not created_orders:
+            self.logger.error(
+                f"Unable to close {self.symbol} at protected-profit horizon."
+            )
+            return
+        self._protected_exit_entry_cache = None
+        for order in list(
+            trading_api.get_open_orders(
+                self.exchange_manager,
+                symbol=self.symbol,
+            )
+        ):
+            if order.reduce_only:
+                try:
+                    await self.exchange_manager.trader.cancel_order(
+                        order,
+                        emit_trading_signals=False,
+                    )
+                except (
+                    trading_errors.OrderCancelError,
+                    trading_errors.UnexpectedExchangeSideOrderStateError,
+                ) as error:
+                    self.logger.warning(
+                        f"Unable to cancel stale exit order {order.order_id}: "
+                        f"{error}"
+                    )
+        self.logger.info(
+            f"Closed {self.symbol} at the {max_hours}h protected-profit "
+            "horizon."
+        )
+
     @classmethod
     def get_is_symbol_wildcard(cls) -> bool:
         return False
@@ -585,12 +1076,26 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
         self.CLOSE_TO_CURRENT_PRICE_DEFAULT_RATIO = decimal.Decimal(str(
             trading_config.get("close_to_current_price_difference") or 0.02
         ))
+        configured_take_profit = trading_config.get(
+            "target_profits_mode_take_profit"
+        )
         self.TARGET_PROFIT_TAKE_PROFIT = decimal.Decimal(str(
-            trading_config.get("target_profits_mode_take_profit") or 5
+            5 if configured_take_profit is None else configured_take_profit
         )) / trading_constants.ONE_HUNDRED
+        self.USE_PROTECTED_PROFIT_MODE = trading_config.get(
+            DailyTradingMode.PROTECTED_PROFIT_MODE,
+            False,
+        )
         self.USE_STOP_ORDERS = trading_config.get("use_stop_orders", True)
         self.TARGET_PROFIT_STOP_LOSS = decimal.Decimal(str(
-            trading_config.get("target_profits_mode_stop_loss") or 2.5
+            (
+                trading_config.get(
+                    DailyTradingMode.PROTECTED_PROFIT_INITIAL_STOP
+                )
+                if self.USE_PROTECTED_PROFIT_MODE
+                else trading_config.get("target_profits_mode_stop_loss")
+            )
+            or (1.0 if self.USE_PROTECTED_PROFIT_MODE else 2.5)
         )) / trading_constants.ONE_HUNDRED
         self.TARGET_PROFIT_ENABLE_POSITION_INCREASE = trading_config.get(
             "target_profits_mode_enable_position_increase", False
@@ -1013,7 +1518,10 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
             # use stop loss when increasing the position and the user explicitly asks for one
             use_chained_take_profit_orders = increasing_position and (
                 (not user_take_profit_price.is_nan() or additional_user_take_profit_prices)
-                or self.USE_TARGET_PROFIT_MODE
+                or (
+                    self.USE_TARGET_PROFIT_MODE
+                    and not self.USE_PROTECTED_PROFIT_MODE
+                )
             )
             use_chained_stop_loss_orders = increasing_position and (
                 not user_stop_price.is_nan() or (self.USE_TARGET_PROFIT_MODE and self.USE_STOP_ORDERS)

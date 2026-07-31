@@ -1777,3 +1777,69 @@ async def test_market_entry_orders_futures_with_protections(
         trading_enums.PositionSide.BOTH,
     )
     assert not position.is_idle()
+
+
+@pytest.mark.parametrize(
+    "state,final_note,entry_class,stop_factor",
+    (
+        (
+            trading_enums.EvaluatorStates.LONG.value,
+            decimal.Decimal("-0.3833333333333333"),
+            trading_personal_data.BuyMarketOrder,
+            decimal.Decimal("0.99"),
+        ),
+        (
+            trading_enums.EvaluatorStates.SHORT.value,
+            decimal.Decimal("0.3833333333333333"),
+            trading_personal_data.SellMarketOrder,
+            decimal.Decimal("1.01"),
+        ),
+    ),
+)
+async def test_market_entry_protected_profit_has_initial_stop_without_fixed_tp(
+    future_tools,
+    state,
+    final_note,
+    entry_class,
+    stop_factor,
+):
+    exchange_manager, _, symbol, consumer, last_btc_price = future_tools
+
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder\
+        .value_converter.last_prices_by_trading_pair[symbol] = last_btc_price
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder.portfolio_current_value = \
+        decimal.Decimal("2000")
+    exchange_manager.exchange_personal_data.portfolio_manager.portfolio_value_holder\
+        .current_crypto_currencies_values["BTC"] = last_btc_price
+    exchange_manager.trader.enable_inactive_orders = True
+    consumer.USE_MARKET_ENTRY_ORDERS = True
+    consumer.USE_TARGET_PROFIT_MODE = True
+    consumer.USE_PROTECTED_PROFIT_MODE = True
+    consumer.TARGET_PROFIT_ENABLE_POSITION_INCREASE = False
+    consumer.USE_STOP_ORDERS = True
+    consumer.TARGET_PROFIT_TAKE_PROFIT = decimal.Decimal("0")
+    consumer.TARGET_PROFIT_STOP_LOSS = decimal.Decimal("0.01")
+    consumer.MAX_CURRENCY_RATIO = decimal.Decimal("0.1")
+
+    orders = await consumer.create_new_orders(
+        symbol,
+        final_note,
+        state,
+    )
+
+    assert len(orders) == 1
+    entry = orders[0]
+    assert isinstance(entry, entry_class)
+    assert entry.status is trading_enums.OrderStatus.FILLED
+    assert len(entry.chained_orders) == 1
+    stop_loss = entry.chained_orders[0]
+    assert isinstance(stop_loss, trading_personal_data.StopLossOrder)
+    assert stop_loss.reduce_only is True
+    symbol_market = exchange_manager.exchange.get_market_status(
+        symbol,
+        with_fixer=False,
+    )
+    assert stop_loss.origin_price == trading_personal_data.decimal_adapt_price(
+        symbol_market,
+        entry.origin_price * stop_factor,
+    )

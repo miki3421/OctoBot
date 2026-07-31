@@ -1,11 +1,13 @@
 import asyncio
 import datetime
+import decimal
 import pathlib
 import sqlite3
 import tempfile
 import unittest
 from unittest import mock
 
+import octobot_trading.enums as trading_enums
 import pydantic
 
 from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
@@ -541,6 +543,96 @@ class DeterministicRiskGuardTest(unittest.TestCase):
                     0,
                 )
 
+    def test_sqlite_journal_persists_protected_exit_lifecycle(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
+            decision = _decision(action="BUY")
+            guarded = DeterministicRiskGuard(
+                RiskGuardSettings()
+            ).evaluate(decision)
+            journal = SQLiteDecisionJournal(str(database_path))
+            journal.record(
+                context={
+                    "exchange_name": "kucoin",
+                    "cryptocurrency": "Bitcoin",
+                    "symbol": "BTC/USDT:USDT",
+                    "triggered_at": 1_700_000_000,
+                },
+                model=None,
+                prompt_version="deterministic-v1",
+                input_data={},
+                output_data=decision.model_dump(mode="json"),
+                guarded=guarded,
+            )
+            entry_at = datetime.datetime.now(datetime.timezone.utc)
+            journal.record_order_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                order={
+                    "id": "entry-protected",
+                    "status": "filled",
+                    "side": "buy",
+                    "type": "market",
+                    "amount": 0.015,
+                    "filled": 0.015,
+                    "price": 100,
+                    "average": 100,
+                    "reduceOnly": False,
+                },
+                update_type="update",
+                is_from_bot=True,
+                occurred_at=entry_at,
+            )
+
+            entry = journal.get_open_position_entry(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+            )
+            first_event = journal.record_protected_exit_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                entry_order_id="entry-protected",
+                event_type="profit_lock_activated",
+                entry_price=100,
+                observed_price=101.2,
+                stop_price=101,
+                payload={"activation_price": "101.2", "direction": "long"},
+            )
+            repeated_event = journal.record_protected_exit_event(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                entry_order_id="entry-protected",
+                event_type="profit_lock_activated",
+                entry_price=100,
+                observed_price=102,
+                stop_price=101,
+                payload={"activation_price": "101.2", "direction": "long"},
+            )
+            event_types = journal.get_protected_exit_event_types(
+                exchange_name="kucoin",
+                symbol="BTC/USDT:USDT",
+                entry_order_id="entry-protected",
+            )
+
+            self.assertEqual(entry["entry_order_id"], "entry-protected")
+            self.assertEqual(entry["side"], "buy")
+            self.assertEqual(entry["quantity"], 0.015)
+            self.assertEqual(entry["entry_price"], 100)
+            self.assertEqual(entry["created_at"], entry_at)
+            self.assertEqual(first_event, repeated_event)
+            self.assertEqual(event_types, {"profit_lock_activated"})
+            with sqlite3.connect(database_path) as connection:
+                self.assertEqual(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM ai_protected_exit_events"
+                    ).fetchone()[0],
+                    1,
+                )
+                self.assertEqual(
+                    connection.execute("PRAGMA integrity_check").fetchone()[0],
+                    "ok",
+                )
+
     def test_sqlite_journal_reconciles_only_stale_open_orders_once(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             database_path = pathlib.Path(temporary_directory) / "decisions.sqlite"
@@ -808,6 +900,237 @@ class DeterministicRiskGuardTest(unittest.TestCase):
             update_type="startup_restore",
             is_from_bot=True,
         )
+
+    def test_daily_mode_activates_long_profit_lock(self):
+        mode = object.__new__(DailyTradingMode)
+        mode.symbol = "BTC/USDT:USDT"
+        mode.logger = mock.Mock()
+        mode._protected_exit_lock = asyncio.Lock()
+        mode.trading_config = {
+            mode.PROTECTED_PROFIT_ACTIVATION: 1.2,
+            mode.PROTECTED_PROFIT_LOCKED_STOP: 1.0,
+            mode.PROTECTED_PROFIT_MAX_HOURS: 24.0,
+        }
+        mode._ai_decision_journal = mock.Mock()
+        mode._ai_decision_journal.get_open_position_entry.return_value = {
+            "entry_order_id": "entry-long",
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+        }
+        mode.exchange_manager = mock.Mock()
+        mode.exchange_manager.exchange_name = "kucoin"
+        mode.exchange_manager.exchange.get_market_status.return_value = {
+            "precision": {}
+        }
+        mode.exchange_manager.trader.edit_order = mock.AsyncMock(
+            return_value=True
+        )
+        position = mock.Mock(
+            symbol=mode.symbol,
+            entry_price=decimal.Decimal("100"),
+            size=decimal.Decimal("1"),
+        )
+        position.is_idle.return_value = False
+        stop = mock.Mock(
+            reduce_only=True,
+            order_type="stop_loss",
+            origin_price=decimal.Decimal("99"),
+        )
+
+        with (
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_positions",
+                return_value=[position],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_open_orders",
+                return_value=[stop],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_personal_data.is_stop_order",
+                return_value=True,
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_personal_data.decimal_adapt_price",
+                return_value=decimal.Decimal("101"),
+            ),
+        ):
+            asyncio.run(mode._manage_protected_exit(decimal.Decimal("101.2")))
+
+        mode.exchange_manager.trader.edit_order.assert_awaited_once_with(
+            stop,
+            edited_price=decimal.Decimal("101"),
+            edited_stop_price=decimal.Decimal("101"),
+            edited_current_price=decimal.Decimal("101.2"),
+        )
+        (
+            mode._ai_decision_journal.record_protected_exit_event
+            .assert_called_once()
+        )
+        recorded = (
+            mode._ai_decision_journal.record_protected_exit_event.call_args
+            .kwargs
+        )
+        self.assertEqual(recorded["event_type"], "profit_lock_activated")
+        self.assertEqual(recorded["stop_price"], decimal.Decimal("101"))
+
+    def test_daily_mode_restores_simulated_position_from_validated_fill(self):
+        mode = object.__new__(DailyTradingMode)
+        mode.symbol = "BTC/USDT:USDT"
+        mode.logger = mock.Mock()
+        mode.exchange_manager = mock.Mock()
+        mode.exchange_manager.is_future = True
+        mode.exchange_manager.exchange_name = "kucoin"
+        mode.exchange_manager.exchange_personal_data \
+            .handle_portfolio_and_position_update_from_order = mock.AsyncMock()
+        mode._ai_decision_journal = mock.Mock()
+        mode._ai_decision_journal.get_open_position_entry.return_value = {
+            "entry_order_id": "entry-restored",
+            "side": "buy",
+            "quantity": 0.015,
+            "entry_price": 100,
+            "raw_order": {"id": "entry-restored", "status": "filled"},
+        }
+        stop = mock.Mock(
+            reduce_only=True,
+            side=trading_enums.TradeOrderSide.SELL,
+            order_type="stop_loss",
+            origin_quantity=decimal.Decimal("0.015"),
+            origin_price=decimal.Decimal("99"),
+        )
+        restored_entry = mock.Mock(
+            order_id="entry-restored",
+            symbol=mode.symbol,
+            reduce_only=False,
+            filled_quantity=decimal.Decimal("0.015"),
+            filled_price=decimal.Decimal("100"),
+        )
+        restored_entry.is_filled.return_value = True
+        restored_position = mock.Mock(
+            symbol=mode.symbol,
+            quantity=decimal.Decimal("0.015"),
+            entry_price=decimal.Decimal("100"),
+        )
+        restored_position.is_idle.return_value = False
+
+        with (
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_positions",
+                side_effect=[[], [restored_position]],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_open_orders",
+                return_value=[stop],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_personal_data.is_stop_order",
+                return_value=True,
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_personal_data.create_order_instance_from_raw",
+                return_value=restored_entry,
+            ),
+        ):
+            restored = asyncio.run(
+                mode._restore_paper_position_from_journal()
+            )
+
+        self.assertTrue(restored)
+        (
+            mode.exchange_manager.exchange_personal_data
+            .handle_portfolio_and_position_update_from_order
+            .assert_awaited_once_with(
+                restored_entry,
+                require_exchange_update=False,
+                should_notify=True,
+            )
+        )
+        recorded = (
+            mode._ai_decision_journal.record_protected_exit_event.call_args
+            .kwargs
+        )
+        self.assertEqual(recorded["event_type"], "position_restored")
+        self.assertEqual(recorded["stop_price"], decimal.Decimal("99"))
+
+    def test_daily_mode_closes_position_at_24_hour_horizon(self):
+        mode = object.__new__(DailyTradingMode)
+        mode.symbol = "BTC/USDT:USDT"
+        mode.logger = mock.Mock()
+        mode._protected_exit_lock = asyncio.Lock()
+        mode.trading_config = {
+            mode.PROTECTED_PROFIT_ACTIVATION: 1.2,
+            mode.PROTECTED_PROFIT_LOCKED_STOP: 1.0,
+            mode.PROTECTED_PROFIT_MAX_HOURS: 24.0,
+        }
+        mode._ai_decision_journal = mock.Mock()
+        mode._ai_decision_journal.get_open_position_entry.return_value = {
+            "entry_order_id": "entry-old",
+            "created_at": (
+                datetime.datetime.now(datetime.timezone.utc)
+                - datetime.timedelta(hours=25)
+            ),
+        }
+        mode._ai_decision_journal.get_protected_exit_event_types.return_value = (
+            set()
+        )
+        mode.exchange_manager = mock.Mock()
+        mode.exchange_manager.exchange_name = "kucoin"
+        mode.exchange_manager.exchange.get_market_status.return_value = {
+            "precision": {}
+        }
+        mode.exchange_manager.trader.close_position = mock.AsyncMock(
+            return_value=[mock.Mock(order_id="market-close")]
+        )
+        mode.exchange_manager.trader.cancel_order = mock.AsyncMock(
+            return_value=True
+        )
+        position = mock.Mock(
+            symbol=mode.symbol,
+            entry_price=decimal.Decimal("100"),
+            size=decimal.Decimal("1"),
+        )
+        position.is_idle.return_value = False
+        stale_exit = mock.Mock(reduce_only=True, order_id="stale-exit")
+
+        with (
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_positions",
+                return_value=[position],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_api.get_open_orders",
+                return_value=[stale_exit],
+            ),
+            mock.patch(
+                "tentacles.Trading.Mode.daily_trading_mode.daily_trading."
+                "trading_personal_data.decimal_adapt_price",
+                return_value=decimal.Decimal("101"),
+            ),
+        ):
+            asyncio.run(mode._manage_protected_exit(decimal.Decimal("102")))
+
+        mode.exchange_manager.trader.close_position.assert_awaited_once_with(
+            position,
+            emit_trading_signals=False,
+        )
+        mode.exchange_manager.trader.cancel_order.assert_awaited_once_with(
+            stale_exit,
+            emit_trading_signals=False,
+        )
+        recorded = (
+            mode._ai_decision_journal.record_protected_exit_event.call_args
+            .kwargs
+        )
+        self.assertEqual(recorded["event_type"], "horizon_exit_requested")
 
     def test_daily_mode_prefers_idempotent_native_order_restore(self):
         mode = object.__new__(DailyTradingMode)
