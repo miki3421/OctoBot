@@ -29,6 +29,7 @@ from octobot.ai_strategy_lab import experts as experts_module
 from octobot.ai_strategy_lab import market_data as market_data_module
 from octobot.ai_strategy_lab import microstructure as microstructure_module
 from octobot.ai_strategy_lab import model as model_module
+from octobot.ai_strategy_lab import operational_report as operational_report_module
 from octobot.ai_strategy_lab import paper_feedback as paper_feedback_module
 from octobot.ai_strategy_lab import prefunded_income as prefunded_income_module
 from octobot.ai_strategy_lab import relative_value as relative_value_module
@@ -716,6 +717,47 @@ def create_parser() -> argparse.ArgumentParser:
     forward_evidence_parser.add_argument("--journal", required=True)
     forward_evidence_parser.add_argument("--output", required=True)
 
+    operational_report_parser = subparsers.add_parser(
+        "record-operational-report",
+        help=(
+            "Write read-only data quality, one daily audit row and verified "
+            "local backups without evaluating strategy performance."
+        ),
+    )
+    operational_report_parser.add_argument("--ai-database", required=True)
+    operational_report_parser.add_argument("--v5-database", required=True)
+    operational_report_parser.add_argument("--scalping-database", required=True)
+    operational_report_parser.add_argument("--scalping-health", required=True)
+    operational_report_parser.add_argument("--v5-health", required=True)
+    operational_report_parser.add_argument("--shadow-health", required=True)
+    operational_report_parser.add_argument("--market-health", required=True)
+    operational_report_parser.add_argument("--market-evidence", required=True)
+    operational_report_parser.add_argument("--current-output", required=True)
+    operational_report_parser.add_argument("--daily-journal", required=True)
+    operational_report_parser.add_argument("--backup-root", required=True)
+    operational_report_parser.add_argument("--scalping-protocol", required=True)
+    operational_report_parser.add_argument("--lock", required=True)
+    operational_report_parser.add_argument("--main-host", default="octobot")
+    operational_report_parser.add_argument("--main-port", type=int, default=5001)
+    operational_report_parser.add_argument("--v5-host", default="v5-broker")
+    operational_report_parser.add_argument("--v5-port", type=int, default=5001)
+
+    scalping_freeze_parser = subparsers.add_parser(
+        "freeze-scalping-forward-dataset",
+        help=(
+            "After manually stopping the collector, verify and freeze the "
+            "30-day Level 5 dataset. Never stops the collector itself."
+        ),
+    )
+    scalping_freeze_parser.add_argument("--scalping-database", required=True)
+    scalping_freeze_parser.add_argument("--scalping-health", required=True)
+    scalping_freeze_parser.add_argument("--destination-root", required=True)
+    scalping_freeze_parser.add_argument("--scalping-protocol", required=True)
+    scalping_freeze_parser.add_argument("--lock", required=True)
+    scalping_freeze_parser.add_argument(
+        "--collector-confirmed-stopped", action="store_true", required=True
+    )
+
     forward_carry_dataset_parser = subparsers.add_parser(
         "build-forward-carry-dataset",
         help=(
@@ -876,6 +918,10 @@ def main(arguments: typing.Optional[list[str]] = None) -> int:
         return _run_scalping_observer(args)
     if args.command == "evaluate-forward-market-evidence":
         return _evaluate_forward_market_evidence(args)
+    if args.command == "record-operational-report":
+        return _record_operational_report(args)
+    if args.command == "freeze-scalping-forward-dataset":
+        return _freeze_scalping_forward_dataset(args)
     if args.command == "build-forward-carry-dataset":
         return _build_forward_carry_dataset(args)
     if args.command == "evaluate-shadow-performance":
@@ -1913,6 +1959,43 @@ def _evaluate_forward_market_evidence(
             sort_keys=True,
         )
     )
+    return 0
+
+
+def _record_operational_report(args: argparse.Namespace) -> int:
+    report = operational_report_module.run(
+        ai_database=pathlib.Path(args.ai_database).resolve(),
+        v5_database=pathlib.Path(args.v5_database).resolve(),
+        scalping_database=pathlib.Path(args.scalping_database).resolve(),
+        scalping_health_path=pathlib.Path(args.scalping_health).resolve(),
+        v5_health_path=pathlib.Path(args.v5_health).resolve(),
+        shadow_health_path=pathlib.Path(args.shadow_health).resolve(),
+        market_health_path=pathlib.Path(args.market_health).resolve(),
+        market_evidence_path=pathlib.Path(args.market_evidence).resolve(),
+        current_output=pathlib.Path(args.current_output).resolve(),
+        daily_journal=pathlib.Path(args.daily_journal).resolve(),
+        backup_root=pathlib.Path(args.backup_root).resolve(),
+        protocol_path=pathlib.Path(args.scalping_protocol).resolve(),
+        lock_path=pathlib.Path(args.lock).resolve(),
+        main_host=args.main_host,
+        main_port=args.main_port,
+        v5_host=args.v5_host,
+        v5_port=args.v5_port,
+    )
+    print(json.dumps(_json_safe(report), indent=2, sort_keys=True))
+    return 0
+
+
+def _freeze_scalping_forward_dataset(args: argparse.Namespace) -> int:
+    manifest = operational_report_module.freeze_scalping_dataset(
+        scalping_database=pathlib.Path(args.scalping_database).resolve(),
+        scalping_health_path=pathlib.Path(args.scalping_health).resolve(),
+        destination_root=pathlib.Path(args.destination_root).resolve(),
+        protocol_path=pathlib.Path(args.scalping_protocol).resolve(),
+        lock_path=pathlib.Path(args.lock).resolve(),
+        collector_confirmed_stopped=args.collector_confirmed_stopped,
+    )
+    print(json.dumps(_json_safe(manifest), indent=2, sort_keys=True))
     return 0
 
 

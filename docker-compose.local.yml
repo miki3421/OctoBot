@@ -191,6 +191,51 @@ services:
       timeout: 10s
       retries: 3
 
+  operations-reporter:
+    image: octobot-local:dev
+    container_name: octobot-operations-reporter
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/operations-reporter-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      OPERATIONS_REPORT_INTERVAL_SECONDS: ${OPERATIONS_REPORT_INTERVAL_SECONDS:-3600}
+      OPERATIONS_REPORT_RETRY_SECONDS: ${OPERATIONS_REPORT_RETRY_SECONDS:-60}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/user:/sources/ai:ro
+      - ../octobot-local/v5-paper:/sources/v5:ro
+      - ../octobot-local/scalping:/sources/scalping:ro
+      - ../octobot-local/shadow:/sources/shadow:ro
+      - ../octobot-local/shadow/operations:/operations
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/operations/current.json'));
+          last=datetime.datetime.fromisoformat(value['generated_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('mode') == 'local_monitoring_only'
+          and value.get('orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('backup',{}).get('verified') is True
+          and value.get('scalping_evaluation',{}).get('orders_authorized') is False
+          and (now-last).total_seconds() < 7200 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   v5-broker:
     image: octobot-local:dev
     container_name: octobot-v5-binance-paper

@@ -42,6 +42,56 @@
             </div>
         </div>
 
+        {% if data_quality %}
+        {% set quality_color = "success" if data_quality.overall_status == "green" else "warning" if data_quality.overall_status == "yellow" else "danger" %}
+        {% set quality_label = "OK" if data_quality.overall_status == "green" else "ATTENZIONE" if data_quality.overall_status == "yellow" else "ERRORE" %}
+        <div class="card border-{{ quality_color }} mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                    <div>
+                        <h4 class="mb-1"><i class="fas fa-heartbeat mr-2"></i>Qualità e continuità dei dati</h4>
+                        <div class="text-muted small">
+                            Controllo read-only generato {{ data_quality.generated_at | replace("T", " ") | truncate(26, True, "") }} UTC.
+                        </div>
+                    </div>
+                    <span class="badge badge-{{ quality_color }} p-2">{{ quality_label }}</span>
+                </div>
+                <div class="row">
+                    {{ metric_card("Backup giornaliero", "VERIFICATO" if data_quality.backup.verified else "ERRORE", "success" if data_quality.backup.verified else "danger", "hash e integrity SQLite") }}
+                    {{ metric_card("Disco libero", "%.1f%%"|format(data_quality.disk.free_pct or 0), "success" if (data_quality.disk.free_pct or 0) >= 20 else "warning" if (data_quality.disk.free_pct or 0) >= 10 else "danger", "%.1f GB"|format((data_quality.disk.free_bytes or 0) / 1073741824)) }}
+                    {{ metric_card("Porta 5001", "OK" if data_quality.ports["5001"] else "NON RAGGIUNGIBILE", "success" if data_quality.ports["5001"] else "danger", "OctoBot KuCoin paper") }}
+                    {{ metric_card("Porta 5002", "OK" if data_quality.ports["5002"] else "NON RAGGIUNGIBILE", "success" if data_quality.ports["5002"] else "danger", "V5 Binance paper") }}
+                </div>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead><tr><th>Controllo</th><th>Stato</th><th>Dettaglio</th></tr></thead>
+                        <tbody>
+                        {% for check in data_quality.quality_checks %}
+                            {% set check_color = "success" if check.status == "green" else "warning" if check.status == "yellow" else "danger" %}
+                            {% set check_label = "OK" if check.status == "green" else "ATTENZIONE" if check.status == "yellow" else "ERRORE" %}
+                            <tr>
+                                <td>{{ check.label }}</td>
+                                <td><span class="badge badge-{{ check_color }}">{{ check_label }}</span></td>
+                                <td>{{ check.detail }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-secondary small mb-0">
+                    Report giornaliero append-only con catena {{ "verificata" if data_quality.daily_report.chain_verified else "da verificare" }}:
+                    <code>{{ data_quality.daily_report.record_sha256 | truncate(18, True, "…") }}</code>.
+                    I backup dei journal piccoli sono verificati, ma restano sullo stesso disco e quindi non proteggono dal guasto fisico.
+                    Il database Level 5 sarà congelato e copiato soltanto al gate dei 30 giorni, a collector fermo.
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-secondary mb-4">
+            Il primo report automatico di qualità dati non è ancora disponibile; il nuovo servizio lo pubblicherà a cadenza oraria.
+        </div>
+        {% endif %}
+
         <div class="card border-primary mb-4">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
@@ -172,12 +222,20 @@
                 <div class="row">
                     {{ metric_card("Decisioni osservate", v5_forward_summary.decisions, "info", "%.2f ore"|format(v5_forward_summary.span_hours)) }}
                     {{ metric_card("Ingressi accettati", v5_forward_summary.accepted, "success" if v5_forward_summary.accepted else "secondary", "%.2f%% del totale"|format(v5_forward_summary.acceptance_rate_pct)) }}
+                    {{ metric_card("Decisioni / giorno", "%.2f"|format(v5_forward_summary.decisions_per_day), "info", "frequenza osservata") }}
+                    {{ metric_card("Ingressi / giorno", "%.2f"|format(v5_forward_summary.accepted_per_day), "info", "frequenza osservata") }}
                     {{ metric_card("EV medio", "%+.4f%%"|format(v5_forward_summary.mean_expected_net_pct) if v5_forward_summary.mean_expected_net_pct is not none else "-", "info") }}
                     {{ metric_card("EV massimo", "%+.4f%%"|format(v5_forward_summary.max_expected_net_pct) if v5_forward_summary.max_expected_net_pct is not none else "-", "info", "gate %+.3f%%"|format(v5_forward_summary.expected_net_threshold_pct)) }}
                     {{ metric_card("Distanza dal gate", "%+.4f%%"|format(v5_forward_summary.distance_to_gate_pct) if v5_forward_summary.distance_to_gate_pct is not none else "-", "warning" if v5_forward_summary.distance_to_gate_pct and v5_forward_summary.distance_to_gate_pct > 0 else "success", "valore positivo = ancora sotto soglia") }}
                     {{ metric_card("EV positivi", v5_forward_summary.positive_expected_net, "info", "prima del gate operativo") }}
                     {{ metric_card("Esiti chiusi", v5_forward_summary.trades, "info", "calibrazione non disponibile" if not v5_forward_summary.trades else "solo preliminare") }}
                     {{ metric_card("Integrità journal", v5_forward_summary.integrity | upper, "success") }}
+                </div>
+                <div class="row">
+                    {{ metric_card("LONG accettati", v5_forward_summary.accepted_by_direction["LONG"], "success", "decisioni, non trade chiusi") }}
+                    {{ metric_card("SHORT accettati", v5_forward_summary.accepted_by_direction["SHORT"], "danger", "decisioni, non trade chiusi") }}
+                    {{ metric_card("LONG chiusi", v5_forward_summary.trades_by_direction["LONG"], "success") }}
+                    {{ metric_card("SHORT chiusi", v5_forward_summary.trades_by_direction["SHORT"], "danger") }}
                 </div>
                 {% if v5_forward_summary.ev_series.timestamps %}
                 <div class="card border-secondary mb-3">
@@ -225,6 +283,36 @@
                         </div>
                     </div>
                 </div>
+                <div class="card border-secondary mb-3">
+                    <div class="card-body py-3">
+                        <h6>Calibrazione delle probabilità sui soli trade maturi</h6>
+                        {% if v5_forward_summary.calibration.mature_accepted_trades %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped mb-2">
+                                <thead><tr><th>Esito</th><th>Probabilità media prevista</th><th>Frequenza osservata</th><th>Casi</th></tr></thead>
+                                <tbody>
+                                {% for row in v5_forward_summary.calibration.classes %}
+                                    <tr>
+                                        <td>{{ row.name }}</td>
+                                        <td>{{ "%.2f%%"|format(row.mean_predicted_pct) }}</td>
+                                        <td>{{ "%.2f%%"|format(row.observed_pct) }}</td>
+                                        <td>{{ row.observed_count }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="small text-muted">
+                            Brier multiclasse {{ "%.4f"|format(v5_forward_summary.calibration.multiclass_brier) }} su
+                            {{ v5_forward_summary.calibration.mature_accepted_trades }} trade. {{ v5_forward_summary.calibration.warning }}
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">
+                            Non ci sono ancora trade accettati e chiusi sufficienti per confrontare probabilità previste e frequenze osservate.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
                 <div class="alert alert-info small mb-0">
                     {% if not v5_forward_summary.trades %}
                     Nessun trade chiuso: non esistono ancora win rate o profit factor forward da interpretare.
@@ -256,6 +344,8 @@
                     Book Futures Level 5 fino a 100 ms e trade pubblici real-time. Raccolta research-only: nessun segnale o ordine è ancora autorizzato.
                 </div>
                 {% if scalping_health %}
+                {% set scalping_quality = data_quality.scalping if data_quality else {} %}
+                {% set scalping_gate = data_quality.scalping_evaluation if data_quality else {} %}
                 <div class="row">
                     {{ metric_card("Collector", scalping_health.status | upper, "success" if scalping_health.status == "healthy" else "danger", scalping_health.last_book_at or "") }}
                     {{ metric_card("Book ricevuti", scalping_health.book_events, "info", "%.2f eventi/s"|format(scalping_summary.book_events_per_second)) }}
@@ -265,6 +355,11 @@
                     {{ metric_card("Periodo raccolto", "%.4f / %.0f giorni"|format(scalping_summary.span_days, scalping_summary.required_days), "secondary") }}
                     {{ metric_card("Database", "%.2f MB"|format((scalping_health.database_bytes or 0) / 1048576), "secondary") }}
                     {{ metric_card("Ordini autorizzati", "NO" if scalping_health.orders_authorized == false else "SÌ", "success" if scalping_health.orders_authorized == false else "danger") }}
+                    {% if scalping_quality %}
+                    {{ metric_card("Copertura 1s", "%.3f%%"|format((scalping_quality.coverage or 0) * 100), "success" if (scalping_quality.coverage or 0) >= 0.95 else "warning", (scalping_quality.missing_seconds or 0) ~ " secondi mancanti") }}
+                    {{ metric_card("Gap > 5s", scalping_quality.gaps_over_5s or 0, "success" if (scalping_quality.gaps_over_5s or 0) == 0 else "warning", "massimo " ~ (scalping_quality.maximum_gap_seconds or 0) ~ "s") }}
+                    {{ metric_card("Riavvii collector", scalping_quality.restarts or 0, "info", (scalping_quality.sessions or 0) ~ " sessioni · " ~ (scalping_quality.failed_sessions or 0) ~ " fallite") }}
+                    {% endif %}
                 </div>
                 <div class="progress mb-2" style="height: 1.4rem;">
                     <div class="progress-bar bg-danger" role="progressbar"
@@ -278,6 +373,41 @@
                     Primi risultati economici ammessi dopo 30 giorni forward integri. Più operazioni non implicano più profitto:
                     la candidata dovrà superare spread, fee, slippage e stress di latenza.
                 </div>
+                {% if scalping_protocol and scalping_gate %}
+                <div class="card border-secondary mt-3">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">Protocollo di valutazione congelato</h5>
+                            <span class="badge badge-{{ "success" if scalping_gate.ready else "warning" }} p-2">
+                                {{ "PRONTO PER AUDIT OFFLINE" if scalping_gate.ready else "VALUTAZIONE BLOCCATA" }}
+                            </span>
+                        </div>
+                        <div class="row small">
+                            <div class="col-12 col-lg-6">
+                                <ul class="mb-2 pl-3">
+                                    <li>almeno {{ scalping_gate.minimum_forward_days }} giorni forward</li>
+                                    <li>copertura minima {{ "%.1f%%"|format(scalping_gate.minimum_coverage * 100) }}</li>
+                                    <li>walk-forward espansivo con purge/embargo</li>
+                                    <li>fee, spread, slippage e latenze inclusi</li>
+                                </ul>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <ul class="mb-2 pl-3">
+                                    {% for name, passed in scalping_gate.checks.items() %}
+                                    <li><span class="text-{{ "success" if passed else "warning" }}">{{ "✓" if passed else "○" }}</span> {{ name | replace("_", " ") }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="small text-muted">
+                            Feature causali su finestre {{ scalping_protocol.features_at_decision_time.windows_seconds | join(", ") }}s;
+                            latenze simulate {{ scalping_protocol.execution_and_labels.latency_milliseconds | join(", ") }}ms.
+                            Nessun risultato economico è stato calcolato prima del gate e nessun ordine è autorizzato.
+                            Protocollo <code>{{ scalping_gate.protocol_sha256 | truncate(18, True, "…") }}</code>.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 {% else %}
                     <div class="alert alert-secondary mb-0">
                         Il collector scalping non ha ancora pubblicato il primo stato.
@@ -301,7 +431,10 @@
                 </div>
                 {% endif %}
                 {% if shadow_allocations %}
-                <h5>Target shadow correnti</h5>
+                <h5>Pesi applicati dall’ultimo ribilanciamento</h5>
+                <div class="text-muted small mb-2">
+                    Applicati il {{ shadow_last_rebalance_date or "-" }} e mantenuti invariati fino al prossimo ribilanciamento settimanale.
+                </div>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped">
                         <thead><tr><th>Contratto</th><th>Direzione simulata</th><th>Peso target</th></tr></thead>
@@ -316,12 +449,35 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="alert alert-secondary small mb-0">
-                    Questi pesi sono soltanto shadow. Non corrispondono a ordini o posizioni nel simulatore OctoBot.
+                {% else %}
+                    <div class="text-muted mb-3">Nessun peso shadow applicato non neutrale.</div>
+                {% endif %}
+                <h5>Candidati sull’ultimo giorno chiuso</h5>
+                <div class="text-muted small mb-2">
+                    Sono il calcolo più recente, non il portafoglio applicato.
+                    Ribilanciamento oggi: <strong>{{ "SÌ" if shadow_record.rebalance_due else "NO" }}</strong>.
+                </div>
+                {% if shadow_candidates %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Contratto</th><th>Direzione candidata</th><th>Peso candidato</th></tr></thead>
+                        <tbody>
+                        {% for allocation in shadow_candidates %}
+                            <tr>
+                                <td><strong>{{ allocation.symbol }}</strong></td>
+                                <td><span class="badge badge-{{ "success" if allocation.side == "LONG" else "danger" }}">{{ allocation.side }}</span></td>
+                                <td>{{ "%.3f%%"|format(allocation.weight * 100) }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 {% else %}
-                    <div class="text-muted">Nessuna allocazione shadow non neutrale.</div>
+                    <div class="text-muted mb-3">Nessun candidato non neutrale nell’ultimo calcolo.</div>
                 {% endif %}
+                <div class="alert alert-secondary small mb-0">
+                    Sia i pesi applicati sia i candidati sono solo shadow: non corrispondono a ordini o posizioni nel simulatore OctoBot.
+                </div>
             </div>
         </div>
 

@@ -5,6 +5,8 @@
 
 """Read-only operational and forward-research status page."""
 
+from __future__ import annotations
+
 import datetime
 import json
 import os
@@ -132,8 +134,10 @@ def _operational_summary(
     }
 
 
-def _shadow_allocations(record: dict) -> list[dict]:
-    weights = record.get("target_weights", {})
+def _shadow_allocations(
+    record: dict, field: str = "target_weights"
+) -> list[dict]:
+    weights = record.get(field, {})
     if not isinstance(weights, dict):
         return []
     allocations = []
@@ -152,6 +156,22 @@ def _shadow_allocations(record: dict) -> list[dict]:
             }
         )
     return sorted(allocations, key=lambda item: abs(item["weight"]), reverse=True)
+
+
+def _shadow_last_rebalance_date(path: pathlib.Path) -> str | None:
+    """Return the most recent date on which candidate weights were applied."""
+
+    if not path.is_file():
+        return None
+    last_date = None
+    with path.open(encoding="utf-8") as input_file:
+        for line in input_file:
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if isinstance(record, dict) and record.get("rebalance_due") is True:
+                last_date = record.get("market_end_date")
+    return last_date
 
 
 def _scalping_summary(health: dict) -> dict:
@@ -186,6 +206,67 @@ def _timestamp_iso(timestamp: object) -> str | None:
         ).isoformat()
     except (TypeError, ValueError, OSError):
         return None
+
+
+def _v5_trade_outcome(exit_reason: str) -> str | None:
+    if exit_reason == "initial_stop":
+        return "STOP"
+    if exit_reason in {"profit_lock", "horizon_after_lock"}:
+        return "TARGET"
+    if exit_reason == "horizon":
+        return "TIMEOUT"
+    return None
+
+
+def _v5_calibration(rows: list[sqlite3.Row]) -> dict:
+    probabilities = {"TARGET": [], "STOP": [], "TIMEOUT": []}
+    observed = {"TARGET": 0, "STOP": 0, "TIMEOUT": 0}
+    brier_values = []
+    for row in rows:
+        outcome = _v5_trade_outcome(str(row["exit_reason"]))
+        if outcome is None:
+            continue
+        try:
+            prediction = json.loads(row["prediction_json"])
+            current = {
+                "TARGET": float(prediction["target_probability_pct"]) / 100,
+                "STOP": float(prediction["stop_probability_pct"]) / 100,
+                "TIMEOUT": float(prediction["timeout_probability_pct"]) / 100,
+            }
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        observed[outcome] += 1
+        for name, probability in current.items():
+            probabilities[name].append(probability)
+        brier_values.append(
+            sum(
+                (probability - (1.0 if name == outcome else 0.0)) ** 2
+                for name, probability in current.items()
+            )
+        )
+    count = len(brier_values)
+    return {
+        "mature_accepted_trades": count,
+        "status": "preliminary" if count else "waiting_for_closed_trade",
+        "multiclass_brier": sum(brier_values) / count if count else None,
+        "classes": [
+            {
+                "name": name,
+                "mean_predicted_pct": (
+                    sum(probabilities[name]) * 100 / count if count else None
+                ),
+                "observed_pct": (
+                    observed[name] * 100 / count if count else None
+                ),
+                "observed_count": observed[name],
+            }
+            for name in ("TARGET", "STOP", "TIMEOUT")
+        ],
+        "warning": (
+            "Calibrazione limitata ai trade accettati e già chiusi; "
+            "non misura le previsioni V5 rifiutate."
+        ),
+    }
 
 
 def _v5_forward_summary(
@@ -279,6 +360,27 @@ def _v5_forward_summary(
                 """
             )
         ]
+        accepted_direction_distribution = [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT action AS value, COUNT(*) AS count
+                FROM decisions
+                WHERE accepted = 1
+                GROUP BY action
+                ORDER BY action
+                """
+            )
+        ]
+        trade_rows = list(
+            connection.execute(
+                """
+                SELECT direction, exit_reason, prediction_json
+                FROM trades
+                ORDER BY id
+                """
+            )
+        )
         ev_rows = list(
             connection.execute(
                 """
@@ -306,6 +408,7 @@ def _v5_forward_summary(
         if first_timestamp is not None and last_timestamp is not None
         else 0.0
     )
+    span_days = span_hours / 24
     for distribution in (target_distribution, horizon_distribution):
         for row in distribution:
             row["share_pct"] = (
@@ -314,6 +417,15 @@ def _v5_forward_summary(
     max_expected_net = decision["max_expected_net_pct"]
     gross_profit = float(trades["gross_profit"])
     gross_loss = float(trades["gross_loss"])
+    trade_direction_counts = {"LONG": 0, "SHORT": 0}
+    for row in trade_rows:
+        direction = str(row["direction"])
+        trade_direction_counts[direction] = (
+            trade_direction_counts.get(direction, 0) + 1
+        )
+    accepted_direction_counts = {"LONG": 0, "SHORT": 0}
+    for row in accepted_direction_distribution:
+        accepted_direction_counts[str(row["value"])] = int(row["count"])
     return {
         "available": True,
         "integrity": integrity,
@@ -335,7 +447,11 @@ def _v5_forward_summary(
         "first_close_at": _timestamp_iso(first_timestamp),
         "last_close_at": _timestamp_iso(last_timestamp),
         "span_hours": span_hours,
+        "decisions_per_day": decisions / span_days if span_days else 0.0,
+        "accepted_per_day": accepted / span_days if span_days else 0.0,
+        "accepted_by_direction": accepted_direction_counts,
         "trades": trade_count,
+        "trades_by_direction": trade_direction_counts,
         "wins": int(trades["wins"]),
         "win_rate_pct": (
             int(trades["wins"]) * 100 / trade_count
@@ -351,6 +467,7 @@ def _v5_forward_summary(
             if not trade_count
             else "descrittiva_preliminare"
         ),
+        "calibration": _v5_calibration(trade_rows),
         "target_distribution": target_distribution,
         "horizon_distribution": horizon_distribution,
         "reason_distribution": reason_distribution,
@@ -417,6 +534,10 @@ def register(blueprint):
             "income_objective": shadow_root / "income-objective.json",
             "shadow_journal": shadow_root / "trend_shadow.jsonl",
         }
+        operations_path = shadow_root / "operations" / "current.json"
+        scalping_protocol_path = (
+            shadow_root / "operations" / "scalping-evaluation-protocol.json"
+        )
         loaded = {}
         for name, path in files.items():
             try:
@@ -428,6 +549,23 @@ def register(blueprint):
             except (OSError, ValueError, json.JSONDecodeError) as error:
                 loaded[name] = {}
                 errors.append(f"{name}: {error}")
+        try:
+            data_quality = _read_json(operations_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            data_quality = {}
+            errors.append(f"data_quality: {error}")
+        try:
+            scalping_protocol = _read_json(scalping_protocol_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            scalping_protocol = {}
+            errors.append(f"scalping_protocol: {error}")
+        try:
+            shadow_last_rebalance_date = _shadow_last_rebalance_date(
+                files["shadow_journal"]
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            shadow_last_rebalance_date = None
+            errors.append(f"shadow_last_rebalance: {error}")
         try:
             scalping_health = _read_json(scalping_health_path)
         except (OSError, ValueError, json.JSONDecodeError) as error:
@@ -468,8 +606,14 @@ def register(blueprint):
             shadow_allocations=_shadow_allocations(
                 loaded["shadow_journal"]
             ),
+            shadow_candidates=_shadow_allocations(
+                loaded["shadow_journal"], "candidate_target_weights"
+            ),
+            shadow_last_rebalance_date=shadow_last_rebalance_date,
             scalping_health=scalping_health,
             scalping_summary=_scalping_summary(scalping_health),
+            scalping_protocol=scalping_protocol,
+            data_quality=data_quality,
             v5_paper_health=v5_paper_health,
             v5_forward_summary=v5_forward_summary,
             v5_paper_url=_service_url(5002, "/trading"),

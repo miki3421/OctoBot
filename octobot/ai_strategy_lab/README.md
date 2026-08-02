@@ -452,6 +452,35 @@ context and a 5-minute regime filter. It cannot be evaluated before 30 forward
 days and its simulator must cross the recorded spread, apply conservative
 fees/slippage, stress 250/500/1,000-ms latency and prohibit retroactive fills.
 
+The `operations-reporter` sidecar publishes an hourly read-only data-quality
+snapshot under `shadow/operations/current.json` and one hash-chained record per
+UTC day in `shadow/operations/daily.jsonl`. The Strategy Status page exposes
+port reachability, data freshness, Level 5 coverage and gaps, collector
+restarts, disk space, V5 frequency/calibration and the difference between V3
+weights already applied and current candidates. It also creates and verifies
+daily SQLite backups of the smaller KuCoin and V5 journals. These backups are
+on the same volume by default and therefore do not protect against physical
+disk failure.
+
+The live multi-gigabyte Level 5 database is deliberately not copied or fully
+integrity-scanned every hour. After the frozen 30-day gate, stop the collector
+cleanly and run the explicit offline freeze:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cli freeze-scalping-forward-dataset \
+  --scalping-database ../octobot-local/scalping/btc-futures-level5.sqlite \
+  --scalping-health ../octobot-local/scalping/health.json \
+  --destination-root ../octobot-local/backtesting/research/scalping-freezes \
+  --scalping-protocol ../octobot-local/shadow/operations/scalping-evaluation-protocol.json \
+  --lock ../octobot-local/shadow/operations/scalping-freeze.lock \
+  --collector-confirmed-stopped
+```
+
+The command refuses a health state other than a graceful stop, less than 30
+days, coverage below 95% or a failed database check. A successful run writes a
+verified SQLite copy, full gap audit, protocol hash and immutable manifest; it
+still cannot authorize paper or real orders.
+
 Before a row is appended to the JSONL index it is persisted through an atomic
 rename as a content-addressed file under `shadow/market/records`. Every cycle
 backfills missing archive copies and verifies that archive and journal are the
