@@ -511,11 +511,15 @@ def _quality_checks(
                 and _float_or(
                     v5_health.get("data_lag_seconds"), math.inf
                 ) < 1800
+                and _is_fresh(
+                    v5_health.get("last_success_at"), now, 180
+                )
                 else "red"
             ),
             "detail": (
                 f"{report['v5'].get('decisions', 0)} decisioni · "
-                f"{report['v5'].get('trades', 0)} trade chiusi"
+                f"{report['v5'].get('trades', 0)} trade chiusi · "
+                f"ultimo update {v5_health.get('last_success_at', '-')}"
             ),
         },
         {
@@ -557,8 +561,8 @@ def _quality_checks(
                 else "red"
             ),
             "detail": (
-                f"{scalping.get('restarts', 0)} riavvii · "
-                f"{scalping.get('failed_sessions', 0)} sessioni fallite"
+                f"{scalping.get('sessions', 0)} sessioni · "
+                f"{scalping.get('failed_sessions', 0)} disconnessioni/fallimenti"
             ),
         },
         {

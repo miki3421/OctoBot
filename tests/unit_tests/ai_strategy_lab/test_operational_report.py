@@ -103,7 +103,11 @@ def test_report_is_idempotent_and_backups_are_verified(tmp_path, monkeypatch):
     )
     _write_json(
         health_root / "v5.json",
-        {"status": "healthy", "data_lag_seconds": 100},
+        {
+            "status": "healthy",
+            "data_lag_seconds": 100,
+            "last_success_at": "2026-08-02T11:59:00+00:00",
+        },
     )
     _write_json(
         health_root / "shadow.json",
@@ -157,6 +161,17 @@ def test_report_is_idempotent_and_backups_are_verified(tmp_path, monkeypatch):
     assert first["backup"]["scalping"]["status"].startswith("deferred")
     assert first["v5"]["accepted_by_direction"]["SHORT"] == 1
     assert first["v5"]["calibration"]["mature_accepted_trades"] == 1
+    assert next(
+        row for row in first["quality_checks"] if row["id"] == "v5_feed"
+    )["status"] == "green"
+    first["health"]["v5"]["last_success_at"] = "2026-08-02T06:00:00+00:00"
+    assert next(
+        row
+        for row in operational_report._quality_checks(
+            first, now=arguments["now"]
+        )
+        if row["id"] == "v5_feed"
+    )["status"] == "red"
     assert first["scalping"]["missing_seconds"] == 1
     assert second["scalping"]["gap_count"] == first["scalping"]["gap_count"]
     assert first["daily_report"]["appended"] is True
