@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 import pathlib
+import signal
 import sqlite3
 import time
 import typing
@@ -226,17 +227,42 @@ class ScalpingStore:
         counts = self.connection.execute(
             """
             SELECT
-                (SELECT COUNT(*) FROM book_events) AS book_events,
-                (SELECT COUNT(*) FROM trade_events) AS trade_events,
-                (SELECT COUNT(*) FROM second_buckets) AS second_buckets,
-                (SELECT MIN(received_ts_ns) FROM book_events) AS first_book_ns,
-                (SELECT MAX(received_ts_ns) FROM book_events) AS last_book_ns,
+                (SELECT COALESCE(MAX(id), 0) FROM book_events) AS book_events,
+                (SELECT COALESCE(MAX(id), 0) FROM trade_events) AS trade_events,
+                (SELECT received_ts_ns FROM book_events
+                 ORDER BY id ASC LIMIT 1) AS first_book_ns,
+                (SELECT received_ts_ns FROM book_events
+                 ORDER BY id DESC LIMIT 1) AS last_book_ns,
                 (SELECT MAX(bucket_ts_s) FROM second_buckets) AS last_bucket_s
             """
         ).fetchone()
         self.book_events_count = int(counts["book_events"])
         self.trade_events_count = int(counts["trade_events"])
-        self.second_buckets_count = int(counts["second_buckets"])
+        previous_health = _read_json(config.health_path)
+        previous_bucket_count = previous_health.get("second_buckets")
+        previous_last_bucket_s = previous_health.get("last_bucket_s")
+        if (
+            previous_health.get("status") == "stopped"
+            and isinstance(previous_bucket_count, int)
+        ):
+            self.second_buckets_count = previous_bucket_count
+        elif (
+            isinstance(previous_bucket_count, int)
+            and isinstance(previous_last_bucket_s, int)
+        ):
+            new_bucket_count = int(
+                self.connection.execute(
+                    "SELECT COUNT(*) FROM second_buckets WHERE bucket_ts_s > ?",
+                    (previous_last_bucket_s,),
+                ).fetchone()[0]
+            )
+            self.second_buckets_count = previous_bucket_count + new_bucket_count
+        else:
+            self.second_buckets_count = int(
+                self.connection.execute(
+                    "SELECT COUNT(*) FROM second_buckets"
+                ).fetchone()[0]
+            )
         self.first_book_ts_ns = counts["first_book_ns"]
         self.latest_book_ts_ns = counts["last_book_ns"]
         self.latest_bucket_ts_s = counts["last_bucket_s"]
@@ -544,6 +570,7 @@ class ScalpingStore:
             "second_buckets": self.second_buckets_count,
             "first_book_ns": self.first_book_ts_ns,
             "last_book_ns": self.latest_book_ts_ns,
+            "last_bucket_s": self.latest_bucket_ts_s,
         }
 
     def quick_check(self) -> str:
@@ -674,6 +701,7 @@ def build_health(
         "book_events": counts["book_events"],
         "trade_events": counts["trade_events"],
         "second_buckets": counts["second_buckets"],
+        "last_bucket_s": counts["last_bucket_s"],
         "first_book_at": _iso_from_ns(counts["first_book_ns"]),
         "last_book_at": _iso_from_ns(counts["last_book_ns"]),
         "last_trade_at": _iso_from_ns(store.last_trade_ts_ns),
@@ -745,6 +773,15 @@ async def run_observer(config: ScalpingObserverConfig) -> dict:
     connected = False
     final_status = "stopped"
     final_reason = None
+    shutdown_requested = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    installed_signals = []
+    for signal_value in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(signal_value, shutdown_requested.set)
+            installed_signals.append(signal_value)
+        except (NotImplementedError, RuntimeError):
+            pass
     try:
         _write_json_atomic(
             config.health_path,
@@ -783,6 +820,10 @@ async def run_observer(config: ScalpingObserverConfig) -> dict:
                     )
                 last_ping_monotonic = time.monotonic()
                 while True:
+                    if shutdown_requested.is_set():
+                        final_status = "stopped"
+                        final_reason = "collector shutdown signal"
+                        break
                     now_monotonic = time.monotonic()
                     if (
                         config.run_seconds is not None
@@ -883,11 +924,13 @@ async def run_observer(config: ScalpingObserverConfig) -> dict:
             config,
             store,
             status=(
-                "healthy"
+                final_status
+                if final_status in {"stopped", "completed"}
+                else "healthy"
                 if store.last_book_ts_ns is not None
                 else "completed"
             ),
-            connected=connected,
+            connected=False if final_status == "stopped" else connected,
             subscriptions_acknowledged=subscriptions_acknowledged,
         )
         _write_json_atomic(config.health_path, final_health)
@@ -908,6 +951,8 @@ async def run_observer(config: ScalpingObserverConfig) -> dict:
         )
         raise
     finally:
+        for signal_value in installed_signals:
+            loop.remove_signal_handler(signal_value)
         store.close(final_status, final_reason)
 
 

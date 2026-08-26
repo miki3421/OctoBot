@@ -41,6 +41,8 @@ REMOTE_SYMBOL = "BTCUSDT"
 KLINE_URL = "https://fapi.binance.com/fapi/v1/klines"
 CANDLE_SECONDS = 900
 HISTORY_CANDLES = 200
+BINANCE_MAX_CANDLES = 1500
+MAX_RECOVERY_CANDLES = 30 * 24 * 4 + HISTORY_CANDLES
 INITIAL_EQUITY = 10_000.0
 MAX_NOTIONAL_FRACTION = 0.10
 
@@ -467,14 +469,19 @@ class V5PaperRunner:
                 raise RuntimeError(
                     "isolated Binance V5 paper broker is not ready"
                 )
+        previous = self.state.get("last_close_timestamp")
         candles = fetch_closed_candles(
             timeout_seconds=self.config.timeout_seconds,
             now_timestamp=now_timestamp,
+            start_timestamp=(
+                int(previous) - HISTORY_CANDLES * CANDLE_SECONDS
+                if previous is not None
+                else None
+            ),
         )
         self.last_candles = candles
         close_timestamps = candles[:, 0].astype(numpy.int64) + CANDLE_SECONDS
         latest_close = int(close_timestamps[-1])
-        previous = self.state.get("last_close_timestamp")
         if previous is None:
             self.store.seed(self.state, latest_close)
             return []
@@ -708,47 +715,67 @@ def fetch_closed_candles(
     *,
     timeout_seconds: float,
     now_timestamp: int | None = None,
+    start_timestamp: int | None = None,
 ) -> numpy.ndarray:
     now = int(now_timestamp or time.time())
     current_open = now // CANDLE_SECONDS * CANDLE_SECONDS
-    query = urllib.parse.urlencode(
-        {
+    by_timestamp = {}
+    cursor = max(0, int(start_timestamp or 0))
+    while True:
+        parameters = {
             "symbol": REMOTE_SYMBOL,
             "interval": "15m",
-            "limit": HISTORY_CANDLES,
+            "limit": (
+                HISTORY_CANDLES
+                if start_timestamp is None
+                else min(
+                    BINANCE_MAX_CANDLES,
+                    max(1, math.ceil((current_open - cursor) / CANDLE_SECONDS)),
+                )
+            ),
             "endTime": current_open * 1000 - 1,
         }
-    )
-    request = urllib.request.Request(
-        f"{KLINE_URL}?{query}",
-        headers={"User-Agent": "OctoBot-V5-Forward-Paper/1"},
-    )
-    with urllib.request.urlopen(
-        request, timeout=timeout_seconds
-    ) as response:
-        payload = json.load(response)
-    if not isinstance(payload, list):
-        raise RuntimeError("Binance V5 paper candle request failed")
-    by_timestamp = {}
-    for row in payload:
-        timestamp = int(row[0]) // 1000
-        if timestamp + CANDLE_SECONDS > now:
-            continue
-        by_timestamp[timestamp] = [
-            timestamp,
-            float(row[1]),
-            float(row[2]),
-            float(row[3]),
-            float(row[4]),
-            float(row[5]),
-        ]
+        if start_timestamp is not None:
+            parameters["startTime"] = cursor * 1000
+        query = urllib.parse.urlencode(parameters)
+        request = urllib.request.Request(
+            f"{KLINE_URL}?{query}",
+            headers={"User-Agent": "OctoBot-V5-Forward-Paper/1"},
+        )
+        with urllib.request.urlopen(
+            request, timeout=timeout_seconds
+        ) as response:
+            payload = json.load(response)
+        if not isinstance(payload, list):
+            raise RuntimeError("Binance V5 paper candle request failed")
+        for row in payload:
+            timestamp = int(row[0]) // 1000
+            if timestamp + CANDLE_SECONDS > now:
+                continue
+            by_timestamp[timestamp] = [
+                timestamp,
+                float(row[1]),
+                float(row[2]),
+                float(row[3]),
+                float(row[4]),
+                float(row[5]),
+            ]
+        if start_timestamp is None or not payload:
+            break
+        next_cursor = int(payload[-1][0]) // 1000 + CANDLE_SECONDS
+        if next_cursor <= cursor or next_cursor >= current_open:
+            break
+        cursor = next_cursor
+        if len(by_timestamp) > MAX_RECOVERY_CANDLES:
+            raise RuntimeError("V5 paper recovery exceeds 30-day safety limit")
     candles = numpy.asarray(
         [by_timestamp[key] for key in sorted(by_timestamp)],
         dtype=numpy.float64,
     )
     if len(candles) < 150:
         raise ValueError("insufficient closed Binance 15m candles")
-    candles = candles[-HISTORY_CANDLES:]
+    if start_timestamp is None:
+        candles = candles[-HISTORY_CANDLES:]
     if numpy.any(
         numpy.diff(candles[:, 0].astype(numpy.int64)) != CANDLE_SECONDS
     ):

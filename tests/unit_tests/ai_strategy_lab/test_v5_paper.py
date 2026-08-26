@@ -162,3 +162,56 @@ def test_fetch_window_keeps_latest_closed_candle(monkeypatch):
     assert int(seen["query"]["endTime"][0]) == current_open * 1000 - 1
     assert len(candles) == v5_paper.HISTORY_CANDLES
     assert int(candles[-1, 0]) + v5_paper.CANDLE_SECONDS == current_open
+
+
+def test_fetch_recovery_paginates_from_saved_warmup(monkeypatch):
+    candle_count = 1600
+    current_open = 2_000_000 * v5_paper.CANDLE_SECONDS
+    start_open = current_open - candle_count * v5_paper.CANDLE_SECONDS
+    calls = []
+
+    class _Response:
+        def __init__(self, data):
+            self.data = data
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps(self.data).encode()
+
+    def _urlopen(request, timeout):
+        del timeout
+        query = urllib.parse.parse_qs(
+            urllib.parse.urlparse(request.full_url).query
+        )
+        calls.append(query)
+        cursor = int(query["startTime"][0]) // 1000
+        limit = int(query["limit"][0])
+        rows = []
+        for timestamp in range(
+            cursor,
+            min(current_open, cursor + limit * v5_paper.CANDLE_SECONDS),
+            v5_paper.CANDLE_SECONDS,
+        ):
+            rows.append(
+                [timestamp * 1000, "100", "101", "99", "100", "1"]
+            )
+        return _Response(rows)
+
+    monkeypatch.setattr(v5_paper.urllib.request, "urlopen", _urlopen)
+
+    candles = v5_paper.fetch_closed_candles(
+        timeout_seconds=1,
+        now_timestamp=current_open + 60,
+        start_timestamp=start_open,
+    )
+
+    assert len(calls) == 2
+    assert calls[0]["limit"] == [str(v5_paper.BINANCE_MAX_CANDLES)]
+    assert len(candles) == candle_count
+    assert int(candles[0, 0]) == start_open
+    assert int(candles[-1, 0]) + v5_paper.CANDLE_SECONDS == current_open
