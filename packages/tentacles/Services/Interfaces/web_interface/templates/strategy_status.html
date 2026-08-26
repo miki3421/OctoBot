@@ -31,6 +31,15 @@
             <div class="alert alert-warning" role="alert">{{ error }}</div>
         {% endfor %}
 
+        {% if data_quality and data_quality.retired_strategies %}
+        <div class="alert alert-secondary mb-4" role="status">
+            <strong>Strategie precedenti archiviate.</strong>
+            V5, V3/V14 shadow e baseline direzionale legacy non possono aprire
+            nuovi ordini. Storico e database restano disponibili per audit;
+            collector scalping e observer multi-mercato rimangono attivi.
+        </div>
+        {% endif %}
+
         <div class="alert alert-{{ operational.color }} mb-4" role="status">
             <h4 class="alert-heading mb-1">{{ operational.title }}</h4>
             <div>{{ operational.description }}</div>
@@ -60,7 +69,7 @@
                     {{ metric_card("Backup giornaliero", "VERIFICATO" if data_quality.backup.verified else "ERRORE", "success" if data_quality.backup.verified else "danger", "hash e integrity SQLite") }}
                     {{ metric_card("Disco libero", "%.1f%%"|format(data_quality.disk.free_pct or 0), "success" if (data_quality.disk.free_pct or 0) >= 20 else "warning" if (data_quality.disk.free_pct or 0) >= 10 else "danger", "%.1f GB"|format((data_quality.disk.free_bytes or 0) / 1073741824)) }}
                     {{ metric_card("Porta 5001", "OK" if data_quality.ports["5001"] else "NON RAGGIUNGIBILE", "success" if data_quality.ports["5001"] else "danger", "OctoBot KuCoin paper") }}
-                    {{ metric_card("Porta 5002", "OK" if data_quality.ports["5002"] else "NON RAGGIUNGIBILE", "success" if data_quality.ports["5002"] else "danger", "V5 Binance paper") }}
+                    {{ metric_card("Porta 5002", "RITIRATA" if "v5" in data_quality.retired_strategies else "OK" if data_quality.ports["5002"] else "NON RAGGIUNGIBILE", "secondary" if "v5" in data_quality.retired_strategies else "success" if data_quality.ports["5002"] else "danger", "V5 Binance paper") }}
                 </div>
                 <div class="table-responsive mb-3">
                     <table class="table table-sm table-striped mb-0">
@@ -177,7 +186,7 @@
 
         <div class="card border-success mb-4">
             <div class="card-body">
-                <h4 class="mb-1"><i class="fas fa-flask mr-2"></i>V5 Paper Forward</h4>
+                <h4 class="mb-1"><i class="fas fa-flask mr-2"></i>V5 Paper Forward · ARCHIVIATA</h4>
                 <div class="text-muted small mb-3">
                     Modello V5 congelato · BTC Binance Futures · candele chiuse 15m · account OctoBot paper isolato e persistente.
                     <a href="{{ v5_paper_url }}" target="_blank" rel="noopener">Apri portafoglio V5</a>.
@@ -418,7 +427,7 @@
 
         <div class="card border-secondary mb-4">
             <div class="card-body">
-                <h4 class="mb-1"><i class="fas fa-eye mr-2"></i>Strategia V3 in shadow</h4>
+                <h4 class="mb-1"><i class="fas fa-eye mr-2"></i>Strategie V3/V14 shadow · ARCHIVIATE</h4>
                 <div class="text-muted small mb-3">
                     Portafoglio controfattuale multi-asset: osserva e misura, ma non può creare ordini.
                 </div>

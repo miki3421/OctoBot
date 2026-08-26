@@ -741,6 +741,9 @@ def create_parser() -> argparse.ArgumentParser:
     operational_report_parser.add_argument("--main-port", type=int, default=5001)
     operational_report_parser.add_argument("--v5-host", default="v5-broker")
     operational_report_parser.add_argument("--v5-port", type=int, default=5001)
+    operational_report_parser.add_argument(
+        "--retired-strategy", action="append", default=[]
+    )
 
     scalping_freeze_parser = subparsers.add_parser(
         "freeze-scalping-forward-dataset",
@@ -1981,6 +1984,7 @@ def _record_operational_report(args: argparse.Namespace) -> int:
         main_port=args.main_port,
         v5_host=args.v5_host,
         v5_port=args.v5_port,
+        retired_strategies=args.retired_strategy,
     )
     print(json.dumps(_json_safe(report), indent=2, sort_keys=True))
     return 0

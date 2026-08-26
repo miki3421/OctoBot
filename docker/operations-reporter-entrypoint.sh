@@ -47,7 +47,10 @@ while true; do
       --main-host octobot \
       --main-port 5001 \
       --v5-host v5-broker \
-      --v5-port 5001 >/tmp/operations-report.json; then
+      --v5-port 5001 \
+      --retired-strategy main_legacy \
+      --retired-strategy trend_shadow \
+      --retired-strategy v5 >/tmp/operations-report.json; then
     python3 -c "
 import json
 value = json.load(open('/operations/current.json'))

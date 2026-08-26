@@ -31,7 +31,7 @@ services:
   trend-shadow:
     image: octobot-local:dev
     container_name: octobot-trend-shadow
-    restart: unless-stopped
+    restart: "no"
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     read_only: true
     cap_drop:
@@ -239,7 +239,7 @@ services:
   v5-broker:
     image: octobot-local:dev
     container_name: octobot-v5-binance-paper
-    restart: unless-stopped
+    restart: "no"
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     entrypoint:
       - /bin/bash
@@ -281,7 +281,7 @@ services:
   v5-paper:
     image: octobot-local:dev
     container_name: octobot-v5-paper
-    restart: unless-stopped
+    restart: "no"
     user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
     read_only: true
     cap_drop:

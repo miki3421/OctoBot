@@ -172,6 +172,15 @@ def test_report_is_idempotent_and_backups_are_verified(tmp_path, monkeypatch):
         )
         if row["id"] == "v5_feed"
     )["status"] == "red"
+    first["retired_strategies"] = ["trend_shadow", "v5"]
+    first["ports"]["5002"] = False
+    retired_checks = operational_report._quality_checks(
+        first, now=arguments["now"]
+    )
+    for check_id in ("v5_feed", "port_5002", "trend_shadow"):
+        check = next(row for row in retired_checks if row["id"] == check_id)
+        assert check["status"] == "green"
+        assert "ritir" in check["detail"].lower()
     assert first["scalping"]["missing_seconds"] == 1
     assert second["scalping"]["gap_count"] == first["scalping"]["gap_count"]
     assert first["daily_report"]["appended"] is True

@@ -456,6 +456,7 @@ def _is_fresh(
 def _quality_checks(
     report: dict, *, now: datetime.datetime
 ) -> list[dict]:
+    retired = set(report.get("retired_strategies", []))
     scalping = report["scalping"]
     market = report["market_evidence"]
     v5_health = report["health"]["v5"]
@@ -482,8 +483,15 @@ def _quality_checks(
         {
             "id": "port_5002",
             "label": "V5 paper · porta 5002",
-            "status": "green" if report["ports"]["5002"] else "red",
+            "status": (
+                "green"
+                if "v5" in retired or report["ports"]["5002"]
+                else "red"
+            ),
             "detail": (
+                "ritirata intenzionalmente"
+                if "v5" in retired
+                else
                 "raggiungibile"
                 if report["ports"]["5002"]
                 else "non raggiungibile"
@@ -507,7 +515,8 @@ def _quality_checks(
             "label": "V5 Binance 15m",
             "status": (
                 "green"
-                if v5_health.get("status") == "healthy"
+                if "v5" in retired
+                or v5_health.get("status") == "healthy"
                 and _float_or(
                     v5_health.get("data_lag_seconds"), math.inf
                 ) < 1800
@@ -517,6 +526,9 @@ def _quality_checks(
                 else "red"
             ),
             "detail": (
+                "strategia ritirata · storico conservato"
+                if "v5" in retired
+                else
                 f"{report['v5'].get('decisions', 0)} decisioni · "
                 f"{report['v5'].get('trades', 0)} trade chiusi · "
                 f"ultimo update {v5_health.get('last_success_at', '-')}"
@@ -600,13 +612,18 @@ def _quality_checks(
             "label": "Trend shadow giornaliero",
             "status": (
                 "green"
-                if shadow_health.get("status") == "healthy"
+                if "trend_shadow" in retired
+                or shadow_health.get("status") == "healthy"
                 and _is_fresh(
                     shadow_health.get("last_success_at"), now, 172800
                 )
                 else "red"
             ),
-            "detail": f"ultimo giorno {shadow_health.get('as_of_date', '-')}",
+            "detail": (
+                "V3/V14 ritirate · storico conservato"
+                if "trend_shadow" in retired
+                else f"ultimo giorno {shadow_health.get('as_of_date', '-')}"
+            ),
         },
         {
             "id": "disk",
@@ -871,6 +888,7 @@ def run(
     main_port: int = 5001,
     v5_host: str = "v5-broker",
     v5_port: int = 5001,
+    retired_strategies: typing.Iterable[str] = (),
     now: datetime.datetime | None = None,
 ) -> dict:
     """Create one status snapshot without changing any trading component."""
@@ -909,6 +927,7 @@ def run(
             "date_utc": date_value.isoformat(),
             "orders_authorized": False,
             "automatic_promotion": False,
+            "retired_strategies": sorted(set(retired_strategies)),
             "main": main,
             "v5": v5,
             "scalping": scalping,
