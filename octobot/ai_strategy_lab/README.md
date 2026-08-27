@@ -557,10 +557,13 @@ funding settlements after entry and through exit are credited. It refuses a
 stale audit, an unready sample, missing exact exit buckets, incomplete levels,
 or insufficient depth. The compressed dataset and manifest remain
 research-only and contain no signal or order authorization. Loading the NPZ
-rechecks its SHA-256, byte size, feature schema, row alignment, exact horizons,
-finite values and the accounting identity
+rechecks its SHA-256, the manifest SHA-256, byte size, feature schema, row
+alignment, exact horizons, finite values and the accounting identity
 `net = 0.5 * (spot + futures + funding) - fees` before exposing any row to a
-model.
+model. The manifest also records every excluded point-in-time candidate by
+timestamp, horizon, symbol and reason. This makes missing future buckets and
+insufficient future unwind depth auditable instead of silently dropping rows
+that could bias the result.
 
 The first strategy protocol using this dataset is frozen before readiness and
 contains no result:
@@ -583,6 +586,51 @@ gate leaves confirmation sealed. Even a complete pass permits only manual
 review for an orderless 90-day shadow; paper and real orders remain disabled.
 The frozen protocol SHA-256 is
 `52fe792f3c5b3e0983ed265ca58aa59c4c1d5931caab4f59eecc03dbe1d39836`.
+
+While implementing the evaluator, before the cutoff and without reading any
+economic outcome, a feasibility contradiction was found in V1: two contiguous
+seven-day out-of-sample windows, a 168-hour hold and five slots permit at most
+ten closed pairs, while the development gate required fifteen. V1 remains
+unchanged. The result-free V1.1 correction changes only that minimum from 15
+to 8 and makes the already fixed confirmation end explicit:
+
+```bash
+python3 -m octobot.ai_strategy_lab.forward_carry_strategy_v1_1 \
+  --output ../octobot-local/backtesting/research/forward-carry-v1_1/protocol.json
+```
+
+The V1.1 protocol SHA-256 is
+`f00225920e30dcb6bdd48be4be03487e78ee451cf076974e1340dc3bc3d5cff4`;
+its parent hash is stored in the artifact and `results` remains null.
+
+The frozen offline evaluator can expose its locks at any time:
+
+```bash
+python3 -m octobot.ai_strategy_lab.forward_carry_evaluator_v1 phase-status \
+  --protocol ../octobot-local/backtesting/research/forward-carry-v1_1/protocol.json \
+  --evidence ../octobot-local/shadow/market/evidence.json
+```
+
+Only after forward readiness may the development report be created:
+
+```bash
+python3 -m octobot.ai_strategy_lab.forward_carry_evaluator_v1 \
+  evaluate-development \
+  --protocol ../octobot-local/backtesting/research/forward-carry-v1_1/protocol.json \
+  --dataset ../octobot-local/backtesting/research/forward-carry.npz \
+  --evidence ../octobot-local/shadow/market/evidence.json \
+  --journal ../octobot-local/shadow/market/microstructure.jsonl \
+  --output-directory ../octobot-local/backtesting/research/forward-carry-v1_1
+```
+
+The evaluator applies the frozen purged walk-forward folds, structural-funding
+benchmark, all 19 leave-one-symbol-out refits, 15-minute delayed/double-fee
+stress and executable 15-minute mark-to-market. Dataset, manifest, model and
+reports are content-bound and revalidated on load. The model is persisted only
+if every development gate passes. Confirmation additionally requires that
+exact passing report and model, remains wall-clock locked until
+`2026-10-03T12:00:00Z`, never refits, and uses the predeclared entry window.
+Neither command contains exchange access or can create paper or real orders.
 
 Applied shadow weights change only on Sunday UTC. Daily candidate weights,
 closed prices and signed funding remain recorded separately, allowing strictly

@@ -206,6 +206,19 @@ def test_builds_execution_and_funding_aware_forward_label(tmp_path):
     )
     assert saved["net_pair_return"][0] == pytest.approx(expected_net)
     assert manifest["output"]["sha256"]
+    assert manifest["manifest_sha256"]
+    assert manifest["source"]["expected_bases"] == ["BTC"]
+    assert manifest["exclusions"]["missing_exact_exit_bucket"] == 1
+    assert manifest["exclusion_events"] == [
+        {
+            "entry_timestamp_ms": int(
+                (START + datetime.timedelta(hours=8)).timestamp() * 1000
+            ),
+            "horizon_hours": 8,
+            "base": "BTC",
+            "reason": "missing_exact_exit_bucket",
+        }
+    ]
     loaded = forward_carry_dataset.load_forward_carry_dataset(
         tmp_path / "carry.npz"
     )
@@ -278,7 +291,34 @@ def test_loader_recomputes_label_accounting_identity(tmp_path):
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["output"]["sha256"] = forward_carry_dataset._sha256(path)
     manifest["output"]["bytes"] = path.stat().st_size
+    manifest.pop("manifest_sha256")
+    manifest["manifest_sha256"] = forward_carry_dataset._json_hash(
+        manifest
+    )
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
 
     with pytest.raises(ValueError, match="accounting identity failed"):
+        forward_carry_dataset.load_forward_carry_dataset(path)
+
+
+def test_loader_rejects_tampered_exclusion_audit(tmp_path):
+    journal, evidence, config = _artifacts(tmp_path, ready=True)
+    dataset = forward_carry_dataset.build_forward_carry_dataset(
+        journal,
+        evidence,
+        horizon_hours=(8,),
+        evidence_config=config,
+    )
+    path = tmp_path / "carry.npz"
+    forward_carry_dataset.save_forward_carry_dataset(dataset, path)
+    manifest_path = path.with_suffix(".npz.manifest.json")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["exclusions"]["missing_exact_exit_bucket"] = 0
+    manifest.pop("manifest_sha256")
+    manifest["manifest_sha256"] = forward_carry_dataset._json_hash(
+        manifest
+    )
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="exclusion counts mismatch"):
         forward_carry_dataset.load_forward_carry_dataset(path)

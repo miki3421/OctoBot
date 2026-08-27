@@ -72,6 +72,17 @@ def build_forward_carry_dataset(
     if evidence.get("checks") != recomputed_evidence.get("checks"):
         raise ValueError("forward evidence checks mismatch")
     records = microstructure_module.load_microstructure_records(journal)
+    expected_bases = tuple(
+        sorted(
+            recomputed_evidence["settled_funding"][
+                "unique_points_by_symbol"
+            ]
+        )
+    )
+    if len(expected_bases) != int(
+        recomputed_evidence["thresholds"]["expected_symbol_count"]
+    ):
+        raise ValueError("forward carry expected symbol universe mismatch")
     by_timestamp = {
         datetime.datetime.fromisoformat(
             record["bucket_start_utc"]
@@ -88,6 +99,7 @@ def build_forward_carry_dataset(
         "insufficient_entry_depth": 0,
         "insufficient_exit_depth": 0,
     }
+    exclusion_events = []
     for entry_timestamp, entry in sorted(by_timestamp.items()):
         for horizon in horizons:
             exit_timestamp = entry_timestamp + datetime.timedelta(
@@ -95,21 +107,40 @@ def build_forward_carry_dataset(
             )
             exit_record = by_timestamp.get(exit_timestamp)
             if exit_record is None:
-                exclusions["missing_exact_exit_bucket"] += len(
-                    entry.get("symbols", {})
+                _append_exclusions(
+                    exclusion_events,
+                    exclusions,
+                    reason="missing_exact_exit_bucket",
+                    entry_timestamp=entry_timestamp,
+                    horizon=horizon,
+                    bases=expected_bases,
                 )
                 continue
-            for base in sorted(entry["symbols"]):
-                entry_symbol = entry["symbols"][base]
+            for base in expected_bases:
+                entry_symbol = entry["symbols"].get(base)
                 exit_symbol = exit_record["symbols"].get(base)
                 if not _has_execution_schema(entry_symbol, curve_key):
-                    exclusions["entry_schema_incomplete"] += 1
+                    _append_exclusions(
+                        exclusion_events,
+                        exclusions,
+                        reason="entry_schema_incomplete",
+                        entry_timestamp=entry_timestamp,
+                        horizon=horizon,
+                        bases=(base,),
+                    )
                     continue
                 if (
                     exit_symbol is None
                     or not _has_execution_schema(exit_symbol, curve_key)
                 ):
-                    exclusions["exit_schema_incomplete"] += 1
+                    _append_exclusions(
+                        exclusion_events,
+                        exclusions,
+                        reason="exit_schema_incomplete",
+                        entry_timestamp=entry_timestamp,
+                        horizon=horizon,
+                        bases=(base,),
+                    )
                     continue
                 entry_curves = _curves(entry_symbol, curve_key)
                 exit_curves = _curves(exit_symbol, curve_key)
@@ -117,13 +148,27 @@ def build_forward_carry_dataset(
                     entry_curves["spot_ask"]["sufficient_depth"]
                     and entry_curves["futures_bid"]["sufficient_depth"]
                 ):
-                    exclusions["insufficient_entry_depth"] += 1
+                    _append_exclusions(
+                        exclusion_events,
+                        exclusions,
+                        reason="insufficient_entry_depth",
+                        entry_timestamp=entry_timestamp,
+                        horizon=horizon,
+                        bases=(base,),
+                    )
                     continue
                 fills = _execution_fills(
                     entry_symbol, exit_symbol, leg_quote
                 )
                 if fills is None:
-                    exclusions["insufficient_exit_depth"] += 1
+                    _append_exclusions(
+                        exclusion_events,
+                        exclusions,
+                        reason="insufficient_exit_depth",
+                        entry_timestamp=entry_timestamp,
+                        horizon=horizon,
+                        bases=(base,),
+                    )
                     continue
                 row = _build_row(
                     base=base,
@@ -151,11 +196,13 @@ def build_forward_carry_dataset(
         "rows": rows,
         "row_count": len(rows),
         "exclusions": exclusions,
+        "exclusion_events": exclusion_events,
         "source": {
             "journal_path": str(journal),
             "journal_sha256": _sha256(journal),
             "evidence_path": str(evidence_file),
             "evidence_sha256": _sha256(evidence_file),
+            "expected_bases": list(expected_bases),
             "readiness_thresholds": recomputed_evidence["thresholds"],
         },
         "label_protocol": {
@@ -181,47 +228,50 @@ def save_forward_carry_dataset(
         [row["features"] for row in rows],
         dtype=numpy.float64,
     ).reshape((len(rows), len(FEATURE_NAMES)))
-    numpy.savez_compressed(
-        output,
-        schema_version=numpy.asarray(
-            [DATASET_SCHEMA_VERSION], dtype=numpy.int16
-        ),
-        feature_names=numpy.asarray(FEATURE_NAMES),
-        features=features,
-        entry_timestamp_ms=numpy.asarray(
-            [row["entry_timestamp_ms"] for row in rows],
-            dtype=numpy.int64,
-        ),
-        exit_timestamp_ms=numpy.asarray(
-            [row["exit_timestamp_ms"] for row in rows],
-            dtype=numpy.int64,
-        ),
-        symbols=numpy.asarray([row["base"] for row in rows]),
-        horizon_hours=numpy.asarray(
-            [row["horizon_hours"] for row in rows],
-            dtype=numpy.int16,
-        ),
-        spot_price_return=numpy.asarray(
-            [row["label"]["spot_price_return"] for row in rows],
-            dtype=numpy.float64,
-        ),
-        futures_price_return=numpy.asarray(
-            [row["label"]["futures_price_return"] for row in rows],
-            dtype=numpy.float64,
-        ),
-        settled_funding_return=numpy.asarray(
-            [row["label"]["settled_funding_return"] for row in rows],
-            dtype=numpy.float64,
-        ),
-        conservative_fee_return=numpy.asarray(
-            [row["label"]["conservative_fee_return"] for row in rows],
-            dtype=numpy.float64,
-        ),
-        net_pair_return=numpy.asarray(
-            [row["label"]["net_pair_return"] for row in rows],
-            dtype=numpy.float64,
-        ),
-    )
+    temporary_output = output.with_name(output.name + ".tmp")
+    with temporary_output.open("wb") as stream:
+        numpy.savez_compressed(
+            stream,
+            schema_version=numpy.asarray(
+                [DATASET_SCHEMA_VERSION], dtype=numpy.int16
+            ),
+            feature_names=numpy.asarray(FEATURE_NAMES),
+            features=features,
+            entry_timestamp_ms=numpy.asarray(
+                [row["entry_timestamp_ms"] for row in rows],
+                dtype=numpy.int64,
+            ),
+            exit_timestamp_ms=numpy.asarray(
+                [row["exit_timestamp_ms"] for row in rows],
+                dtype=numpy.int64,
+            ),
+            symbols=numpy.asarray([row["base"] for row in rows]),
+            horizon_hours=numpy.asarray(
+                [row["horizon_hours"] for row in rows],
+                dtype=numpy.int16,
+            ),
+            spot_price_return=numpy.asarray(
+                [row["label"]["spot_price_return"] for row in rows],
+                dtype=numpy.float64,
+            ),
+            futures_price_return=numpy.asarray(
+                [row["label"]["futures_price_return"] for row in rows],
+                dtype=numpy.float64,
+            ),
+            settled_funding_return=numpy.asarray(
+                [row["label"]["settled_funding_return"] for row in rows],
+                dtype=numpy.float64,
+            ),
+            conservative_fee_return=numpy.asarray(
+                [row["label"]["conservative_fee_return"] for row in rows],
+                dtype=numpy.float64,
+            ),
+            net_pair_return=numpy.asarray(
+                [row["label"]["net_pair_return"] for row in rows],
+                dtype=numpy.float64,
+            ),
+        )
+    temporary_output.replace(output)
     manifest = {
         key: value for key, value in dataset.items() if key != "rows"
     }
@@ -230,11 +280,14 @@ def save_forward_carry_dataset(
         "sha256": _sha256(output),
         "bytes": output.stat().st_size,
     }
+    manifest["manifest_sha256"] = _json_hash(manifest)
     manifest_path = output.with_suffix(output.suffix + ".manifest.json")
-    manifest_path.write_text(
+    temporary_manifest = manifest_path.with_name(manifest_path.name + ".tmp")
+    temporary_manifest.write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    temporary_manifest.replace(manifest_path)
     return manifest
 
 
@@ -245,6 +298,10 @@ def load_forward_carry_dataset(
     path = pathlib.Path(path_value).resolve()
     manifest_path = path.with_suffix(path.suffix + ".manifest.json")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_hash = manifest.pop("manifest_sha256", None)
+    if manifest_hash != _json_hash(manifest):
+        raise ValueError("forward carry manifest hash mismatch")
+    manifest["manifest_sha256"] = manifest_hash
     if manifest.get("schema_version") != DATASET_SCHEMA_VERSION:
         raise ValueError("unsupported forward carry manifest schema")
     if (
@@ -353,6 +410,7 @@ def load_forward_carry_dataset(
         raise ValueError("forward carry label accounting identity failed")
     if int(manifest.get("row_count", -1)) != row_count:
         raise ValueError("forward carry manifest row count mismatch")
+    _validate_exclusion_events(manifest)
     dataset.update(
         {
             "schema_version": schema_version,
@@ -361,6 +419,56 @@ def load_forward_carry_dataset(
         }
     )
     return dataset
+
+
+def _append_exclusions(
+    events,
+    counts,
+    *,
+    reason,
+    entry_timestamp,
+    horizon,
+    bases,
+):
+    for base in sorted(bases):
+        counts[reason] += 1
+        events.append(
+            {
+                "entry_timestamp_ms": int(entry_timestamp.timestamp() * 1000),
+                "horizon_hours": int(horizon),
+                "base": str(base),
+                "reason": reason,
+            }
+        )
+
+
+def _validate_exclusion_events(manifest):
+    exclusions = manifest.get("exclusions")
+    events = manifest.get("exclusion_events")
+    if not isinstance(exclusions, dict) or not isinstance(events, list):
+        raise ValueError("forward carry exclusion audit is missing")
+    recomputed = {name: 0 for name in exclusions}
+    for event in events:
+        if not isinstance(event, dict):
+            raise ValueError("forward carry exclusion event is invalid")
+        reason = event.get("reason")
+        if reason not in recomputed:
+            raise ValueError("forward carry exclusion reason is invalid")
+        if int(event.get("entry_timestamp_ms", 0)) <= 0:
+            raise ValueError("forward carry exclusion timestamp is invalid")
+        if int(event.get("horizon_hours", 0)) <= 0:
+            raise ValueError("forward carry exclusion horizon is invalid")
+        if not str(event.get("base", "")):
+            raise ValueError("forward carry exclusion symbol is invalid")
+        recomputed[reason] += 1
+    if any(int(exclusions[name]) != count for name, count in recomputed.items()):
+        raise ValueError("forward carry exclusion counts mismatch")
+
+
+def _json_hash(value):
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def _validate_evidence(evidence, journal):
