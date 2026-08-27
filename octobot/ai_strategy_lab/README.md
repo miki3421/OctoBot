@@ -254,6 +254,14 @@ Sharpe limits. Their machine-readable candidate gates are therefore false;
 none is added to shadow. Further carry selection requires new forward funding,
 basis, spread and execution evidence rather than more tuning on these samples.
 
+V18 tests one causal daily volatility brake on the unchanged V13 trend
+signal. It improves old-Binance and KuCoin drawdown and Sharpe, remains
+positive at 5x costs and passes the existing bootstrap edge gate. It is still
+rejected: on recent Binance it retains only 79.398% of V13 annualized return,
+drawdown remains 16.173% instead of the required 15%, and Sharpe falls from
+0.921 to 0.832. No brake threshold or lookback is retuned on these observed
+samples, and V18 is not eligible for shadow or paper trading.
+
 Fixed-cash income is evaluated separately from strategy selection. The
 withdrawal command resamples contiguous blocks of monthly results, applies
 predeclared annual return haircuts, and skips a payment if it would cross the
@@ -446,11 +454,34 @@ The sidecar has no operational profile, API keys or order code. Its live
 health file verifies fresh books and lightweight SQLite operability and always
 declares
 `public_data_only=true`, `credentials_used=false`,
-`orders_authorized=false` and `automatic_promotion=false`. The frozen first
-hypothesis is taker micro-momentum with 5/15/30/60-second features, 1-minute
-context and a 5-minute regime filter. It cannot be evaluated before 30 forward
-days and its simulator must cross the recorded spread, apply conservative
-fees/slippage, stress 250/500/1,000-ms latency and prohibit retroactive fills.
+`orders_authorized=false` and `automatic_promotion=false`. The frozen Level 5
+sample has now been evaluated. Aggregate micro-momentum V1a, cost-aware V2 and
+event-level queue-flow V3 all fail before the sealed 20--26 August block. V3
+uses 109 causal features and more than 23.6 million book snapshots, yet its
+best descriptive gross edge is only about 1.3 bps against a 14-bps taker round
+trip. The single-venue KuCoin taker family is therefore closed rather than
+retuned.
+
+V4 changes the information set once by adding checksummed public Binance USD-M
+aggregate trades. Its result-free protocol fixes a five-second Binance impulse,
+one-second information delay, KuCoin lag and agreeing taker-flow rule before
+downloading any pre-test archive:
+
+```bash
+python3 -m octobot.ai_strategy_lab.scalping_cross_venue_v4 write-protocol \
+  --output ../octobot-local/backtesting/research/scalping-evaluation-v4/protocol.json
+python3 -m octobot.ai_strategy_lab.scalping_cross_venue_v4 fetch-pretest \
+  --protocol ../octobot-local/backtesting/research/scalping-evaluation-v4/protocol.json \
+  --cache-root ../octobot-local/backtesting/research/scalping-evaluation-v4/cache \
+  --manifest ../octobot-local/backtesting/research/scalping-evaluation-v4/archive-manifest.json
+```
+
+Across 20.9 million Binance pre-test trades, V4 also fails decisively: 110
+development trades produce PF 0.098 and -1.429%, with zero positive folds; the
+13--19 August diagnostic confirmation produces 65 trades, PF 0.323 and
+-0.613%. Gross expectancy is about 0.9 and 4.5 bps respectively, still below
+the unchanged 14-bps KuCoin taker cost. The locked 20--26 August Binance data
+is not downloaded or evaluated, and V4 cannot authorize orders.
 
 The `operations-reporter` sidecar publishes an hourly read-only data-quality
 snapshot under `shadow/operations/current.json` and one hash-chained record per
