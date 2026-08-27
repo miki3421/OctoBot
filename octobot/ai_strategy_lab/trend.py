@@ -27,6 +27,7 @@ class TrendConfig:
     exit_days: int = 0
     rebalance_days: int = 7
     volatility_lookback_days: int = 60
+    volatility_brake_lookback_days: int = 0
     target_annual_volatility: float = 0.15
     maximum_gross_exposure: float = 1.0
     maximum_asset_exposure: float = 0.35
@@ -61,6 +62,14 @@ class TrendConfig:
             raise ValueError("breakout exit_days must be below slow_days")
         if self.rebalance_days < 1 or self.volatility_lookback_days < 20:
             raise ValueError("invalid rebalance or volatility lookback")
+        if self.volatility_brake_lookback_days and not (
+            10
+            <= self.volatility_brake_lookback_days
+            < self.volatility_lookback_days
+        ):
+            raise ValueError(
+                "volatility brake lookback must be shorter than the base lookback"
+            )
         if not 0 < self.target_annual_volatility <= 1:
             raise ValueError("invalid target volatility")
         if not 0 < self.maximum_gross_exposure <= 1:
@@ -194,6 +203,19 @@ TREND_CONFIGS = (
         fast_days=30,
         slow_days=120,
         rebalance_days=7,
+        target_annual_volatility=0.135,
+        maximum_gross_exposure=0.90,
+        maximum_asset_exposure=0.315,
+        short_regime_symbol="BTC/USDT:USDT",
+    ),
+    TrendConfig(
+        name="fast_volatility_brake_bear_regime_v18",
+        signal_kind="dual_momentum",
+        fast_days=30,
+        slow_days=120,
+        rebalance_days=7,
+        volatility_lookback_days=60,
+        volatility_brake_lookback_days=20,
         target_annual_volatility=0.135,
         maximum_gross_exposure=0.90,
         maximum_asset_exposure=0.315,
@@ -423,6 +445,13 @@ def _simulate(
     covariances = _rolling_covariance(
         daily_returns, config.volatility_lookback_days
     )
+    brake_covariances = (
+        _rolling_covariance(
+            daily_returns, config.volatility_brake_lookback_days
+        )
+        if config.volatility_brake_lookback_days
+        else None
+    )
     weights = numpy.zeros(closes.shape[1], dtype=numpy.float64)
     equity = 1.0
     equities = []
@@ -437,9 +466,14 @@ def _simulate(
     peak_equity = 1.0
     risk_multiplier = 1.0
     risk_multipliers = []
+    volatility_brake_multipliers = []
+    volatility_brake_events = 0
+    volatility_brake_turnover = 0.0
+    fast_ex_ante_volatilities = []
     minimum_start_index = max(
         config.slow_days,
         config.volatility_lookback_days,
+        config.volatility_brake_lookback_days,
     )
     start_index = max(
         minimum_start_index,
@@ -484,17 +518,36 @@ def _simulate(
             current_drawdown, config
         )
         risk_changed = target_risk_multiplier != risk_multiplier
-        should_rebalance = (
+        scheduled_rebalance = (
             index - last_rebalance >= config.rebalance_days
             or risk_changed
         )
-        if should_rebalance:
+        target = weights
+        volatility_brake_multiplier = 1.0
+        fast_ex_ante_volatility = 0.0
+        brake_rebalance = False
+        if scheduled_rebalance:
             target = _target_weights(
                 signals[index],
                 covariances[index],
                 config,
             )
             target *= target_risk_multiplier
+        pre_brake_target = target.copy()
+        if brake_covariances is not None:
+            fast_ex_ante_volatility = _portfolio_volatility(
+                target,
+                brake_covariances[index],
+            )
+            volatility_brake_multiplier = _volatility_brake_multiplier(
+                fast_ex_ante_volatility,
+                config.target_annual_volatility,
+            )
+            if volatility_brake_multiplier < 1.0:
+                target = target * volatility_brake_multiplier
+                brake_rebalance = True
+        should_rebalance = scheduled_rebalance or brake_rebalance
+        if should_rebalance:
             turnover = float(numpy.sum(numpy.abs(target - weights)))
             cost = turnover * (
                 config.fee_per_turnover + config.slippage_per_turnover
@@ -509,13 +562,24 @@ def _simulate(
                     / turnover
                     * cost
                 )
+            brake_turnover = float(
+                numpy.sum(numpy.abs(target - pre_brake_target))
+            )
+            if brake_turnover:
+                volatility_brake_events += 1
+                volatility_brake_turnover += brake_turnover
             weights = target
-            last_rebalance = index
+            if scheduled_rebalance:
+                last_rebalance = index
             risk_multiplier = target_risk_multiplier
         peak_equity = max(peak_equity, equity)
         equities.append(equity)
         applied_weights.append(weights.copy())
         risk_multipliers.append(risk_multiplier)
+        volatility_brake_multipliers.append(
+            volatility_brake_multiplier
+        )
+        fast_ex_ante_volatilities.append(fast_ex_ante_volatility)
 
     if not equities:
         raise ValueError("trend simulation contains no evaluable days")
@@ -525,7 +589,7 @@ def _simulate(
         numpy.concatenate((numpy.ones(1), equity_values))
     )[1:]
     drawdowns = 1.0 - equity_values / peaks
-    dates = market["dates"][start_index:]
+    dates = market["dates"][start_index:end_index]
     monthly_returns = _period_returns(dates, equity_values, "%Y-%m")
     annual_returns = _period_returns(dates, equity_values, "%Y")
     rolling_12_month_returns = _rolling_period_returns(
@@ -542,6 +606,14 @@ def _simulate(
     latest_target = _target_weights(
         signals[latest_index], covariances[latest_index], config
     ) * risk_multiplier
+    if brake_covariances is not None:
+        latest_target *= _volatility_brake_multiplier(
+            _portfolio_volatility(
+                latest_target,
+                brake_covariances[latest_index],
+            ),
+            config.target_annual_volatility,
+        )
     last_market_index = latest_index
     days_since_last_rebalance = last_market_index - last_rebalance
     longest_drawdown_days = _longest_streak(drawdowns > 0)
@@ -609,6 +681,17 @@ def _simulate(
         "minimum_risk_multiplier": float(numpy.min(risk_multipliers)),
         "reduced_risk_days": int(
             numpy.sum(numpy.asarray(risk_multipliers) < 1.0)
+        ),
+        "volatility_brake_events": volatility_brake_events,
+        "volatility_brake_turnover": volatility_brake_turnover,
+        "average_volatility_brake_multiplier": float(
+            numpy.mean(volatility_brake_multipliers)
+        ),
+        "minimum_volatility_brake_multiplier": float(
+            numpy.min(volatility_brake_multipliers)
+        ),
+        "average_fast_ex_ante_volatility": float(
+            numpy.mean(fast_ex_ante_volatilities)
         ),
         "ending_weights": {
             symbol: float(value)
@@ -680,6 +763,8 @@ def _simulate(
             "gross_exposure": numpy.sum(
                 numpy.abs(weight_values), axis=1
             ).tolist(),
+            "volatility_brake_multiplier": volatility_brake_multipliers,
+            "fast_ex_ante_volatility": fast_ex_ante_volatilities,
         }
     return report
 
@@ -692,6 +777,24 @@ def _drawdown_risk_multiplier(drawdown, config):
     if drawdown >= config.drawdown_soft_limit:
         return config.drawdown_soft_multiplier
     return 1.0
+
+
+def _portfolio_volatility(weights, covariance):
+    if covariance.ndim == 0:
+        covariance = numpy.asarray([[float(covariance)]])
+    finite_covariance = numpy.nan_to_num(
+        covariance, nan=0.0, posinf=0.0, neginf=0.0
+    )
+    variance = float(weights @ finite_covariance @ weights)
+    return float(numpy.sqrt(max(0.0, variance)))
+
+
+def _volatility_brake_multiplier(predicted_volatility, target_volatility):
+    if not numpy.isfinite(predicted_volatility):
+        return 0.0
+    if predicted_volatility <= target_volatility:
+        return 1.0
+    return target_volatility / predicted_volatility
 
 
 def _signals(closes, config, symbols=None):

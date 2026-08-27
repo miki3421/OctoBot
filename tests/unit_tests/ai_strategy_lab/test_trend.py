@@ -44,6 +44,44 @@ def test_v13_scales_v3_risk_budget_uniformly():
     assert numpy.max(numpy.abs(candidate_weights)) <= 0.315 + 1e-12
 
 
+def test_v18_keeps_v13_signal_budget_and_adds_fast_volatility_brake():
+    configs = {config.name: config for config in trend.TREND_CONFIGS}
+    baseline = configs["risk_budgeted_bear_regime_v13"]
+    candidate = configs["fast_volatility_brake_bear_regime_v18"]
+
+    assert candidate.fast_days == baseline.fast_days
+    assert candidate.slow_days == baseline.slow_days
+    assert candidate.target_annual_volatility == (
+        baseline.target_annual_volatility
+    )
+    assert candidate.maximum_gross_exposure == (
+        baseline.maximum_gross_exposure
+    )
+    assert candidate.maximum_asset_exposure == (
+        baseline.maximum_asset_exposure
+    )
+    assert candidate.short_regime_symbol == baseline.short_regime_symbol
+    assert candidate.volatility_lookback_days == 60
+    assert candidate.volatility_brake_lookback_days == 20
+    candidate.validate()
+
+
+def test_volatility_brake_only_deleverages_above_target():
+    assert trend._volatility_brake_multiplier(0.10, 0.135) == 1.0
+    assert trend._volatility_brake_multiplier(0.135, 0.135) == 1.0
+    assert numpy.isclose(
+        trend._volatility_brake_multiplier(0.27, 0.135), 0.5
+    )
+    assert trend._volatility_brake_multiplier(numpy.nan, 0.135) == 0.0
+
+    weights = numpy.asarray([0.25, -0.25])
+    covariance = numpy.asarray([[0.16, 0.04], [0.04, 0.09]])
+    expected = numpy.sqrt(float(weights @ covariance @ weights))
+    assert numpy.isclose(
+        trend._portfolio_volatility(weights, covariance), expected
+    )
+
+
 def test_dual_momentum_requires_fast_and_slow_agreement():
     closes = numpy.asarray(
         [[100.0], [90.0], [80.0], [85.0], [90.0], [95.0]]
@@ -162,6 +200,101 @@ def test_weekly_protocol_does_not_rebalance_on_every_signal_change():
         <= 1.0 + 1e-12
     )
     assert 0 <= report["days_until_next_rebalance"] <= 7
+
+
+def test_evaluation_end_index_limits_report_dates_and_days():
+    days = 80
+    dates = [
+        datetime.date(2025, 1, 1) + datetime.timedelta(days=index)
+        for index in range(days)
+    ]
+    closes = numpy.column_stack(
+        (
+            numpy.linspace(100, 140, days),
+            numpy.linspace(90, 150, days),
+        )
+    )
+    returns = numpy.zeros_like(closes)
+    returns[1:] = closes[1:] / closes[:-1] - 1
+    market = {
+        "dates": dates,
+        "symbols": ["A", "B"],
+        "closes": closes,
+        "returns": returns,
+        "funding": numpy.zeros_like(closes),
+    }
+    config = trend.TrendConfig(
+        name="bounded",
+        signal_kind="dual_momentum",
+        fast_days=2,
+        slow_days=4,
+        rebalance_days=7,
+        volatility_lookback_days=20,
+    )
+
+    report = trend._simulate(
+        market,
+        config,
+        10_000,
+        evaluation_start_index=25,
+        evaluation_end_index=50,
+    )
+
+    assert report["evaluation_start_date"] == str(dates[25])
+    assert report["evaluation_end_date"] == str(dates[49])
+    assert report["evaluation_days"] == 25
+
+
+def test_fast_volatility_brake_reduces_risk_between_weekly_rebalances():
+    days = 180
+    dates = [
+        datetime.date(2025, 1, 1) + datetime.timedelta(days=index)
+        for index in range(days)
+    ]
+    low_volatility = numpy.tile(
+        numpy.asarray([0.001, -0.0005]), (days, 1)
+    )
+    high_volatility = numpy.asarray(
+        [0.12 if index % 2 else -0.10 for index in range(20)]
+    )
+    low_volatility[-20:, 0] = high_volatility
+    low_volatility[-20:, 1] = high_volatility * 0.8
+    closes = 100 * numpy.cumprod(1.0 + low_volatility, axis=0)
+    returns = numpy.zeros_like(closes)
+    returns[1:] = closes[1:] / closes[:-1] - 1
+    market = {
+        "dates": dates,
+        "symbols": ["A", "B"],
+        "closes": closes,
+        "returns": returns,
+        "funding": numpy.zeros_like(closes),
+    }
+    config = trend.TrendConfig(
+        name="braked",
+        signal_kind="dual_momentum",
+        fast_days=2,
+        slow_days=4,
+        rebalance_days=7,
+        volatility_lookback_days=60,
+        volatility_brake_lookback_days=20,
+        target_annual_volatility=0.10,
+    )
+    signal_override = numpy.ones_like(closes)
+
+    report = trend._simulate(
+        market,
+        config,
+        10_000,
+        signal_override=signal_override,
+        include_trajectory=True,
+    )
+
+    assert report["volatility_brake_events"] > 0
+    assert report["volatility_brake_turnover"] > 0
+    assert report["minimum_volatility_brake_multiplier"] < 1
+    assert min(
+        report["trajectory"]["volatility_brake_multiplier"][-20:]
+    ) < 1
 
 
 def test_market_regime_gate_removes_opposite_asset_signals():
