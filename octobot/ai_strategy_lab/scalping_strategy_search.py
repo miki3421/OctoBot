@@ -18,7 +18,7 @@ from octobot.ai_strategy_lab import model as model_module
 
 
 SCHEMA_VERSION = 1
-PROTOCOL_VERSION = "btc_futures_scalping_micro_momentum_v1_eval1"
+PROTOCOL_VERSION = "btc_futures_scalping_micro_momentum_v1_eval1a"
 PREREGISTRATION_DATE = "2026-08-27"
 PARENT_PROTOCOL_VERSION = "btc_futures_scalping_micro_momentum_v1"
 PARENT_PROTOCOL_SHA256 = (
@@ -51,6 +51,7 @@ EMBARGO_SECONDS = HORIZON_SECONDS
 CALIBRATION_FRACTION = 0.20
 PROBABILITY_QUANTILES = (0.90, 0.95, 0.975, 0.99)
 DIRECTION_MARGIN = 0.02
+POSITION_FRACTION = 0.10
 
 LOGISTIC_CONFIG = model_module.LogisticConfig(
     epochs=12,
@@ -120,6 +121,7 @@ def frozen_protocol() -> dict:
             "target_bps": TARGET_BPS,
             "stop_bps": STOP_BPS,
             "maximum_hold_seconds": HORIZON_SECONDS,
+            "position_fraction_of_equity": POSITION_FRACTION,
             "stop_wins_same_one_second_bucket": True,
             "configuration_reason": (
                 "highest net reward-to-risk member of the already frozen "
@@ -276,4 +278,3 @@ def write_or_verify_protocol(
     )
     temporary.replace(path)
     return payload
-
