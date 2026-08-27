@@ -562,6 +562,28 @@ finite values and the accounting identity
 `net = 0.5 * (spot + futures + funding) - fees` before exposing any row to a
 model.
 
+The first strategy protocol using this dataset is frozen before readiness and
+contains no result:
+
+```bash
+python3 -m octobot.ai_strategy_lab.forward_carry_strategy_v1 \
+  --output ../octobot-local/backtesting/research/forward-carry-v1/protocol.json
+```
+
+`kucoin_spot_perpetual_forward_carry_v1` tests one long-spot/short-perpetual
+candidate only. Its primary holding period is 168 hours; 8 and 24 hours are
+diagnostic and cannot be selected retrospectively. A fixed ridge regression
+with no feature or hyperparameter search ranks eligible pairs at 00:15, 08:15
+and 16:15 UTC. Each leg is 1,000 USDT, at most five pairs may overlap, and the
+portfolio is marked to executable unwind VWAP every 15 minutes. Development
+entries end seven days before the preregistration cutoff. Confirmation starts
+at `2026-08-27T12:00:00Z`, spans at least 30 entry days and cannot be opened
+before all outcomes mature at `2026-10-03T12:00:00Z`. A failed development
+gate leaves confirmation sealed. Even a complete pass permits only manual
+review for an orderless 90-day shadow; paper and real orders remain disabled.
+The frozen protocol SHA-256 is
+`52fe792f3c5b3e0983ed265ca58aa59c4c1d5931caab4f59eecc03dbe1d39836`.
+
 Applied shadow weights change only on Sunday UTC. Daily candidate weights,
 closed prices and signed funding remain recorded separately, allowing strictly
 forward P&L:
