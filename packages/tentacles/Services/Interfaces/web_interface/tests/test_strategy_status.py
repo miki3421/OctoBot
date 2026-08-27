@@ -1,3 +1,4 @@
+import json
 import pathlib
 import sqlite3
 import tempfile
@@ -118,6 +119,112 @@ class TestV5ForwardSummary(unittest.TestCase):
         )
 
         self.assertEqual(result, {"available": False})
+
+    def test_microstructure_summary_keeps_failed_research_orderless(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "experiments" / "v1-20260827").mkdir(parents=True)
+            (root / "protocol.json").write_text(
+                json.dumps(
+                    {
+                        "protocol_sha256": "frozen",
+                        "results": None,
+                        "orders_authorized": False,
+                        "paper_orders_authorized": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (root / "diagnostic-dataset.manifest.json").write_text(
+                json.dumps(
+                    {
+                        "first_decision": "2026-07-24T00:00:00Z",
+                        "last_decision": "2026-08-17T00:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = {
+                "protocol": {"sha256": "frozen"},
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "dataset": {
+                    "rows": 1508,
+                    "locked_test_materialized": False,
+                },
+                "models": {
+                    name: {
+                        "probability": {"auc": auc},
+                        "probability_distribution": {
+                            "both_directions": {"maximum": 0.58}
+                        },
+                    }
+                    for name, auc in (
+                        ("price_only", 0.76),
+                        ("book_only", 0.60),
+                        ("combined", 0.66),
+                    )
+                },
+                "primary_task": {"probability_threshold": 0.60},
+                "diagnostics_only": {
+                    "horizons": [
+                        {"horizon_seconds": 14400, "target_rate": 0.049},
+                        {"horizon_seconds": 28800, "target_rate": 0.129},
+                    ]
+                },
+                "diagnostic_advancement_gate": {
+                    "passed": False,
+                    "passed_checks": 6,
+                    "total_checks": 15,
+                    "book_improvement_folds": 0,
+                    "relative_brier_improvement_vs_price": -0.059,
+                },
+                "conclusion": "incremental_book_value_not_demonstrated",
+            }
+            report_path = (
+                root / "experiments" / "v1-20260827" / "report.json"
+            )
+            report_path.write_text(json.dumps(report), encoding="utf-8")
+
+            result = status._microstructure_summary(root)
+
+            self.assertTrue(result["available"])
+            self.assertEqual(result["state"], "V1 RESPINTA")
+            self.assertEqual(result["rows"], 1508)
+            self.assertEqual(result["price_auc"], 0.76)
+            self.assertAlmostEqual(result["target_rate_8h_pct"], 12.9)
+            self.assertFalse(result["orders_authorized"])
+
+    def test_microstructure_summary_rejects_order_authorization(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            experiment = root / "experiments" / "v1"
+            experiment.mkdir(parents=True)
+            (root / "protocol.json").write_text(
+                json.dumps(
+                    {
+                        "protocol_sha256": "frozen",
+                        "results": None,
+                        "orders_authorized": False,
+                        "paper_orders_authorized": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (experiment / "report.json").write_text(
+                json.dumps(
+                    {
+                        "protocol": {"sha256": "frozen"},
+                        "orders_authorized": True,
+                        "paper_orders_authorized": False,
+                        "dataset": {"locked_test_materialized": False},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "authorizes orders"):
+                status._microstructure_summary(root)
 
 
 if __name__ == "__main__":

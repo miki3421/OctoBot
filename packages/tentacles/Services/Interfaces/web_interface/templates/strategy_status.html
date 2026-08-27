@@ -348,9 +348,9 @@
 
         <div class="card border-danger mb-4">
             <div class="card-body">
-                <h4 class="mb-1"><i class="fas fa-bolt mr-2"></i>Prova scalping BTC</h4>
+                <h4 class="mb-1"><i class="fas fa-wave-square mr-2"></i>Microstruttura BTC · collector e ricerca</h4>
                 <div class="text-muted small mb-3">
-                    Book Futures Level 5 fino a 100 ms e trade pubblici real-time. Raccolta research-only: nessun segnale o ordine è ancora autorizzato.
+                    Book Futures Level 5 fino a 100 ms e trade pubblici real-time. I dati servono sia allo studio dello scalping sia ai regimi direzionali 15m–8h; nessun segnale o ordine è autorizzato.
                 </div>
                 {% if scalping_health %}
                 {% set scalping_quality = data_quality.scalping if data_quality else {} %}
@@ -379,8 +379,8 @@
                     </div>
                 </div>
                 <div class="small text-muted">
-                    Primi risultati economici ammessi dopo 30 giorni forward integri. Più operazioni non implicano più profitto:
-                    la candidata dovrà superare spread, fee, slippage e stress di latenza.
+                    La soglia temporale dei 30 giorni è superata e il collector continua. I gate di qualità e ogni nuova valutazione restano separati:
+                    più operazioni non implicano più profitto e ogni candidata deve superare spread, fee, slippage e stress di latenza.
                 </div>
                 {% if scalping_protocol and scalping_gate %}
                 <div class="card border-secondary mt-3">
@@ -421,6 +421,45 @@
                     <div class="alert alert-secondary mb-0">
                         Il collector scalping non ha ancora pubblicato il primo stato.
                     </div>
+                {% endif %}
+                {% if microstructure.available %}
+                <div class="card border-{{ microstructure.color }} mt-3">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="mb-1">Microstructure Regime V1 · 15m / 4h</h5>
+                                <div class="text-muted small">
+                                    Confronto walk-forward congelato: prezzo/indicatori, solo book e combinazione.
+                                </div>
+                            </div>
+                            <span class="badge badge-{{ microstructure.color }} p-2">{{ microstructure.state }}</span>
+                        </div>
+                        <div class="row">
+                            {{ metric_card("Decisioni complete", microstructure.rows, "info", (microstructure.first_decision or "-")[:10] ~ " → " ~ (microstructure.last_decision or "-")[:10]) }}
+                            {{ metric_card("AUC prezzo", "%.3f"|format(microstructure.price_auc) if microstructure.price_auc is not none else "-", "success" if microstructure.price_auc and microstructure.price_auc >= 0.55 else "warning", "prezzo, volume e indicatori") }}
+                            {{ metric_card("AUC solo book", "%.3f"|format(microstructure.book_auc) if microstructure.book_auc is not none else "-", "info", "Level 5 e order flow") }}
+                            {{ metric_card("AUC combinata", "%.3f"|format(microstructure.combined_auc) if microstructure.combined_auc is not none else "-", "warning", "il book non migliora V1") }}
+                            {{ metric_card("Book vs prezzo", "%+.2f%%"|format(microstructure.relative_brier_improvement_pct), "success" if microstructure.relative_brier_improvement_pct > 0 else "danger", "variazione relativa Brier") }}
+                            {{ metric_card("Fold migliorati", microstructure.book_improvement_folds ~ " / " ~ microstructure.total_folds, "success" if microstructure.book_improvement_folds >= 3 else "danger", "combinato contro prezzo") }}
+                            {{ metric_card("P max combinata", "%.2f%%"|format(microstructure.combined_probability_max_pct) if microstructure.combined_probability_max_pct is not none else "-", "warning", "soglia congelata %.0f%%"|format(microstructure.probability_threshold_pct)) }}
+                            {{ metric_card("Target ±1% / 4h", "%.2f%%"|format(microstructure.target_rate_4h_pct) if microstructure.target_rate_4h_pct is not none else "-", "info", "frequenza direzionale") }}
+                            {{ metric_card("Target ±1% / 8h", "%.2f%%"|format(microstructure.target_rate_8h_pct) if microstructure.target_rate_8h_pct is not none else "-", "secondary", "solo diagnostico") }}
+                            {{ metric_card("Gate superati", microstructure.passed_checks ~ " / " ~ microstructure.total_checks, microstructure.color) }}
+                            {{ metric_card("Blocco 20–26 ago", "SIGILLATO", "success", "mai materializzato") }}
+                            {{ metric_card("Ordini", "DISABILITATI", "success", "paper e reali") }}
+                        </div>
+                        <div class="alert alert-{{ microstructure.color }} small mb-2">
+                            <strong>Verdetto V1:</strong> il baseline prezzo/volume è informativo, ma sommare tutte le feature del book peggiora la calibrazione e non migliora nessun fold. La V1 non viene ritoccata né promossa.
+                        </div>
+                        <div class="small text-muted">
+                            Il risultato suggerisce di studiare il book come filtro di regime/liquidità o correzione residuale, non come blocco grezzo ad alta dimensionalità. Protocollo <code>{{ microstructure.protocol_sha256 | truncate(18, True, "…") }}</code>.
+                        </div>
+                    </div>
+                </div>
+                {% elif microstructure.protocol_available %}
+                <div class="alert alert-info small mt-3 mb-0">
+                    Protocollo Microstructure Regime V1 presente; report diagnostico non ancora disponibile.
+                </div>
                 {% endif %}
             </div>
         </div>

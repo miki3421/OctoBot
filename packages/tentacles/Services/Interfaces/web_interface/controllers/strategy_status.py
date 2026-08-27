@@ -29,6 +29,9 @@ DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
 DEFAULT_CARRY_PROTOCOL_PATH = (
     "/octobot/backtesting/research/forward-carry-v1_1/protocol.json"
 )
+DEFAULT_MICROSTRUCTURE_ROOT = (
+    "/octobot/backtesting/research/microstructure-regime-v1"
+)
 V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
@@ -201,6 +204,98 @@ def _scalping_summary(health: dict) -> dict:
     except (KeyError, TypeError, ValueError):
         pass
     return summary
+
+
+def _microstructure_summary(root: pathlib.Path) -> dict:
+    protocol = _read_json(root / "protocol.json")
+    experiment_root = root / "experiments"
+    reports = sorted(experiment_root.glob("*/report.json"), reverse=True)
+    if not protocol or not reports:
+        return {
+            "available": False,
+            "protocol_available": bool(protocol),
+        }
+    report = _read_json(reports[0])
+    protocol_sha256 = protocol.get("protocol_sha256")
+    if report.get("protocol", {}).get("sha256") != protocol_sha256:
+        raise ValueError("microstructure report protocol hash differs")
+    if protocol.get("results") is not None:
+        raise ValueError("microstructure protocol is not result-free")
+    for value in (protocol, report):
+        if value.get("orders_authorized") is not False:
+            raise ValueError("microstructure report authorizes orders")
+        if value.get("paper_orders_authorized") is not False:
+            raise ValueError("microstructure report authorizes paper orders")
+    if report.get("dataset", {}).get("locked_test_materialized") is not False:
+        raise ValueError("microstructure report opened locked data")
+
+    models = report.get("models", {})
+    price = models.get("price_only", {})
+    book = models.get("book_only", {})
+    combined = models.get("combined", {})
+    gate = report.get("diagnostic_advancement_gate", {})
+    horizon_values = {
+        int(item.get("horizon_seconds", 0)): item
+        for item in report.get("diagnostics_only", {}).get("horizons", [])
+        if isinstance(item, dict)
+    }
+    dataset_manifest = _read_json(
+        root / "diagnostic-dataset.manifest.json"
+    )
+    combined_distribution = combined.get(
+        "probability_distribution", {}
+    ).get("both_directions", {})
+    passed = gate.get("passed") is True
+    return {
+        "available": True,
+        "state": "PASS DIAGNOSTICO" if passed else "V1 RESPINTA",
+        "color": "success" if passed else "danger",
+        "experiment_id": report.get("experiment_id"),
+        "created_at": report.get("created_at"),
+        "protocol_sha256": protocol_sha256,
+        "rows": int(report.get("dataset", {}).get("rows", 0)),
+        "first_decision": dataset_manifest.get("first_decision"),
+        "last_decision": dataset_manifest.get("last_decision"),
+        "price_auc": price.get("probability", {}).get("auc"),
+        "book_auc": book.get("probability", {}).get("auc"),
+        "combined_auc": combined.get("probability", {}).get("auc"),
+        "relative_brier_improvement_pct": (
+            float(gate.get("relative_brier_improvement_vs_price", 0.0))
+            * 100.0
+        ),
+        "book_improvement_folds": int(
+            gate.get("book_improvement_folds", 0)
+        ),
+        "total_folds": 4,
+        "combined_probability_max_pct": (
+            float(combined_distribution["maximum"]) * 100.0
+            if combined_distribution.get("maximum") is not None
+            else None
+        ),
+        "probability_threshold_pct": (
+            float(
+                report.get("primary_task", {}).get(
+                    "probability_threshold", 0.0
+                )
+            )
+            * 100.0
+        ),
+        "target_rate_4h_pct": (
+            float(horizon_values[14_400]["target_rate"]) * 100.0
+            if 14_400 in horizon_values
+            else None
+        ),
+        "target_rate_8h_pct": (
+            float(horizon_values[28_800]["target_rate"]) * 100.0
+            if 28_800 in horizon_values
+            else None
+        ),
+        "passed_checks": int(gate.get("passed_checks", 0)),
+        "total_checks": int(gate.get("total_checks", 0)),
+        "locked_test_materialized": False,
+        "orders_authorized": False,
+        "conclusion": report.get("conclusion"),
+    }
 
 
 def _timestamp_iso(timestamp: object) -> str | None:
@@ -521,6 +616,12 @@ def register(blueprint):
                 "CARRY_PROTOCOL_PATH", DEFAULT_CARRY_PROTOCOL_PATH
             )
         )
+        microstructure_root = pathlib.Path(
+            os.getenv(
+                "MICROSTRUCTURE_RESEARCH_ROOT",
+                DEFAULT_MICROSTRUCTURE_ROOT,
+            )
+        )
 
         try:
             latest_decision = _read_latest_decision(database_path)
@@ -602,6 +703,13 @@ def register(blueprint):
         except (OSError, ValueError, json.JSONDecodeError) as error:
             carry_protocol = {}
             errors.append(f"carry_protocol: {error}")
+        try:
+            microstructure = _microstructure_summary(
+                microstructure_root
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            microstructure = {"available": False}
+            errors.append(f"microstructure_research: {error}")
         carry_protocol_status = forward_carry_dashboard.protocol_status(
             carry_protocol
         )
@@ -636,6 +744,7 @@ def register(blueprint):
             scalping_health=scalping_health,
             scalping_summary=_scalping_summary(scalping_health),
             scalping_protocol=scalping_protocol,
+            microstructure=microstructure,
             data_quality=data_quality,
             v5_paper_health=v5_paper_health,
             v5_forward_summary=v5_forward_summary,

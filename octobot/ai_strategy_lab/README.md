@@ -705,6 +705,49 @@ requires at least 200 closed outcomes over 365 days, at least 50 outcomes per
 direction, 40 per economic class, valid features and funding-complete labels.
 Automatic fitting remains disabled even after every evidence check passes.
 
+## BTC microstructure beyond scalping
+
+`microstructure_regime_v1` tests whether the collected BTC Futures Level-5
+book adds information to a slower 15-minute price/volume baseline. The frozen
+primary label is a directional `+1%` target before a `-1%` stop within four
+hours; one and eight hours remain descriptive. Features are available only at
+a closed 15-minute boundary. Standard 15-minute indicators use a fixed causal
+54-candle warmup, while book and queue-flow features come from the already
+audited scalping V3 dataset. The locked 20--26 August block is never loaded.
+
+Freeze the result-free protocol before building labels:
+
+```bash
+python3 -m octobot.ai_strategy_lab.microstructure_regime_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/microstructure-regime-v1/protocol.json
+```
+
+Build the diagnostic-reuse dataset and run the fixed comparison:
+
+```bash
+python3 -m octobot.ai_strategy_lab.microstructure_regime_v1 build-dataset \
+  --protocol ../octobot-local/backtesting/research/microstructure-regime-v1/protocol.json \
+  --parent-v3-dataset ../octobot-local/backtesting/research/scalping-evaluation-v3/pretest-dataset.npz \
+  --parent-v3-manifest ../octobot-local/backtesting/research/scalping-evaluation-v3/pretest-dataset.manifest.json \
+  --source-cache ../octobot-local/backtesting/research/scalping-evaluation-v1/pretest-dataset-source-cache.npz \
+  --output ../octobot-local/backtesting/research/microstructure-regime-v1/diagnostic-dataset.npz
+
+python3 -m octobot.ai_strategy_lab.microstructure_regime_v1 evaluate-discovery \
+  --protocol ../octobot-local/backtesting/research/microstructure-regime-v1/protocol.json \
+  --dataset ../octobot-local/backtesting/research/microstructure-regime-v1/diagnostic-dataset.npz \
+  --dataset-manifest ../octobot-local/backtesting/research/microstructure-regime-v1/diagnostic-dataset.manifest.json \
+  --output-root ../octobot-local/backtesting/research/microstructure-regime-v1/experiments
+```
+
+V1 did not demonstrate incremental book value. Price/volume plus indicators
+reached AUC `0.765805`; the combined model reached `0.660596` and worsened
+Brier score by `5.921%` relative to price-only, with zero improved folds out of
+four. The primary target base rate was only `4.9403%`, and the frozen 60%
+threshold selected no combined trades. This is a rejected diagnostic, not a
+claim that the price baseline is tradable. Each experiment persists hashed
+predictions and all fold models and verifies their predictions after reload.
+No artifact authorizes paper or real orders.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
