@@ -18,6 +18,7 @@ import flask
 
 import tentacles.Services.Interfaces.web_interface.login as login
 import tentacles.Services.Interfaces.web_interface.models as models
+from octobot.ai_strategy_lab import forward_carry_dashboard
 
 
 DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
@@ -25,6 +26,9 @@ DEFAULT_SHADOW_ROOT = "/shadow"
 DEFAULT_SCALPING_HEALTH_PATH = "/scalping/health.json"
 DEFAULT_V5_PAPER_HEALTH_PATH = "/v5-paper/binance/health.json"
 DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
+DEFAULT_CARRY_PROTOCOL_PATH = (
+    "/octobot/backtesting/research/forward-carry-v1_1/protocol.json"
+)
 V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
@@ -512,6 +516,11 @@ def register(blueprint):
         v5_paper_db_path = os.getenv(
             "V5_PAPER_DB_PATH", DEFAULT_V5_PAPER_DB_PATH
         )
+        carry_protocol_path = pathlib.Path(
+            os.getenv(
+                "CARRY_PROTOCOL_PATH", DEFAULT_CARRY_PROTOCOL_PATH
+            )
+        )
 
         try:
             latest_decision = _read_latest_decision(database_path)
@@ -588,6 +597,19 @@ def register(blueprint):
         except (OSError, TypeError, ValueError, sqlite3.Error) as error:
             v5_forward_summary = {"available": False}
             errors.append(f"v5_forward_summary: {error}")
+        try:
+            carry_protocol = _read_json(carry_protocol_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            carry_protocol = {}
+            errors.append(f"carry_protocol: {error}")
+        carry_protocol_status = forward_carry_dashboard.protocol_status(
+            carry_protocol
+        )
+        carry_readiness = forward_carry_dashboard.readiness_summary(
+            loaded["market_evidence"],
+            loaded["market_health"],
+            carry_protocol_status,
+        )
 
         return flask.render_template(
             "strategy_status.html",
@@ -599,6 +621,7 @@ def register(blueprint):
             ),
             market_health=loaded["market_health"],
             evidence=loaded["market_evidence"],
+            carry=carry_readiness,
             shadow_health=loaded["shadow_health"],
             performance=loaded["performance"],
             income=loaded["income_objective"],

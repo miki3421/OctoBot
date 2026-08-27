@@ -490,38 +490,82 @@
             </div>
         </div>
 
-        <div class="card border-info mb-4">
+        <div class="card border-{{ carry.color }} mb-4">
             <div class="card-body">
-                <h4 class="mb-1"><i class="fas fa-microscope mr-2"></i>Raccolta dati forward</h4>
-                <div class="text-muted small mb-3">
-                    Microstruttura, basis, funding e liquidità pubblica. Serve a costruire nuove ipotesi senza contaminazione retrospettiva.
+                <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                    <div>
+                        <h4 class="mb-1"><i class="fas fa-microscope mr-2"></i>Carry V1.1 · gate forward</h4>
+                        <div class="text-muted small">
+                            Microstruttura, basis, funding e liquidità pubblica. Stato read-only, senza outcome economici.
+                        </div>
+                    </div>
+                    <span class="badge badge-{{ carry.color }} p-2">{{ carry.state }}</span>
                 </div>
-                {% if evidence %}
+                {% if carry.available %}
                 <div class="row">
-                    {{ metric_card("Stato collector", market_health.status | upper, "success" if market_health.status == "healthy" else "danger", market_health.last_success_at or "") }}
-                    {{ metric_card("Mercati", evidence.journal.symbol_count ~ " / " ~ evidence.thresholds.expected_symbol_count, "info") }}
-                    {{ metric_card("Bucket osservati", evidence.journal.observed_buckets ~ " / " ~ evidence.readiness_progress.required_span_buckets, "info", "%.4f%% span"|format(evidence.readiness_progress.span_progress * 100)) }}
-                    {{ metric_card("Funding minimi", evidence.settled_funding.minimum_unique_points ~ " / " ~ evidence.thresholds.minimum_settlements_per_symbol, "info", "%.2f%%"|format(evidence.readiness_progress.settlement_progress * 100)) }}
-                    {{ metric_card("Copertura", "%.2f%%"|format(evidence.journal.coverage * 100), "success" if evidence.checks.coverage_reached else "warning") }}
-                    {{ metric_card("Bucket mancanti", evidence.journal.missing_buckets, "success" if evidence.journal.missing_buckets == 0 else "danger") }}
-                    {{ metric_card("Sviluppo pronto", "SÌ" if evidence.strategy_development_ready else "NO", "success" if evidence.strategy_development_ready else "warning") }}
-                    {{ metric_card("Prima data possibile", evidence.readiness_progress.earliest_span_ready_at_utc | replace("T", " ") | truncate(17, True, ""), "secondary", "solo requisito temporale") }}
+                    {{ metric_card("Fase Carry", carry.state, carry.color, carry.state_detail) }}
+                    {{ metric_card("Avanzamento", "%.4f%%"|format(carry.progress_pct), "info", "minimo fra durata e funding") }}
+                    {{ metric_card("Prima valutazione", carry.estimated_at[:16] | replace("T", " ") if carry.estimated_at else "-", "secondary", carry.estimated_remaining ~ " · condizionata UTC") }}
+                    {{ metric_card("Conferma non prima", carry.confirmation_at[:16] | replace("T", " ") if carry.confirmation_at else "-", "secondary", "UTC · solo dopo sviluppo superato") }}
+                    {{ metric_card("Stato collector", carry.collector_status | upper, "success" if carry.collector_status == "healthy" else "danger", carry.collector_last_success or "") }}
+                    {{ metric_card("Mercati", carry.symbol_count ~ " / " ~ carry.expected_symbol_count, "success" if carry.symbol_count == carry.expected_symbol_count else "danger") }}
+                    {{ metric_card("Durata", "%.2f / %.0f giorni"|format(carry.span_days, carry.minimum_span_days), "success" if carry.span_days >= carry.minimum_span_days else "warning") }}
+                    {{ metric_card("Funding minimi", carry.minimum_funding ~ " / " ~ carry.required_funding, "success" if carry.minimum_funding >= carry.required_funding else "warning", "per ciascun simbolo") }}
+                    {{ metric_card("Copertura", "%.2f%%"|format(carry.coverage_pct), "success" if carry.coverage_pct >= 95 else "warning") }}
+                    {{ metric_card("Gap massimo", "%.0f / %.0f min"|format(carry.maximum_gap_minutes, carry.allowed_gap_minutes), "success" if carry.maximum_gap_minutes <= carry.allowed_gap_minutes else "danger") }}
+                    {{ metric_card("Bucket mancanti", carry.missing_buckets, "secondary", "ammessi solo entro copertura e gap") }}
+                    {{ metric_card("Ordini", "DISABILITATI", "success", "anche dopo un eventuale pass") }}
                 </div>
                 <div class="progress mb-2" style="height: 1.4rem;">
-                    <div class="progress-bar" role="progressbar"
-                         style="width: {{ [evidence.readiness_progress.overall_minimum_progress * 100, 100] | min }}%; min-width: 3rem;"
-                         aria-valuenow="{{ evidence.readiness_progress.overall_minimum_progress * 100 }}"
+                    <div class="progress-bar bg-{{ carry.color }}" role="progressbar"
+                         style="width: {{ [carry.progress_pct, 100] | min }}%; min-width: 3rem;"
+                         aria-valuenow="{{ carry.progress_pct }}"
                          aria-valuemin="0" aria-valuemax="100">
-                        {{ "%.4f%%"|format(evidence.readiness_progress.overall_minimum_progress * 100) }}
+                        {{ "%.4f%%"|format(carry.progress_pct) }}
                     </div>
                 </div>
-                <div class="small text-muted">
-                    Mancano almeno {{ evidence.readiness_progress.remaining_observed_buckets_at_minimum_span }} osservazioni valide
-                    e {{ evidence.readiness_progress.minimum_remaining_settlements }} settlement per simbolo.
-                    La data indicata non è una previsione di profitto.
+                {% if carry.blockers %}
+                <div class="alert alert-{{ carry.color }} mt-3 mb-3" role="status">
+                    <strong>Perché lo sviluppo è bloccato:</strong>
+                    <ul class="mb-0 mt-2 pl-4">
+                    {% for check in carry.blockers %}
+                        <li><strong>{{ check.label }}</strong> — {{ check.detail }}</li>
+                    {% endfor %}
+                    </ul>
                 </div>
-                {% elif not shadow_ready %}
-                    <div class="alert alert-warning mb-0">I file forward non sono ancora accessibili dal container web.</div>
+                {% else %}
+                <div class="alert alert-success mt-3 mb-3" role="status">
+                    Tutti i gate risultano verificati. Questo stato consente soltanto la valutazione offline preregistrata.
+                </div>
+                {% endif %}
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead><tr><th>Gate</th><th>Esito</th><th>Dettaglio verificato</th></tr></thead>
+                        <tbody>
+                        {% for check in carry.checks %}
+                            <tr>
+                                <td>{{ check.label }}</td>
+                                <td>
+                                    <span class="badge badge-{{ "success" if check.passed else "danger" }}">
+                                        {{ "OK" if check.passed else "BLOCCO" }}
+                                    </span>
+                                </td>
+                                <td>{{ check.detail }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-secondary small mb-0">
+                    Protocollo <code>{{ carry.protocol_sha256 }}</code> · audit aggiornato
+                    {{ carry.evidence_created_at[:19] | replace("T", " ") if carry.evidence_created_at else "-" }} UTC.
+                    La data indicata è una stima condizionata alla continuità dei dati, non una previsione di profitto.
+                    Questa pagina non costruisce dataset, non addestra modelli e non crea ordini.
+                </div>
+                {% else %}
+                <div class="alert alert-warning mb-0">
+                    I file Carry forward non sono ancora accessibili dal container web.
+                </div>
                 {% endif %}
             </div>
         </div>

@@ -611,6 +611,13 @@ python3 -m octobot.ai_strategy_lab.forward_carry_evaluator_v1 phase-status \
   --evidence ../octobot-local/shadow/market/evidence.json
 ```
 
+The local read-only `Strategy Status` page exposes the same Carry V1.1 gate as
+a progress bar, a conditional earliest evaluation date, the full checklist and
+only the currently active blocker reasons. It verifies the frozen protocol
+hash, evidence freshness, collector health and the orderless safety locks. The
+page never builds a dataset, fits a model, opens confirmation or creates an
+order.
+
 Only after forward readiness may the development report be created:
 
 ```bash
