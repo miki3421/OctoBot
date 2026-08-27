@@ -226,6 +226,113 @@ class TestV5ForwardSummary(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "authorizes orders"):
                 status._microstructure_summary(root)
 
+    def test_microstructure_v2_summary_exposes_two_stage_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            experiment = root / "experiments" / "v2-20260827"
+            experiment.mkdir(parents=True)
+            (root / "protocol.json").write_text(
+                json.dumps(
+                    {
+                        "protocol_sha256": "frozen-v2",
+                        "results": None,
+                        "orders_authorized": False,
+                        "paper_orders_authorized": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            report = {
+                "protocol": {"sha256": "frozen-v2"},
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "dataset": {
+                    "rows": 1508,
+                    "oos_rows": 905,
+                    "barrier_events": 150,
+                    "known_direction_events": 149,
+                    "ambiguous_barrier_events": 1,
+                    "locked_test_materialized": False,
+                },
+                "stages": {
+                    "price_activity": {"auc": 0.708},
+                    "filtered_activity": {"auc": 0.702},
+                    "price_direction": {"auc": 0.163},
+                    "book_direction": {"auc": 0.289},
+                    "residual_direction": {"auc": 0.159},
+                },
+                "arms": {
+                    "book_filter": {
+                        "target_probability": {"auc": 0.544},
+                        "primary": {
+                            "trades": 16,
+                            "win_rate": 0.125,
+                            "profit_factor": 0.142,
+                            "total_return": -0.00634,
+                            "average_instrument_return_bps": -39.75,
+                        },
+                        "stress": {"total_return": -0.00857},
+                    },
+                    "book_filter_residual": {
+                        "primary": {"trades": 17, "total_return": -0.00663}
+                    },
+                },
+                "diagnostic_advancement_gate": {
+                    "passed": False,
+                    "passed_checks": 7,
+                    "total_checks": 18,
+                    "activity_improvement_folds": 2,
+                    "positive_folds": 1,
+                    "relative_activity_brier_improvement_vs_price": -0.0039,
+                },
+                "conclusion": "two_stage_book_filter_not_demonstrated",
+            }
+            (experiment / "report.json").write_text(
+                json.dumps(report), encoding="utf-8"
+            )
+
+            result = status._microstructure_v2_summary(root)
+
+            self.assertTrue(result["available"])
+            self.assertEqual(result["state"], "V2 RESPINTA")
+            self.assertEqual(result["oos_rows"], 905)
+            self.assertEqual(result["barrier_events"], 150)
+            self.assertEqual(result["price_direction_auc"], 0.163)
+            self.assertAlmostEqual(result["win_rate_pct"], 12.5)
+            self.assertAlmostEqual(result["total_return_pct"], -0.634)
+            self.assertFalse(result["orders_authorized"])
+
+    def test_microstructure_v2_summary_rejects_opened_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            experiment = root / "experiments" / "v2"
+            experiment.mkdir(parents=True)
+            (root / "protocol.json").write_text(
+                json.dumps(
+                    {
+                        "protocol_sha256": "frozen-v2",
+                        "results": None,
+                        "orders_authorized": False,
+                        "paper_orders_authorized": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (experiment / "report.json").write_text(
+                json.dumps(
+                    {
+                        "protocol": {"sha256": "frozen-v2"},
+                        "orders_authorized": False,
+                        "paper_orders_authorized": False,
+                        "dataset": {"locked_test_materialized": True},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "opened locked data"):
+                status._microstructure_v2_summary(root)
+
 
 if __name__ == "__main__":
     unittest.main()

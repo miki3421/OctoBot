@@ -748,6 +748,38 @@ claim that the price baseline is tradable. Each experiment persists hashed
 predictions and all fold models and verifies their predictions after reload.
 No artifact authorizes paper or real orders.
 
+V2 tests the narrower lesson from V1 without changing the four-hour horizon.
+It first estimates whether either barrier will be touched, then estimates
+up-first versus down-first only on historical barrier events. Price retains
+directional responsibility. Instead of all 92 book columns, 24 fixed
+volatility/liquidity features can apply a centered activity-logit correction
+with frozen weight `0.25`; an 18-feature directional book correction is a
+diagnostic challenger only. The protocol must be frozen before evaluation:
+
+```bash
+python3 -m octobot.ai_strategy_lab.microstructure_regime_v2 write-protocol \
+  --output ../octobot-local/backtesting/research/microstructure-regime-v2/protocol.json
+
+python3 -m octobot.ai_strategy_lab.microstructure_regime_v2 evaluate-discovery \
+  --protocol ../octobot-local/backtesting/research/microstructure-regime-v2/protocol.json \
+  --parent-protocol ../octobot-local/backtesting/research/microstructure-regime-v1/protocol.json \
+  --dataset ../octobot-local/backtesting/research/microstructure-regime-v1/diagnostic-dataset.npz \
+  --dataset-manifest ../octobot-local/backtesting/research/microstructure-regime-v1/diagnostic-dataset.manifest.json \
+  --output-root ../octobot-local/backtesting/research/microstructure-regime-v2/experiments
+```
+
+V2 is also rejected. On 905 walk-forward decisions, price activity reaches AUC
+`0.708113`; the filtered activity reaches `0.701944` and worsens Brier by
+`0.3916%`, improving only two folds out of four. Conditional price direction
+reaches AUC `0.163095` on 88 out-of-sample barrier events, so it does not
+transfer chronologically. The primary book-filter arm selects 16
+counterfactual trades, with win rate `12.5%`, profit factor `0.142`, average
+instrument return `-39.75` bps and portfolio return `-0.6343%`; double-cost
+stress is `-0.8567%`. Only 7 of 18 gates pass. This diagnostic reuse cannot
+validate an inverted signal, trigger another same-sample correction, open the
+20--26 August lock or authorize orders. Protocol SHA-256 is
+`67201b63edba8c9d2a13679661087bb17f9cac5b2db7f772212c252ddcb27535`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small

@@ -32,6 +32,9 @@ DEFAULT_CARRY_PROTOCOL_PATH = (
 DEFAULT_MICROSTRUCTURE_ROOT = (
     "/octobot/backtesting/research/microstructure-regime-v1"
 )
+DEFAULT_MICROSTRUCTURE_V2_ROOT = (
+    "/octobot/backtesting/research/microstructure-regime-v2"
+)
 V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
@@ -290,6 +293,114 @@ def _microstructure_summary(root: pathlib.Path) -> dict:
             if 28_800 in horizon_values
             else None
         ),
+        "passed_checks": int(gate.get("passed_checks", 0)),
+        "total_checks": int(gate.get("total_checks", 0)),
+        "locked_test_materialized": False,
+        "orders_authorized": False,
+        "conclusion": report.get("conclusion"),
+    }
+
+
+def _microstructure_v2_summary(root: pathlib.Path) -> dict:
+    """Return a fail-closed read-only summary of two-stage research V2."""
+
+    protocol = _read_json(root / "protocol.json")
+    reports = sorted((root / "experiments").glob("*/report.json"), reverse=True)
+    if not protocol or not reports:
+        return {
+            "available": False,
+            "protocol_available": bool(protocol),
+        }
+    report = _read_json(reports[0])
+    protocol_sha256 = protocol.get("protocol_sha256")
+    if report.get("protocol", {}).get("sha256") != protocol_sha256:
+        raise ValueError("microstructure V2 report protocol hash differs")
+    if protocol.get("results") is not None:
+        raise ValueError("microstructure V2 protocol is not result-free")
+    for value in (protocol, report):
+        if value.get("orders_authorized") is not False:
+            raise ValueError("microstructure V2 report authorizes orders")
+        if value.get("paper_orders_authorized") is not False:
+            raise ValueError("microstructure V2 report authorizes paper orders")
+    dataset = report.get("dataset", {})
+    if dataset.get("locked_test_materialized") is not False:
+        raise ValueError("microstructure V2 report opened locked data")
+
+    stages = report.get("stages", {})
+    arms = report.get("arms", {})
+    primary_arm = arms.get("book_filter", {})
+    residual_arm = arms.get("book_filter_residual", {})
+    economic = primary_arm.get("primary", {})
+    stress = primary_arm.get("stress", {})
+    gate = report.get("diagnostic_advancement_gate", {})
+    passed = gate.get("passed") is True
+
+    def _metric(group: dict, name: str) -> object:
+        value = group.get(name)
+        return value if isinstance(value, (int, float)) else None
+
+    return {
+        "available": True,
+        "state": "PASS DIAGNOSTICO" if passed else "V2 RESPINTA",
+        "color": "success" if passed else "danger",
+        "experiment_id": report.get("experiment_id"),
+        "created_at": report.get("created_at"),
+        "protocol_sha256": protocol_sha256,
+        "rows": int(dataset.get("rows", 0)),
+        "oos_rows": int(dataset.get("oos_rows", 0)),
+        "barrier_events": int(dataset.get("barrier_events", 0)),
+        "known_direction_events": int(
+            dataset.get("known_direction_events", 0)
+        ),
+        "ambiguous_barrier_events": int(
+            dataset.get("ambiguous_barrier_events", 0)
+        ),
+        "price_activity_auc": _metric(
+            stages.get("price_activity", {}), "auc"
+        ),
+        "filtered_activity_auc": _metric(
+            stages.get("filtered_activity", {}), "auc"
+        ),
+        "price_direction_auc": _metric(
+            stages.get("price_direction", {}), "auc"
+        ),
+        "book_direction_auc": _metric(
+            stages.get("book_direction", {}), "auc"
+        ),
+        "residual_direction_auc": _metric(
+            stages.get("residual_direction", {}), "auc"
+        ),
+        "target_auc": _metric(
+            primary_arm.get("target_probability", {}), "auc"
+        ),
+        "relative_activity_brier_improvement_pct": (
+            float(
+                gate.get(
+                    "relative_activity_brier_improvement_vs_price", 0.0
+                )
+            )
+            * 100.0
+        ),
+        "activity_improvement_folds": int(
+            gate.get("activity_improvement_folds", 0)
+        ),
+        "total_folds": 4,
+        "trades": int(economic.get("trades", 0)),
+        "win_rate_pct": float(economic.get("win_rate", 0.0)) * 100.0,
+        "profit_factor": _metric(economic, "profit_factor"),
+        "total_return_pct": float(economic.get("total_return", 0.0)) * 100.0,
+        "average_instrument_return_bps": _metric(
+            economic, "average_instrument_return_bps"
+        ),
+        "stress_return_pct": float(stress.get("total_return", 0.0)) * 100.0,
+        "residual_trades": int(
+            residual_arm.get("primary", {}).get("trades", 0)
+        ),
+        "residual_return_pct": float(
+            residual_arm.get("primary", {}).get("total_return", 0.0)
+        )
+        * 100.0,
+        "positive_folds": int(gate.get("positive_folds", 0)),
         "passed_checks": int(gate.get("passed_checks", 0)),
         "total_checks": int(gate.get("total_checks", 0)),
         "locked_test_materialized": False,
@@ -622,6 +733,12 @@ def register(blueprint):
                 DEFAULT_MICROSTRUCTURE_ROOT,
             )
         )
+        microstructure_v2_root = pathlib.Path(
+            os.getenv(
+                "MICROSTRUCTURE_V2_RESEARCH_ROOT",
+                DEFAULT_MICROSTRUCTURE_V2_ROOT,
+            )
+        )
 
         try:
             latest_decision = _read_latest_decision(database_path)
@@ -710,6 +827,13 @@ def register(blueprint):
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             microstructure = {"available": False}
             errors.append(f"microstructure_research: {error}")
+        try:
+            microstructure_v2 = _microstructure_v2_summary(
+                microstructure_v2_root
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            microstructure_v2 = {"available": False}
+            errors.append(f"microstructure_v2_research: {error}")
         carry_protocol_status = forward_carry_dashboard.protocol_status(
             carry_protocol
         )
@@ -745,6 +869,7 @@ def register(blueprint):
             scalping_summary=_scalping_summary(scalping_health),
             scalping_protocol=scalping_protocol,
             microstructure=microstructure,
+            microstructure_v2=microstructure_v2,
             data_quality=data_quality,
             v5_paper_health=v5_paper_health,
             v5_forward_summary=v5_forward_summary,

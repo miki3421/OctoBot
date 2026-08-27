@@ -461,6 +461,50 @@
                     Protocollo Microstructure Regime V1 presente; report diagnostico non ancora disponibile.
                 </div>
                 {% endif %}
+                {% if microstructure_v2.available %}
+                <div class="card border-{{ microstructure_v2.color }} mt-3">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="mb-1">Microstructure Regime V2 · filtro attività + direzione</h5>
+                                <div class="text-muted small">
+                                    Due stadi congelati: il prezzo stima direzione e attività; 24 feature book possono correggere soltanto il filtro, con peso fisso 0,25.
+                                </div>
+                            </div>
+                            <span class="badge badge-{{ microstructure_v2.color }} p-2">{{ microstructure_v2.state }}</span>
+                        </div>
+                        <div class="row">
+                            {{ metric_card("Decisioni OOS", microstructure_v2.oos_rows, "info", microstructure_v2.rows ~ " righe totali") }}
+                            {{ metric_card("Eventi barriera", microstructure_v2.barrier_events, "info", microstructure_v2.known_direction_events ~ " direzionali · " ~ microstructure_v2.ambiguous_barrier_events ~ " ambiguo") }}
+                            {{ metric_card("AUC attività prezzo", "%.3f"|format(microstructure_v2.price_activity_auc) if microstructure_v2.price_activity_auc is not none else "-", "success" if microstructure_v2.price_activity_auc and microstructure_v2.price_activity_auc >= 0.55 else "warning") }}
+                            {{ metric_card("AUC attività filtrata", "%.3f"|format(microstructure_v2.filtered_activity_auc) if microstructure_v2.filtered_activity_auc is not none else "-", "success" if microstructure_v2.filtered_activity_auc and microstructure_v2.filtered_activity_auc > microstructure_v2.price_activity_auc else "warning", "prezzo + book ridotto") }}
+                            {{ metric_card("Book vs attività prezzo", "%+.2f%%"|format(microstructure_v2.relative_activity_brier_improvement_pct), "success" if microstructure_v2.relative_activity_brier_improvement_pct >= 2 else "danger", "variazione relativa Brier") }}
+                            {{ metric_card("Fold attività migliorati", microstructure_v2.activity_improvement_folds ~ " / " ~ microstructure_v2.total_folds, "success" if microstructure_v2.activity_improvement_folds >= 3 else "danger") }}
+                            {{ metric_card("AUC direzione prezzo", "%.3f"|format(microstructure_v2.price_direction_auc) if microstructure_v2.price_direction_auc is not none else "-", "success" if microstructure_v2.price_direction_auc and microstructure_v2.price_direction_auc >= 0.55 else "danger", "solo eventi barriera OOS") }}
+                            {{ metric_card("AUC direzione book", "%.3f"|format(microstructure_v2.book_direction_auc) if microstructure_v2.book_direction_auc is not none else "-", "info", "solo diagnostico") }}
+                            {{ metric_card("AUC target finale", "%.3f"|format(microstructure_v2.target_auc) if microstructure_v2.target_auc is not none else "-", "warning", "candidata book filter") }}
+                            {{ metric_card("Trade selezionati", microstructure_v2.trades, "warning", "EV previsto > 0; nessun ordine") }}
+                            {{ metric_card("WR / PF", "%.1f%% / %.3f"|format(microstructure_v2.win_rate_pct, microstructure_v2.profit_factor or 0), "danger") }}
+                            {{ metric_card("Rendimento diagnostico", "%+.3f%%"|format(microstructure_v2.total_return_pct), "success" if microstructure_v2.total_return_pct > 0 else "danger", "%+.1f bps medi strumento"|format(microstructure_v2.average_instrument_return_bps or 0)) }}
+                            {{ metric_card("Stress costi 2x", "%+.3f%%"|format(microstructure_v2.stress_return_pct), "success" if microstructure_v2.stress_return_pct >= 0 else "danger") }}
+                            {{ metric_card("Fold economici positivi", microstructure_v2.positive_folds ~ " / " ~ microstructure_v2.total_folds, "success" if microstructure_v2.positive_folds >= 3 else "danger") }}
+                            {{ metric_card("Gate superati", microstructure_v2.passed_checks ~ " / " ~ microstructure_v2.total_checks, microstructure_v2.color) }}
+                            {{ metric_card("Blocco 20–26 ago", "SIGILLATO", "success", "mai materializzato") }}
+                            {{ metric_card("Ordini", "DISABILITATI", "success", "paper e reali") }}
+                        </div>
+                        <div class="alert alert-{{ microstructure_v2.color }} small mb-2">
+                            <strong>Verdetto V2:</strong> il prezzo riconosce discretamente quando può partire un movimento, ma il book ridotto non migliora quel filtro e la direzione condizionale non trasferisce fuori campione. I 16 trade controfattuali hanno WR {{ "%.1f%%"|format(microstructure_v2.win_rate_pct) }}, PF {{ "%.3f"|format(microstructure_v2.profit_factor or 0) }} e rendimento {{ "%+.3f%%"|format(microstructure_v2.total_return_pct) }}.
+                        </div>
+                        <div class="small text-muted">
+                            La correzione direzionale book resta un challenger descrittivo ({{ microstructure_v2.residual_trades }} trade, {{ "%+.3f%%"|format(microstructure_v2.residual_return_pct) }}) e non viene selezionata. Protocollo <code>{{ microstructure_v2.protocol_sha256 | truncate(18, True, "…") }}</code>.
+                        </div>
+                    </div>
+                </div>
+                {% elif microstructure_v2.protocol_available %}
+                <div class="alert alert-info small mt-3 mb-0">
+                    Protocollo Microstructure Regime V2 presente; report diagnostico non ancora disponibile.
+                </div>
+                {% endif %}
             </div>
         </div>
 
