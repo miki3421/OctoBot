@@ -489,6 +489,46 @@ def _scan_queue_events(
     transitions = 0
     resets = 0
     started = time.monotonic()
+    current_index = -1
+    event_count = 0
+    normalized_ofi_sum = 0.0
+    normalized_ofi_abs_sum = 0.0
+    depletion_asymmetry_sum = 0.0
+    refill_asymmetry_sum = 0.0
+    depth1_imbalance_sum = 0.0
+    depth5_imbalance_sum = 0.0
+    microprice_change_bps_sum = 0.0
+    quote_up_count = 0
+    quote_down_count = 0
+    depth1_sum = 0.0
+    depth5_sum = 0.0
+    top_depth_concentration_sum = 0.0
+
+    def finalize_second() -> None:
+        if current_index < 0:
+            return
+        queue["event_count"][current_index] = event_count
+        queue["normalized_ofi_sum"][current_index] = normalized_ofi_sum
+        queue["normalized_ofi_abs_sum"][current_index] = (
+            normalized_ofi_abs_sum
+        )
+        queue["depletion_asymmetry_sum"][current_index] = (
+            depletion_asymmetry_sum
+        )
+        queue["refill_asymmetry_sum"][current_index] = refill_asymmetry_sum
+        queue["depth1_imbalance_sum"][current_index] = depth1_imbalance_sum
+        queue["depth5_imbalance_sum"][current_index] = depth5_imbalance_sum
+        queue["microprice_change_bps_sum"][current_index] = (
+            microprice_change_bps_sum
+        )
+        queue["quote_up_count"][current_index] = quote_up_count
+        queue["quote_down_count"][current_index] = quote_down_count
+        queue["depth1_sum"][current_index] = depth1_sum
+        queue["depth5_sum"][current_index] = depth5_sum
+        queue["top_depth_concentration_sum"][current_index] = (
+            top_depth_concentration_sum
+        )
+
     try:
         for row in cursor:
             received_ns = int(row[0])
@@ -500,31 +540,55 @@ def _scan_queue_events(
             index = received_ns // 1_000_000_000 - source.start_second
             if index < 0 or index >= len(source):
                 continue
+            if index != current_index:
+                finalize_second()
+                current_index = index
+                event_count = 0
+                normalized_ofi_sum = 0.0
+                normalized_ofi_abs_sum = 0.0
+                depletion_asymmetry_sum = 0.0
+                refill_asymmetry_sum = 0.0
+                depth1_imbalance_sum = 0.0
+                depth5_imbalance_sum = 0.0
+                microprice_change_bps_sum = 0.0
+                quote_up_count = 0
+                quote_down_count = 0
+                depth1_sum = 0.0
+                depth5_sum = 0.0
+                top_depth_concentration_sum = 0.0
             session = str(row[1])
             bid_price = float(row[2])
-            bid_sizes = numpy.asarray(row[3:8], dtype=numpy.float64)
+            bid_size = float(row[3])
+            bid_depth5 = (
+                bid_size
+                + float(row[4])
+                + float(row[5])
+                + float(row[6])
+                + float(row[7])
+            )
             ask_price = float(row[8])
-            ask_sizes = numpy.asarray(row[9:14], dtype=numpy.float64)
+            ask_size = float(row[9])
+            ask_depth5 = (
+                ask_size
+                + float(row[10])
+                + float(row[11])
+                + float(row[12])
+                + float(row[13])
+            )
             mid = float(row[14])
             microprice = float(row[15])
-            depth1 = float(bid_sizes[0] + ask_sizes[0])
-            bid_depth5 = float(numpy.sum(bid_sizes))
-            ask_depth5 = float(numpy.sum(ask_sizes))
+            depth1 = bid_size + ask_size
             depth5 = bid_depth5 + ask_depth5
-            queue["event_count"][index] += 1
+            event_count += 1
             if depth1 > 0:
-                queue["depth1_imbalance_sum"][index] += float(
-                    (bid_sizes[0] - ask_sizes[0]) / depth1
-                )
+                depth1_imbalance_sum += (bid_size - ask_size) / depth1
             if depth5 > 0:
-                queue["depth5_imbalance_sum"][index] += float(
-                    (bid_depth5 - ask_depth5) / depth5
-                )
-                queue["top_depth_concentration_sum"][index] += (
-                    depth1 / depth5
-                )
-            queue["depth1_sum"][index] += depth1
-            queue["depth5_sum"][index] += depth5
+                depth5_imbalance_sum += (
+                    bid_depth5 - ask_depth5
+                ) / depth5
+                top_depth_concentration_sum += depth1 / depth5
+            depth1_sum += depth1
+            depth5_sum += depth5
 
             continuous = (
                 previous is not None
@@ -542,14 +606,14 @@ def _scan_queue_events(
                     previous_bid_price,
                     previous_bid_size,
                     bid_price,
-                    float(bid_sizes[0]),
+                    bid_size,
                     bid=True,
                 )
                 ask_flow = _side_flow(
                     previous_ask_price,
                     previous_ask_size,
                     ask_price,
-                    float(ask_sizes[0]),
+                    ask_size,
                     bid=False,
                 )
                 normalization = max(
@@ -558,8 +622,8 @@ def _scan_queue_events(
                     * (
                         previous_bid_size
                         + previous_ask_size
-                        + float(bid_sizes[0])
-                        + float(ask_sizes[0])
+                        + bid_size
+                        + ask_size
                     ),
                 )
                 normalized_ofi = (bid_flow - ask_flow) / normalization
@@ -569,20 +633,18 @@ def _scan_queue_events(
                 refill = (
                     max(bid_flow, 0.0) - max(ask_flow, 0.0)
                 ) / normalization
-                queue["normalized_ofi_sum"][index] += normalized_ofi
-                queue["normalized_ofi_abs_sum"][index] += abs(
-                    normalized_ofi
-                )
-                queue["depletion_asymmetry_sum"][index] += depletion
-                queue["refill_asymmetry_sum"][index] += refill
+                normalized_ofi_sum += normalized_ofi
+                normalized_ofi_abs_sum += abs(normalized_ofi)
+                depletion_asymmetry_sum += depletion
+                refill_asymmetry_sum += refill
                 if previous_microprice > 0 and microprice > 0:
-                    queue["microprice_change_bps_sum"][index] += (
+                    microprice_change_bps_sum += (
                         math.log(microprice / previous_microprice) * 10_000.0
                     )
                 if mid > previous_mid:
-                    queue["quote_up_count"][index] += 1
+                    quote_up_count += 1
                 elif mid < previous_mid:
-                    queue["quote_down_count"][index] += 1
+                    quote_down_count += 1
                 transitions += 1
             elif previous is not None:
                 resets += 1
@@ -590,9 +652,9 @@ def _scan_queue_events(
                 session,
                 received_ns,
                 bid_price,
-                float(bid_sizes[0]),
+                bid_size,
                 ask_price,
-                float(ask_sizes[0]),
+                ask_size,
                 mid,
                 microprice,
             )
@@ -602,6 +664,7 @@ def _scan_queue_events(
                     f"V3 queue books {processed:,}/{last_id-first_id+1:,} "
                     f"in {time.monotonic()-started:.1f}s"
                 )
+        finalize_second()
     finally:
         connection.close()
     report = {
