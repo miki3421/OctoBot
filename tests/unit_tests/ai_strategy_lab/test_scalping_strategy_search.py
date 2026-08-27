@@ -181,3 +181,27 @@ def test_dataset_round_trip_preserves_protocol_and_locked_boundary(tmp_path):
 
     assert numpy.array_equal(loaded.timestamps, timestamps)
     assert numpy.array_equal(loaded.features, dataset.features)
+
+
+def test_rolling_slope_is_stable_at_large_indices():
+    values = numpy.arange(3_000_000, dtype=numpy.float64)
+
+    slope = scalping_strategy_search._rolling_slope(values, 60)
+
+    assert numpy.all(numpy.isfinite(slope[59:]))
+    assert numpy.allclose(slope[59:], 1.0)
+
+
+def test_dense_source_cache_is_protocol_bound(tmp_path):
+    source = _dense_source(length=10)
+    path = tmp_path / "dense.npz"
+
+    artifact = scalping_strategy_search._save_dense_cache(source, path)
+    loaded = scalping_strategy_search._load_dense_cache(path)
+
+    assert artifact["bytes"] > 0
+    assert loaded.start_second == source.start_second
+    assert loaded.end_second == source.end_second
+    assert numpy.array_equal(
+        loaded.values["last_mid"], source.values["last_mid"]
+    )

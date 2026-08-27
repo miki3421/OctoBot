@@ -788,6 +788,58 @@ def _augment_from_raw_books(
     progress(f"raw books complete: {processed:,}")
 
 
+def _save_dense_cache(source: DenseSource, path: pathlib.Path) -> dict:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with temporary.open("wb") as stream:
+        numpy.savez(
+            stream,
+            schema_version=numpy.asarray([SCHEMA_VERSION]),
+            protocol_sha256=numpy.asarray([_json_hash(frozen_protocol())]),
+            source_snapshot_sha256=numpy.asarray([SNAPSHOT_SHA256]),
+            start_second=numpy.asarray([source.start_second]),
+            end_second=numpy.asarray([source.end_second]),
+            value_names=numpy.asarray(sorted(source.values)),
+            **{
+                f"value_{name}": source.values[name]
+                for name in sorted(source.values)
+            },
+        )
+        stream.flush()
+    temporary.replace(path)
+    return {
+        "path": str(path),
+        "bytes": path.stat().st_size,
+        "sha256": _sha256(path),
+    }
+
+
+def _load_dense_cache(path: pathlib.Path) -> DenseSource:
+    with numpy.load(path, allow_pickle=False) as values:
+        if int(values["schema_version"][0]) != SCHEMA_VERSION:
+            raise ValueError("unsupported dense scalping cache schema")
+        if str(values["protocol_sha256"][0]) != _json_hash(
+            frozen_protocol()
+        ):
+            raise ValueError("dense scalping cache protocol differs")
+        if str(values["source_snapshot_sha256"][0]) != SNAPSHOT_SHA256:
+            raise ValueError("dense scalping cache source differs")
+        names = tuple(str(value) for value in values["value_names"])
+        source = DenseSource(
+            start_second=int(values["start_second"][0]),
+            end_second=int(values["end_second"][0]),
+            values={
+                name: values[f"value_{name}"].copy() for name in names
+            },
+        )
+    expected_names = set(_empty_dense_values(1))
+    if set(source.values) != expected_names:
+        raise ValueError("dense scalping cache fields differ")
+    if any(len(value) != len(source) for value in source.values.values()):
+        raise ValueError("dense scalping cache arrays are misaligned")
+    return source
+
+
 def _rolling_sum(values: numpy.ndarray, window: int) -> numpy.ndarray:
     cleaned = numpy.nan_to_num(values, nan=0.0).astype(numpy.float64)
     cumulative = numpy.concatenate(
@@ -822,24 +874,23 @@ def _rolling_extreme(
 
 
 def _rolling_slope(values: numpy.ndarray, window: int) -> numpy.ndarray:
-    positions = numpy.arange(len(values), dtype=numpy.float64)
-    sum_y = _rolling_sum(values, window)
-    sum_xy = _rolling_sum(values * positions, window)
+    """Stable local slope proxy: second-half mean minus first-half mean."""
+
+    cleaned = numpy.nan_to_num(values, nan=0.0).astype(numpy.float64)
+    cumulative = numpy.concatenate(
+        (numpy.asarray([0.0]), numpy.cumsum(cleaned, dtype=numpy.float64))
+    )
     output = numpy.full(len(values), numpy.nan, dtype=numpy.float64)
-    ends = numpy.arange(window - 1, len(values), dtype=numpy.float64)
+    ends = numpy.arange(window - 1, len(values), dtype=numpy.int64)
     starts = ends - window + 1
-    sum_x = (starts + ends) * window / 2.0
-    sum_x2 = (
-        ends * (ends + 1.0) * (2.0 * ends + 1.0)
-        - (starts - 1.0)
-        * starts
-        * (2.0 * starts - 1.0)
-    ) / 6.0
-    denominator = window * sum_x2 - sum_x * sum_x
-    output[window - 1 :] = (
-        window * sum_xy[window - 1 :]
-        - sum_x * sum_y[window - 1 :]
-    ) / denominator
+    left_width = window // 2
+    right_width = window - left_width
+    middle = starts + left_width
+    left_mean = (cumulative[middle] - cumulative[starts]) / left_width
+    right_mean = (
+        cumulative[ends + 1] - cumulative[middle]
+    ) / right_width
+    output[window - 1 :] = (right_mean - left_mean) / (window / 2.0)
     return output
 
 
@@ -1209,10 +1260,22 @@ def build_pretest_dataset(
 
     start_second = _iso_timestamp(SOURCE_START)
     end_second = _iso_timestamp(SELECTION_END) - 1
-    progress("loading one-second frozen aggregates")
-    source = _read_dense_seconds(database, start_second, end_second)
-    progress("streaming raw Level 5 books for execution-aware summaries")
-    _augment_from_raw_books(database, source, progress=progress)
+    cache_path = output.with_name(output.stem + "-source-cache.npz")
+    if cache_path.is_file():
+        progress("loading verified dense source cache")
+        source = _load_dense_cache(cache_path)
+        if (
+            source.start_second != start_second
+            or source.end_second != end_second
+        ):
+            raise ValueError("dense source cache interval differs")
+    else:
+        progress("loading one-second frozen aggregates")
+        source = _read_dense_seconds(database, start_second, end_second)
+        progress("streaming raw Level 5 books for execution-aware summaries")
+        _augment_from_raw_books(database, source, progress=progress)
+        progress("persisting dense source cache before feature construction")
+        _save_dense_cache(source, cache_path)
     base_candidates = _candidate_indices(source)
     progress(f"causal candidates before finite-feature filter: {len(base_candidates):,}")
     features, candidates = _build_features(source, base_candidates)
