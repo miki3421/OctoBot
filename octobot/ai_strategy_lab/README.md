@@ -1234,6 +1234,38 @@ protocol SHA-256 is
 the protocol file SHA-256 is
 `20454ac84db7e2e9807059957f985e34bca2697a474e445a204f722b55784000`.
 
+The official training run freezes no winner and does not open 2025. All six
+candidates are positive at base cost, ranging from `+7.6573%` to `+91.4956%`,
+but none passes all 13 training gates. Daily `always_on` returns `+91.4956%`
+with Sharpe `0.9206` and four positive folds, yet loses `-9.6969%` under 3x
+cost and exceeds the drawdown limit. Daily reselection with the 28-day market
+gate is the only candidate combining 4/5 positive folds, Sharpe at least
+`0.75` and positive 3x-cost return (`+5.5882%`); it returns `+54.4810%`, but
+misses alpha (`4.7960% < 5%`), drawdown (`27.4316% > 25%`) and positive months
+(`40%`). Consequently no `selected-model.json` exists, confirmation access is
+false and no orders are authorized. The six results are declared training
+information for a separately frozen V3; V2 gates are not relaxed. Design
+report SHA-256 is
+`12730365845fde08243919cd7b8fc444a9357f7b935ce2e757561d70ca42393f`.
+
+## Training-selected long confluence V3
+
+V3 openly selects a model after observing V2 training: daily reselection with
+the positive 28-day equal-weight market gate was the unique one of six with
+positive 3x-cost return, at least four positive folds and training Sharpe at
+least `0.75`. This is not treated as evidence and does not turn V2 into a pass.
+It freezes that exact configuration, signal, `0.40x` gross, calendar, costs and
+regime before a single query of the still-sealed 2025 period. No other V2
+candidate may be tried on 2025. The unchanged confirmation gates require
+positive base and stress returns, at least 5% annual return and market alpha,
+Sharpe `0.75`, profit factor `1.10`, drawdown no more than `20%`, temporal
+stability and concentration controls. Only a full pass may open the 2026 lock;
+even a double pass still requires 180 forward days. The V3 logical protocol
+SHA-256 is
+`0609925613459dd8b1b904df9c2b96b13987cee64853a21fdac23c90221e437d`;
+the immutable selection-model file SHA-256 is
+`995c3250f61c65db17c468a732abbc57adcf2acf7020427b75cfb8f771e9ed2c`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
