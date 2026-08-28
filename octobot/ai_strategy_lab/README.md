@@ -1139,7 +1139,13 @@ overlap, inversion, filter, threshold or long-only variant. The unchanged 8-bps
 turnover cost and 3x stress apply to every net target change. Development is
 diagnostic reuse; the basis-family 2025 confirmation and 2026 lock remain
 sequentially sealed. The frozen logical protocol SHA-256 is
-`15339149fb30d26bf64ca03e5b92a74007738ec106f5ce22121474c997c2639d`.
+`15339149fb30d26bf64ca03e5b92a74007738ec106f5ce22121474c997c2639d`
+before the pre-outcome data-quality addendum. A structural input check found a
+missing eight-hour block. The amended policy never interpolates or bridges a
+return across a gap: it flattens the prior segment with cost and reopens the
+next segment from flat with cost. No signal, gate or economic parameter changes.
+The amended logical protocol SHA-256 is
+`d0946c23e1cb76ae5d4158f5dc6c38bbeb6c200b137e306c2fead1cda6532015`.
 
 ## Interpretation
 
