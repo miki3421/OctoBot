@@ -1185,6 +1185,24 @@ Report SHA-256 is
 development trajectory SHA-256 is
 `9010caa427c2a2ba4284c20b2426463ce38eb8b235181603efc5a91ac6445db1`.
 
+## Three-factor relative-value confluence V1
+
+`relative_value_confluence_v1` is preregistered before outcome evaluation as a
+fixed intersection of three directions documented by the same institutional
+manuscript. At every complete eight-hour boundary, a long must be
+simultaneously in the lowest log-basis third, highest seven-day basis-momentum
+third and highest seven-day signed-flow third; a short must satisfy all three
+opposite conditions. The strategy stays flat unless both sides are present,
+selects at most three names per side and allocates `0.40x` gross to each active
+side. There are no fitted thresholds, alternate lookbacks, filters, hysteresis,
+overlapping holdings, inversion or long-only variant. Perpetual price, signed
+funding, unchanged 8-bps turnover cost and 3x stress determine P&L. Development
+is diagnostic reuse; 2025 confirmation and 2026 lock remain sequentially
+sealed. The frozen logical protocol SHA-256 is
+`75f9ee9f4890ab7df216f2daeeb715901dbc3d7d1926614420b1cedd90dd3add`;
+the protocol file SHA-256 is
+`0b59f83e29d757a9840775a658eb4486b26b1fbc20d11dffcaf04fb838b37761`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
