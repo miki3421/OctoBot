@@ -28,6 +28,7 @@ services:
       - ../octobot-local/scalping:/scalping:ro
       - ../octobot-local/execution-shadow:/execution-shadow:ro
       - ../octobot-local/v5-paper:/v5-paper:ro
+      - ../octobot-local/diversified-forward:/diversified-forward:ro
 
   trend-shadow:
     image: octobot-local:dev

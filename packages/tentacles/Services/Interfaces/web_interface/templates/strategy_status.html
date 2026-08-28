@@ -616,6 +616,65 @@
             </div>
         </div>
 
+        <div class="card border-{{ diversified_forward.color if diversified_forward.available else 'secondary' }} mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                    <div>
+                        <h4 class="mb-1"><i class="fas fa-project-diagram mr-2"></i>Trend 50% + Cointegration 50% · forward OOS</h4>
+                        <div class="text-muted small">
+                            Un solo modello selezionato sul training, ora osservato senza ordini e senza tuning.
+                        </div>
+                    </div>
+                    {% if diversified_forward.available %}
+                    <span class="badge badge-{{ diversified_forward.color }} p-2">{{ diversified_forward.phase_label }}</span>
+                    {% endif %}
+                </div>
+                {% if diversified_forward.available %}
+                <div class="row">
+                    {{ metric_card("Observer", "HEALTHY" if diversified_forward.healthy else "ERRORE", "success" if diversified_forward.healthy else "danger", diversified_forward.latest_mature_bar or "-") }}
+                    {{ metric_card("Modello congelato", "50 / 50", "info", "Trend V13 · Cointegration V2") }}
+                    {{ metric_card("Warm-up", diversified_forward.warmup_records ~ " / " ~ diversified_forward.warmup_required, "success" if diversified_forward.warmup_records >= diversified_forward.warmup_required else "warning", "escluso dal rendimento") }}
+                    {{ metric_card("Giorni forward", diversified_forward.official_records ~ " / " ~ diversified_forward.minimum_days, "info", "minimo osservato " ~ diversified_forward.minimum_observed) }}
+                    {{ metric_card("Decisioni hash-chain", diversified_forward.decision_records, "info", "target di ricerca, non ordini") }}
+                    {{ metric_card("Ultimo bar", diversified_forward.last_archived_bar or "-", "secondary") }}
+                    {{ metric_card("Inizio ufficiale", diversified_forward.official_start, "secondary", "prima decisione il giorno seguente") }}
+                    {{ metric_card("Gate non prima", diversified_forward.earliest_gate[:16] | replace("T", " ") if diversified_forward.earliest_gate else "-", "warning", "UTC · 180 giorni") }}
+                    {{ metric_card("Storage evidence", "%.2f MB"|format(diversified_forward.storage_megabytes), "success", "raw unici + giornalieri + journal") }}
+                    {{ metric_card("Ordini", "DISABILITATI", "success", "paper e reali") }}
+                    {{ metric_card("Protocollo", diversified_forward.protocol_sha256 | truncate(18, True, "…"), "secondary") }}
+                    {{ metric_card("Implementation lock", diversified_forward.implementation_lock_sha256 | truncate(18, True, "…"), "secondary") }}
+                </div>
+                <div class="progress mb-3" style="height: 1.4rem;">
+                    <div class="progress-bar bg-info" role="progressbar"
+                         style="width: {{ [diversified_forward.progress_pct, 100] | min }}%; min-width: 3rem;"
+                         aria-valuenow="{{ diversified_forward.progress_pct }}"
+                         aria-valuemin="0" aria-valuemax="100">
+                        {{ "%.4f%%"|format(diversified_forward.progress_pct) }}
+                    </div>
+                </div>
+                {% if diversified_forward.blockers %}
+                <div class="alert alert-info mb-3" role="status">
+                    <strong>Perché il verdetto è bloccato:</strong>
+                    <ul class="mb-0 mt-2 pl-4">
+                    {% for blocker in diversified_forward.blockers %}
+                        <li><strong>{{ blocker.id }}</strong> — {{ blocker.detail }}</li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <div class="alert alert-secondary small mb-0">
+                    Il warm-up serve soltanto a calcolare indicatori e formazioni. Il rendimento forward parte dal 1° settembre;
+                    nessun dato osservato durante il test può modificare pesi iniziali, segnali, costi o gate.
+                    Anche un eventuale PASS richiederà revisione manuale prima del solo paper trading.
+                </div>
+                {% else %}
+                <div class="alert alert-secondary mb-0">
+                    Il nuovo observer diversificato non è ancora accessibile dal container web.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
         <div class="card border-{{ carry.color }} mb-4">
             <div class="card-body">
                 <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">

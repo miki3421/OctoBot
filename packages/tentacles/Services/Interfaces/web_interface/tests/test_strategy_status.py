@@ -8,6 +8,89 @@ import tentacles.Services.Interfaces.web_interface.controllers.strategy_status a
 
 
 class TestV5ForwardSummary(unittest.TestCase):
+    def test_diversified_forward_summary_exposes_fail_closed_progress(self):
+        protocol = {
+            "protocol_version": (
+                "crypto_diversified_trend_cointegration_forward_v1"
+            ),
+            "protocol_sha256": "protocol",
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+            "results": None,
+            "timeline": {
+                "warmup_start_bar_utc": "2026-07-02",
+                "official_first_bar_open_utc": (
+                    "2026-09-01T00:00:00+00:00"
+                ),
+                "minimum_calendar_days": 180,
+                "earliest_gate_evaluation_not_before_utc": (
+                    "2027-02-28T00:10:00+00:00"
+                ),
+            },
+            "forward_gate": {"minimum_observed_days": 165},
+        }
+        lock = {
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+        }
+        health = {
+            "mode": "forward_observation_only",
+            "public_data_only": True,
+            "status": "healthy",
+            "phase": "warmup",
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+            "gate_evaluation_authorized": False,
+            "warmup_records": 57,
+            "official_records": 0,
+            "decision_records": 0,
+            "gate_calendar_complete": False,
+            "storage_bytes": {"daily_archive": 1024, "raw_archive": 1024},
+        }
+
+        summary = status._diversified_forward_summary(
+            health, protocol, lock
+        )
+
+        self.assertTrue(summary["available"])
+        self.assertTrue(summary["healthy"])
+        self.assertEqual(summary["phase_label"], "WARM-UP")
+        self.assertEqual(summary["warmup_records"], 57)
+        self.assertEqual(summary["warmup_required"], 61)
+        self.assertEqual(summary["progress_pct"], 0)
+        self.assertEqual(
+            [value["id"] for value in summary["blockers"]],
+            ["official_start", "observed_days", "calendar_cutoff"],
+        )
+        self.assertFalse(summary["orders_authorized"])
+
+    def test_diversified_forward_summary_rejects_paper_authorization(self):
+        with self.assertRaisesRegex(ValueError, "safety invariant"):
+            status._diversified_forward_summary(
+                {
+                    "orders_authorized": False,
+                    "paper_orders_authorized": True,
+                    "automatic_promotion": False,
+                },
+                {
+                    "orders_authorized": False,
+                    "paper_orders_authorized": False,
+                    "automatic_promotion": False,
+                },
+                {
+                    "orders_authorized": False,
+                    "paper_orders_authorized": False,
+                    "automatic_promotion": False,
+                },
+            )
+
     def test_carry_gatekeeper_summary_is_orderless(self):
         summary = status._carry_gatekeeper_summary(
             {

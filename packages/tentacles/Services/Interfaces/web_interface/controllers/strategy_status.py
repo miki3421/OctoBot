@@ -39,6 +39,16 @@ DEFAULT_MICROSTRUCTURE_ROOT = (
 DEFAULT_MICROSTRUCTURE_V2_ROOT = (
     "/octobot/backtesting/research/microstructure-regime-v2"
 )
+DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH = (
+    "/diversified-forward/health.json"
+)
+DEFAULT_DIVERSIFIED_FORWARD_LOCK_PATH = (
+    "/diversified-forward/implementation-lock.json"
+)
+DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH = (
+    "/octobot/backtesting/research/diversified-trend-cointegration-v1/"
+    "forward-protocol-v1.json"
+)
 V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
@@ -321,6 +331,145 @@ def _carry_gatekeeper_summary(status: dict) -> dict:
             for value in blockers
             if isinstance(value, dict)
         ],
+    }
+
+
+def _diversified_forward_summary(
+    health: dict, protocol: dict, implementation_lock: dict
+) -> dict:
+    if not health or not protocol or not implementation_lock:
+        return {"available": False}
+    for name, value in (
+        ("health", health),
+        ("protocol", protocol),
+        ("implementation lock", implementation_lock),
+    ):
+        for field in (
+            "orders_authorized",
+            "paper_orders_authorized",
+            "automatic_promotion",
+        ):
+            if value.get(field) is not False:
+                raise ValueError(
+                    f"diversified forward {name} safety invariant differs: "
+                    f"{field}"
+                )
+    if (
+        health.get("mode") != "forward_observation_only"
+        or health.get("public_data_only") is not True
+        or health.get("gate_evaluation_authorized") is not False
+        or protocol.get("protocol_version")
+        != "crypto_diversified_trend_cointegration_forward_v1"
+        or protocol.get("results") is not None
+    ):
+        raise ValueError("diversified forward mode or protocol differs")
+    if (
+        health.get("protocol_sha256") != protocol.get("protocol_sha256")
+        or health.get("implementation_lock_sha256")
+        != implementation_lock.get("implementation_lock_sha256")
+        or implementation_lock.get("protocol_sha256")
+        != protocol.get("protocol_sha256")
+    ):
+        raise ValueError("diversified forward lineage hash differs")
+    phase = str(health.get("phase", "unknown"))
+    if phase not in {"warmup", "forward"}:
+        raise ValueError("diversified forward phase differs")
+    official_records = int(health.get("official_records", 0) or 0)
+    warmup_records = int(health.get("warmup_records", 0) or 0)
+    decision_records = int(health.get("decision_records", 0) or 0)
+    timeline = protocol.get("timeline", {})
+    first_bar = datetime.date.fromisoformat(
+        str(timeline["official_first_bar_open_utc"])[:10]
+    )
+    warmup_start = datetime.date.fromisoformat(
+        str(timeline["warmup_start_bar_utc"])[:10]
+    )
+    warmup_required = (first_bar - warmup_start).days
+    minimum_days = int(timeline.get("minimum_calendar_days", 180) or 180)
+    minimum_observed = int(
+        protocol.get("forward_gate", {}).get("minimum_observed_days", 165)
+        or 165
+    )
+    healthy = health.get("status") == "healthy"
+    blockers = []
+    if phase == "warmup":
+        blockers.append(
+            {
+                "id": "official_start",
+                "detail": (
+                    "Il campione economico parte il "
+                    f"{first_bar.isoformat()}; il warm-up non conta."
+                ),
+            }
+        )
+    if official_records < minimum_observed:
+        blockers.append(
+            {
+                "id": "observed_days",
+                "detail": (
+                    f"{official_records} / {minimum_observed} giorni "
+                    "forward osservati minimi"
+                ),
+            }
+        )
+    if not health.get("gate_calendar_complete"):
+        gate_at = str(
+            timeline.get("earliest_gate_evaluation_not_before_utc", "-")
+        )
+        blockers.append(
+            {
+                "id": "calendar_cutoff",
+                "detail": (
+                    "Valutazione non prima del "
+                    f"{gate_at[:16]} UTC"
+                ),
+            }
+        )
+    if not healthy:
+        blockers.append(
+            {
+                "id": "observer_health",
+                "detail": str(health.get("error", "observer non healthy")),
+            }
+        )
+    storage = health.get("storage_bytes", {})
+    if not isinstance(storage, dict):
+        storage = {}
+    return {
+        "available": True,
+        "healthy": healthy,
+        "color": "info" if healthy else "danger",
+        "phase": phase,
+        "phase_label": "WARM-UP" if phase == "warmup" else "FORWARD OOS",
+        "configuration_id": "trend50_cointegration50",
+        "trend_weight_pct": 50.0,
+        "cointegration_weight_pct": 50.0,
+        "warmup_records": warmup_records,
+        "warmup_required": warmup_required,
+        "official_records": official_records,
+        "minimum_days": minimum_days,
+        "minimum_observed": minimum_observed,
+        "decision_records": decision_records,
+        "progress_pct": min(100.0, 100.0 * official_records / minimum_days),
+        "last_archived_bar": health.get("last_archived_bar"),
+        "latest_mature_bar": health.get("latest_mature_bar"),
+        "official_start": first_bar.isoformat(),
+        "earliest_gate": timeline.get(
+            "earliest_gate_evaluation_not_before_utc"
+        ),
+        "protocol_sha256": protocol.get("protocol_sha256"),
+        "implementation_lock_sha256": implementation_lock.get(
+            "implementation_lock_sha256"
+        ),
+        "last_market_record_hash": health.get("last_market_record_hash"),
+        "last_journal_hash": health.get("last_journal_hash"),
+        "storage_megabytes": sum(
+            int(value or 0) for value in storage.values()
+        )
+        / (1024 * 1024),
+        "blockers": blockers,
+        "gate_evaluation_authorized": False,
+        "orders_authorized": False,
     }
 
 
@@ -866,6 +1015,24 @@ def register(blueprint):
                 DEFAULT_MICROSTRUCTURE_V2_ROOT,
             )
         )
+        diversified_forward_health_path = pathlib.Path(
+            os.getenv(
+                "DIVERSIFIED_FORWARD_HEALTH_PATH",
+                DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH,
+            )
+        )
+        diversified_forward_lock_path = pathlib.Path(
+            os.getenv(
+                "DIVERSIFIED_FORWARD_LOCK_PATH",
+                DEFAULT_DIVERSIFIED_FORWARD_LOCK_PATH,
+            )
+        )
+        diversified_forward_protocol_path = pathlib.Path(
+            os.getenv(
+                "DIVERSIFIED_FORWARD_PROTOCOL_PATH",
+                DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH,
+            )
+        )
 
         try:
             latest_decision = _read_latest_decision(database_path)
@@ -975,6 +1142,15 @@ def register(blueprint):
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             microstructure_v2 = {"available": False}
             errors.append(f"microstructure_v2_research: {error}")
+        try:
+            diversified_forward = _diversified_forward_summary(
+                _read_json(diversified_forward_health_path),
+                _read_json(diversified_forward_protocol_path),
+                _read_json(diversified_forward_lock_path),
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            diversified_forward = {"available": False}
+            errors.append(f"diversified_forward: {error}")
         carry_protocol_status = forward_carry_dashboard.protocol_status(
             carry_protocol
         )
@@ -1013,6 +1189,7 @@ def register(blueprint):
             scalping_protocol=scalping_protocol,
             microstructure=microstructure,
             microstructure_v2=microstructure_v2,
+            diversified_forward=diversified_forward,
             data_quality=data_quality,
             v5_paper_health=v5_paper_health,
             v5_forward_summary=v5_forward_summary,
