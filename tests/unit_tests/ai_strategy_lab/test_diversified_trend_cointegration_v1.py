@@ -22,6 +22,15 @@ def test_frozen_protocol_is_result_free_and_orderless():
     assert not value["pre_outcome_amendment"][
         "combined_trajectories_read_before_change"
     ]
+    assert value["portfolio"][
+        "component_equities_combined_by_fixed_initial_capital"
+    ]
+    assert value["portfolio"][
+        "capital_weights_drift_with_realized_sleeve_equity"
+    ]
+    assert not value["portfolio"][
+        "sleeve_returns_combined_linearly_before_compounding"
+    ]
 
 
 def test_allocations_are_fixed_two_sleeve_budgets():

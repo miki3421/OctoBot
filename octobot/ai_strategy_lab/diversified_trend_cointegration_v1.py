@@ -16,10 +16,10 @@ from octobot.ai_strategy_lab import cointegration_pairs_v1 as common
 
 
 SCHEMA_VERSION = 1
-PROTOCOL_VERSION = "crypto_diversified_trend_cointegration_v1_1"
+PROTOCOL_VERSION = "crypto_diversified_trend_cointegration_v1_2"
 PREREGISTRATION_DATE = "2026-08-28"
 SUPERSEDED_PROTOCOL_SHA256 = (
-    "6716d5a8624bb4b38ef0a5c444ef3279911474e8148af39cfc2d18c17dcb0ab3"
+    "e17567cd8ba9c3f3abd7b8bf01ed4be4d45b846876e460489a70c7d7af894d34"
 )
 TRAINING_START = datetime.date(2023, 1, 1)
 TRAINING_END = datetime.date(2026, 7, 1)
@@ -91,7 +91,7 @@ def frozen_protocol() -> dict:
         "schema_version": SCHEMA_VERSION,
         "protocol_version": PROTOCOL_VERSION,
         "preregistered_on": PREREGISTRATION_DATE,
-        "status": "result_free_pre_outcome_lineage_amendment_v1_1",
+        "status": "result_free_pre_outcome_accounting_amendment_v1_2",
         "research_only": True,
         "public_data_only": True,
         "credentials_used": False,
@@ -120,8 +120,8 @@ def frozen_protocol() -> dict:
         "pre_outcome_amendment": {
             "superseded_protocol_sha256": SUPERSEDED_PROTOCOL_SHA256,
             "reason": (
-                "clarify that 2025-2026 market paths were known but V2 signal "
-                "outcomes on those rows had not been reconstructed"
+                "combine independently compounded sleeve equities from fixed "
+                "initial budgets instead of assuming free daily reallocation"
             ),
             "combined_trajectories_read_before_change": False,
             "cointegration_2025_2026_signal_outcomes_read_before_change": False,
@@ -129,6 +129,7 @@ def frozen_protocol() -> dict:
             "allocations_changed": False,
             "eligibility_or_selection_changed": False,
             "forward_gate_changed": False,
+            "accounting_corrected_before_outcomes": True,
         },
         "lineage": {
             "trend": {
@@ -163,7 +164,9 @@ def frozen_protocol() -> dict:
         "portfolio": {
             "capital_allocations": [dict(value) for value in ALLOCATIONS],
             "allocation_sum": 1.0,
-            "sleeve_returns_combined_linearly_before_compounding": True,
+            "component_equities_combined_by_fixed_initial_capital": True,
+            "sleeve_returns_combined_linearly_before_compounding": False,
+            "capital_weights_drift_with_realized_sleeve_equity": True,
             "daily_reallocation_turnover_assumed": False,
             "capital_budgets_fixed": True,
             "cross_sleeve_netting_assumed": False,

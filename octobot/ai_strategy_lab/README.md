@@ -968,7 +968,7 @@ combined trajectory:
 
 ```bash
 python3 -m octobot.ai_strategy_lab.diversified_trend_cointegration_v1 \
-  --output ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/protocol-v1_1.json
+  --output ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/protocol-v1_2.json
 ```
 
 If no allocation passes the frozen structural training eligibility, the family
