@@ -934,6 +934,21 @@ python3 -m octobot.ai_strategy_lab.cointegration_pairs_v2 \
   --output ../octobot-local/backtesting/research/expanded-cointegration-pairs-v2/protocol.json
 ```
 
+After the evaluator source is reviewed, tested and committed, run the single
+sequential diagnostic with the exact frozen source and history directories:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cointegration_pairs_v2_research \
+  --protocol ../octobot-local/backtesting/research/expanded-cointegration-pairs-v2/protocol.json \
+  --snapshot FROZEN_SOURCE_SNAPSHOT_DIRECTORY \
+  --history FROZEN_HISTORY_DIRECTORY \
+  --output-root ../octobot-local/backtesting/research/expanded-cointegration-pairs-v2/evaluations
+```
+
+The command writes development first. It materializes confirmation only after
+a complete development pass and the final lock only after confirmation passes.
+It never creates a shadow, paper or real order.
+
 The expanded test also corrects the multiple-testing denominator: all eligible
 pairs count in Benjamini--Hochberg, including pairs rejected by later filters.
 Its deterministic 1.5-million-path null gives more than ten empirical p-value
