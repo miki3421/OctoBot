@@ -1266,6 +1266,16 @@ SHA-256 is
 the immutable selection-model file SHA-256 is
 `995c3250f61c65db17c468a732abbc57adcf2acf7020427b75cfb8f771e9ed2c`.
 
+The single 2025 OOS query is positive but rejected. Across 1,095 blocks, 414
+invested, V3 returns `+5.0293%`, annualized `+5.0328%`, with annualized market
+alpha `+8.4369%`, beta `0.1363` and drawdown `19.3845%`. It fails Sharpe
+(`0.3284`), profit factor (`1.0484`), positive months (`25%`), positive
+quarters (`2/4`) and 3x-cost return (`-8.7387%`). Nine of 14 gates pass. The
+2026 lock remains unmaterialized and no orders are authorized. Calendar 2025
+is now training-only for any later family; V3 cannot be retuned and retested on
+it. Report SHA-256 is
+`977836cacc3c17c006cfac0b65bb804abb406870b94efe83c3d6e27fe573ee6b`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
