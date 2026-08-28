@@ -151,6 +151,24 @@ asset-specific long signals but permits an altcoin short only while BTC's
 per-symbol attribution, calendar returns, drawdown duration, withdrawal
 capacity and leave-one-asset-out stress.
 
+Category Momentum V1 is a separate, result-free research family based on the
+published seven-day formation / one-day holding category effect.  Its current
+CoinGecko taxonomy and Binance liquidity universe are frozen before any new
+economic outcome is downloaded.  Because that current snapshot creates
+historical survivorship and taxonomy look-ahead, every historical period is
+diagnostic even if all gates pass; only a subsequent 180-day append-only
+forward run can provide promotional evidence.  The initial module can only
+write or verify the immutable protocol:
+
+```bash
+python3 -m octobot.ai_strategy_lab.category_momentum_v1 \
+  --output ../octobot-local/backtesting/research/category-momentum-v1/protocol.json
+```
+
+It has no exchange client or order path.  Source acquisition and the evaluator
+must be implemented and committed after this protocol freeze, and before any
+historical return is calculated.
+
 The V10 diagnostic meta-filter evaluates only V3 weekly candidates. It trains
 a small logistic model in four expanding, seven-day-purged folds and compares
 the filtered portfolio with V3 on exactly the same out-of-sample dates:
