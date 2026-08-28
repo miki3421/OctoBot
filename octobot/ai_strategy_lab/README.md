@@ -1051,6 +1051,41 @@ The live status is written to
 latched once and mirrored in `forward-evaluation.json`. Even a pass authorizes
 only later paper integration with an independently validated parent signal.
 
+## Binance/KuCoin cross-venue carry V1
+
+`cross_venue_carry_v1` evaluates one frozen, delta-neutral funding-spread
+hypothesis across the same 18 perpetuals on Binance USD-M and KuCoin Futures.
+Every Monday at 00:00 UTC it ranks only the preceding 90 completed funding
+settlements. It enters one hour later, long on the lower-funding venue and
+short on the higher-funding venue, for at most three pairs. The 11.68%
+annualized entry threshold is derived from a four-fill taker-plus-slippage
+round trip stressed threefold and amortized over 30 days; it is not fitted.
+
+```bash
+python3 -m octobot.ai_strategy_lab.cross_venue_carry_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/cross-venue-carry-v1/protocol.json
+
+python3 -m octobot.ai_strategy_lab.cross_venue_carry_v1 evaluate-prelock \
+  --protocol ../octobot-local/backtesting/research/cross-venue-carry-v1/protocol.json \
+  --binance-collector BINANCE_1H_FILE ... \
+  --kucoin-collector KUCOIN_1H_FILE ... \
+  --binance-funding BINANCE_FUNDING_FILE ... \
+  --kucoin-funding KUCOIN_FUNDING_FILE \
+  --output-root ../octobot-local/backtesting/research/cross-venue-carry-v1/experiments
+```
+
+V1 is rejected in development without reading confirmation or lock. Over 98
+days, its actual funding contribution is `+0.1313%` and relative-price
+contribution is `-0.0370%`, but base execution costs are `0.1600%`; compounded
+net return is `-0.0666%`, Sharpe `-0.3004` and triple-cost return `-0.3860%`.
+All three folds and all 18 leave-one-symbol-out runs are negative. This result
+rules out the frozen weekly rule; it does not rule out collecting synchronized
+cross-venue books as a new point-in-time execution and dislocation dataset.
+Protocol SHA-256 is
+`5cfc44dc9bf02a545a3c2af82249874d07c2009609332d2c6915fcd1b20a1af9`;
+report SHA-256 is
+`624607f00e2247c2b37d4fed42c74ebd8dad1148c7a012426ff2c90cf4a2fd18`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
