@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import datetime
+import collections
+import heapq
 import hashlib
 import json
 import math
@@ -46,6 +48,8 @@ def build_forward_carry_dataset(
     *,
     horizon_hours: typing.Iterable[int] = DEFAULT_HORIZON_HOURS,
     leg_quote: float = DEFAULT_LEG_QUOTE,
+    entry_start_utc: str | datetime.datetime | None = None,
+    entry_end_exclusive_utc: str | datetime.datetime | None = None,
     evidence_config: (
         forward_evidence_module.ForwardEvidenceConfig | None
     ) = None,
@@ -58,6 +62,16 @@ def build_forward_carry_dataset(
         raise ValueError("at least one positive carry horizon is required")
     if leg_quote <= 0 or not math.isfinite(leg_quote):
         raise ValueError("carry leg quote must be positive and finite")
+    entry_start = _parse_utc_bound(entry_start_utc, "entry start")
+    entry_end = _parse_utc_bound(
+        entry_end_exclusive_utc, "entry end exclusive"
+    )
+    if (
+        entry_start is not None
+        and entry_end is not None
+        and entry_start >= entry_end
+    ):
+        raise ValueError("carry entry window must have positive duration")
     evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
     _validate_evidence(evidence, journal)
     recomputed_evidence = (
@@ -71,7 +85,6 @@ def build_forward_carry_dataset(
         raise ValueError("forward evidence thresholds mismatch")
     if evidence.get("checks") != recomputed_evidence.get("checks"):
         raise ValueError("forward evidence checks mismatch")
-    records = microstructure_module.load_microstructure_records(journal)
     expected_bases = tuple(
         sorted(
             recomputed_evidence["settled_funding"][
@@ -83,13 +96,9 @@ def build_forward_carry_dataset(
         recomputed_evidence["thresholds"]["expected_symbol_count"]
     ):
         raise ValueError("forward carry expected symbol universe mismatch")
-    by_timestamp = {
-        datetime.datetime.fromisoformat(
-            record["bucket_start_utc"]
-        ): record
-        for record in records
-    }
-    settled = _settled_funding(records)
+    settled = _settled_funding(
+        microstructure_module.iter_microstructure_records(journal)
+    )
     curve_key = f"{leg_quote:g}"
     rows = []
     exclusions = {
@@ -100,13 +109,19 @@ def build_forward_carry_dataset(
         "insufficient_exit_depth": 0,
     }
     exclusion_events = []
-    for entry_timestamp, entry in sorted(by_timestamp.items()):
-        for horizon in horizons:
-            exit_timestamp = entry_timestamp + datetime.timedelta(
-                hours=horizon
-            )
-            exit_record = by_timestamp.get(exit_timestamp)
-            if exit_record is None:
+    pending: dict[datetime.datetime, list[tuple[datetime.datetime, int]]] = {}
+    pending_heap: list[datetime.datetime] = []
+    entries: dict[datetime.datetime, dict] = {}
+    entry_order = collections.deque()
+    maximum_horizon = datetime.timedelta(hours=max(horizons))
+    for exit_record in microstructure_module.iter_microstructure_records(journal):
+        exit_timestamp = datetime.datetime.fromisoformat(
+            exit_record["bucket_start_utc"]
+        )
+        while pending_heap and pending_heap[0] < exit_timestamp:
+            missing_timestamp = heapq.heappop(pending_heap)
+            tasks = pending.pop(missing_timestamp, ())
+            for entry_timestamp, horizon in tasks:
                 _append_exclusions(
                     exclusion_events,
                     exclusions,
@@ -115,75 +130,69 @@ def build_forward_carry_dataset(
                     horizon=horizon,
                     bases=expected_bases,
                 )
-                continue
-            for base in expected_bases:
-                entry_symbol = entry["symbols"].get(base)
-                exit_symbol = exit_record["symbols"].get(base)
-                if not _has_execution_schema(entry_symbol, curve_key):
-                    _append_exclusions(
-                        exclusion_events,
-                        exclusions,
-                        reason="entry_schema_incomplete",
-                        entry_timestamp=entry_timestamp,
-                        horizon=horizon,
-                        bases=(base,),
-                    )
-                    continue
-                if (
-                    exit_symbol is None
-                    or not _has_execution_schema(exit_symbol, curve_key)
-                ):
-                    _append_exclusions(
-                        exclusion_events,
-                        exclusions,
-                        reason="exit_schema_incomplete",
-                        entry_timestamp=entry_timestamp,
-                        horizon=horizon,
-                        bases=(base,),
-                    )
-                    continue
-                entry_curves = _curves(entry_symbol, curve_key)
-                exit_curves = _curves(exit_symbol, curve_key)
-                if not (
-                    entry_curves["spot_ask"]["sufficient_depth"]
-                    and entry_curves["futures_bid"]["sufficient_depth"]
-                ):
-                    _append_exclusions(
-                        exclusion_events,
-                        exclusions,
-                        reason="insufficient_entry_depth",
-                        entry_timestamp=entry_timestamp,
-                        horizon=horizon,
-                        bases=(base,),
-                    )
-                    continue
-                fills = _execution_fills(
-                    entry_symbol, exit_symbol, leg_quote
-                )
-                if fills is None:
-                    _append_exclusions(
-                        exclusion_events,
-                        exclusions,
-                        reason="insufficient_exit_depth",
-                        entry_timestamp=entry_timestamp,
-                        horizon=horizon,
-                        bases=(base,),
-                    )
-                    continue
-                row = _build_row(
-                    base=base,
+        if pending_heap and pending_heap[0] == exit_timestamp:
+            heapq.heappop(pending_heap)
+            tasks = pending.pop(exit_timestamp, ())
+            for entry_timestamp, horizon in tasks:
+                entry_record = entries.get(entry_timestamp)
+                if entry_record is None:
+                    raise ValueError("forward carry streaming entry expired early")
+                _append_entry_exit_rows(
+                    rows,
+                    exclusion_events,
+                    exclusions,
+                    entry=entry_record,
+                    exit_record=exit_record,
                     entry_timestamp=entry_timestamp,
                     exit_timestamp=exit_timestamp,
                     horizon=horizon,
+                    expected_bases=expected_bases,
+                    curve_key=curve_key,
                     leg_quote=leg_quote,
-                    entry_symbol=entry_symbol,
-                    exit_symbol=exit_symbol,
-                    entry_curves=entry_curves,
-                    exit_curves=exit_curves,
-                    fills=fills,
-                    settled_points=settled.get(base, {}),
+                    settled=settled,
                 )
-                rows.append(row)
+        entry_allowed = (
+            (entry_start is None or exit_timestamp >= entry_start)
+            and (entry_end is None or exit_timestamp < entry_end)
+        )
+        if entry_allowed:
+            entries[exit_timestamp] = exit_record
+            entry_order.append(exit_timestamp)
+            for horizon in horizons:
+                scheduled = exit_timestamp + datetime.timedelta(hours=horizon)
+                if scheduled not in pending:
+                    pending[scheduled] = []
+                    heapq.heappush(pending_heap, scheduled)
+                pending[scheduled].append((exit_timestamp, horizon))
+        expiration = exit_timestamp - maximum_horizon
+        while entry_order and entry_order[0] < expiration:
+            entries.pop(entry_order.popleft(), None)
+    while pending_heap:
+        missing_timestamp = heapq.heappop(pending_heap)
+        for entry_timestamp, horizon in pending.pop(missing_timestamp, ()):
+            _append_exclusions(
+                exclusion_events,
+                exclusions,
+                reason="missing_exact_exit_bucket",
+                entry_timestamp=entry_timestamp,
+                horizon=horizon,
+                bases=expected_bases,
+            )
+    rows.sort(
+        key=lambda value: (
+            value["entry_timestamp_ms"],
+            value["horizon_hours"],
+            value["base"],
+        )
+    )
+    exclusion_events.sort(
+        key=lambda value: (
+            value["entry_timestamp_ms"],
+            value["horizon_hours"],
+            value["base"],
+            value["reason"],
+        )
+    )
     return {
         "schema_version": DATASET_SCHEMA_VERSION,
         "research_only": True,
@@ -205,6 +214,14 @@ def build_forward_carry_dataset(
             "expected_bases": list(expected_bases),
             "readiness_thresholds": recomputed_evidence["thresholds"],
         },
+        "entry_window": {
+            "start_inclusive_utc": (
+                entry_start.isoformat() if entry_start is not None else None
+            ),
+            "end_exclusive_utc": (
+                entry_end.isoformat() if entry_end is not None else None
+            ),
+        },
         "label_protocol": {
             "exact_exit_bucket_required": True,
             "interpolation_allowed": False,
@@ -213,6 +230,89 @@ def build_forward_carry_dataset(
             "fees": "four_sided_conservative_taker",
         },
     }
+
+
+def _append_entry_exit_rows(
+    rows,
+    exclusion_events,
+    exclusions,
+    *,
+    entry,
+    exit_record,
+    entry_timestamp,
+    exit_timestamp,
+    horizon,
+    expected_bases,
+    curve_key,
+    leg_quote,
+    settled,
+):
+    for base in expected_bases:
+        entry_symbol = entry["symbols"].get(base)
+        exit_symbol = exit_record["symbols"].get(base)
+        if not _has_execution_schema(entry_symbol, curve_key):
+            _append_exclusions(
+                exclusion_events,
+                exclusions,
+                reason="entry_schema_incomplete",
+                entry_timestamp=entry_timestamp,
+                horizon=horizon,
+                bases=(base,),
+            )
+            continue
+        if exit_symbol is None or not _has_execution_schema(
+            exit_symbol, curve_key
+        ):
+            _append_exclusions(
+                exclusion_events,
+                exclusions,
+                reason="exit_schema_incomplete",
+                entry_timestamp=entry_timestamp,
+                horizon=horizon,
+                bases=(base,),
+            )
+            continue
+        entry_curves = _curves(entry_symbol, curve_key)
+        exit_curves = _curves(exit_symbol, curve_key)
+        if not (
+            entry_curves["spot_ask"]["sufficient_depth"]
+            and entry_curves["futures_bid"]["sufficient_depth"]
+        ):
+            _append_exclusions(
+                exclusion_events,
+                exclusions,
+                reason="insufficient_entry_depth",
+                entry_timestamp=entry_timestamp,
+                horizon=horizon,
+                bases=(base,),
+            )
+            continue
+        fills = _execution_fills(entry_symbol, exit_symbol, leg_quote)
+        if fills is None:
+            _append_exclusions(
+                exclusion_events,
+                exclusions,
+                reason="insufficient_exit_depth",
+                entry_timestamp=entry_timestamp,
+                horizon=horizon,
+                bases=(base,),
+            )
+            continue
+        rows.append(
+            _build_row(
+                base=base,
+                entry_timestamp=entry_timestamp,
+                exit_timestamp=exit_timestamp,
+                horizon=horizon,
+                leg_quote=leg_quote,
+                entry_symbol=entry_symbol,
+                exit_symbol=exit_symbol,
+                entry_curves=entry_curves,
+                exit_curves=exit_curves,
+                fills=fills,
+                settled_points=settled.get(base, {}),
+            )
+        )
 
 
 def save_forward_carry_dataset(
@@ -410,6 +510,7 @@ def load_forward_carry_dataset(
         raise ValueError("forward carry label accounting identity failed")
     if int(manifest.get("row_count", -1)) != row_count:
         raise ValueError("forward carry manifest row count mismatch")
+    _validate_entry_window(dataset, manifest)
     _validate_exclusion_events(manifest)
     dataset.update(
         {
@@ -419,6 +520,42 @@ def load_forward_carry_dataset(
         }
     )
     return dataset
+
+
+def _parse_utc_bound(value, label):
+    if value is None:
+        return None
+    parsed = (
+        value
+        if isinstance(value, datetime.datetime)
+        else datetime.datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    )
+    if parsed.tzinfo is None:
+        raise ValueError(f"carry {label} must be timezone-aware")
+    return parsed.astimezone(datetime.timezone.utc)
+
+
+def _validate_entry_window(dataset, manifest):
+    window = manifest.get("entry_window")
+    if window is None:
+        return
+    if not isinstance(window, dict):
+        raise ValueError("forward carry entry window is invalid")
+    start = _parse_utc_bound(window.get("start_inclusive_utc"), "entry start")
+    end = _parse_utc_bound(
+        window.get("end_exclusive_utc"), "entry end exclusive"
+    )
+    if start is not None and end is not None and start >= end:
+        raise ValueError("forward carry entry window has invalid duration")
+    timestamps = dataset["entry_timestamp_ms"]
+    if start is not None and numpy.any(
+        timestamps < int(start.timestamp() * 1000)
+    ):
+        raise ValueError("forward carry row precedes entry window")
+    if end is not None and numpy.any(
+        timestamps >= int(end.timestamp() * 1000)
+    ):
+        raise ValueError("forward carry row exceeds entry window")
 
 
 def _append_exclusions(

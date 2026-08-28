@@ -777,6 +777,8 @@ def create_parser() -> argparse.ArgumentParser:
     forward_carry_dataset_parser.add_argument(
         "--leg-quote", type=float, default=1_000.0
     )
+    forward_carry_dataset_parser.add_argument("--entry-start-utc")
+    forward_carry_dataset_parser.add_argument("--entry-end-exclusive-utc")
 
     shadow_performance_parser = subparsers.add_parser(
         "evaluate-shadow-performance",
@@ -2013,6 +2015,8 @@ def _build_forward_carry_dataset(args: argparse.Namespace) -> int:
             else forward_carry_dataset_module.DEFAULT_HORIZON_HOURS
         ),
         leg_quote=args.leg_quote,
+        entry_start_utc=args.entry_start_utc,
+        entry_end_exclusive_utc=args.entry_end_exclusive_utc,
     )
     manifest = (
         forward_carry_dataset_module.save_forward_carry_dataset(
@@ -2027,6 +2031,7 @@ def _build_forward_carry_dataset(args: argparse.Namespace) -> int:
                 "rows": manifest["row_count"],
                 "horizon_hours": manifest["horizon_hours"],
                 "leg_quote": manifest["leg_quote"],
+                "entry_window": manifest["entry_window"],
                 "exclusions": manifest["exclusions"],
                 "orders_authorized": manifest["orders_authorized"],
             },

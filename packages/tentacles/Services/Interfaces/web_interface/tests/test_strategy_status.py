@@ -8,6 +8,41 @@ import tentacles.Services.Interfaces.web_interface.controllers.strategy_status a
 
 
 class TestV5ForwardSummary(unittest.TestCase):
+    def test_carry_gatekeeper_summary_is_orderless(self):
+        summary = status._carry_gatekeeper_summary(
+            {
+                "research_only": True,
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "automatic_promotion": False,
+                "real_income_authorized": False,
+                "healthy": True,
+                "phase": "WAITING_READINESS",
+                "phase_detail": "collecting",
+                "progress_pct": 60.0,
+                "artifacts_created": False,
+                "blockers": [{"id": "span", "detail": "36 / 60"}],
+            }
+        )
+
+        self.assertTrue(summary["available"])
+        self.assertTrue(summary["healthy"])
+        self.assertFalse(summary["artifacts_created"])
+        self.assertEqual(summary["blockers"][0]["id"], "span")
+
+    def test_carry_gatekeeper_summary_rejects_paper_authorization(self):
+        with self.assertRaisesRegex(ValueError, "safety invariant"):
+            status._carry_gatekeeper_summary(
+                {
+                    "research_only": True,
+                    "orders_authorized": False,
+                    "paper_orders_authorized": True,
+                    "automatic_promotion": False,
+                    "real_income_authorized": False,
+                    "phase": "WAITING_READINESS",
+                }
+            )
+
     def test_execution_shadow_summary_exposes_forward_counts(self):
         summary = status._execution_shadow_summary(
             {

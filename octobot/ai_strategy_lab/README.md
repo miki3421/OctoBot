@@ -639,6 +639,28 @@ exact passing report and model, remains wall-clock locked until
 `2026-10-03T12:00:00Z`, never refits, and uses the predeclared entry window.
 Neither command contains exchange access or can create paper or real orders.
 
+The deployed `forward-carry-gatekeeper` service performs those same transitions
+automatically and fail-closed. It has no network, mounts the live market journal
+and the exact V1.1 protocol read-only, and can write only below the dedicated
+`forward-carry-v1_1/gatekeeper` directory. Before readiness it writes just
+`status.json` and a process lock: no journal copy, dataset, label, model or
+economic report exists. At the first complete gate it binds the evidence byte
+count and journal SHA-256 in a one-shot source lock, copies exactly that
+append-only prefix, verifies the content-addressed archive tail, recomputes
+readiness and executes development once. Operational retries remain bound to
+the first source lock.
+
+The development dataset is explicitly cut before
+`2026-08-20T12:00:00Z`, so confirmation entries are absent even though newer
+records are needed to prove 60-day readiness. A failed development report is
+also latched and permanently keeps confirmation sealed. Only a passing frozen
+model can reach the second one-shot phase after `2026-10-03T12:00:00Z`; that
+dataset is separately limited to the preregistered 30-day confirmation entry
+window. Runs are built in temporary directories, verified, renamed atomically
+and content-addressed. No result grants automatic shadow, paper or live access.
+The same state, blockers and absence/presence of economic artifacts are shown
+on the read-only `Strategy Status` page.
+
 Applied shadow weights change only on Sunday UTC. Daily candidate weights,
 closed prices and signed funding remain recorded separately, allowing strictly
 forward P&L:

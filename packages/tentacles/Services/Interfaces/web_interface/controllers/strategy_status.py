@@ -30,6 +30,9 @@ DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
 DEFAULT_CARRY_PROTOCOL_PATH = (
     "/octobot/backtesting/research/forward-carry-v1_1/protocol.json"
 )
+DEFAULT_CARRY_GATEKEEPER_STATUS_PATH = (
+    "/octobot/backtesting/research/forward-carry-v1_1/gatekeeper/status.json"
+)
 DEFAULT_MICROSTRUCTURE_ROOT = (
     "/octobot/backtesting/research/microstructure-regime-v1"
 )
@@ -263,6 +266,61 @@ def _execution_shadow_summary(health: dict) -> dict:
             health.get("official_evaluation_materialized") is True
         ),
         "official_verdict": health.get("official_verdict"),
+    }
+
+
+def _carry_gatekeeper_summary(status: dict) -> dict:
+    if not status:
+        return {"available": False}
+    for field in (
+        "orders_authorized",
+        "paper_orders_authorized",
+        "automatic_promotion",
+        "real_income_authorized",
+    ):
+        if status.get(field) is not False:
+            raise ValueError(f"Carry gatekeeper safety invariant differs: {field}")
+    if status.get("research_only") is not True:
+        raise ValueError("Carry gatekeeper is not research-only")
+    allowed_phases = {
+        "WAITING_READINESS",
+        "RUNNING_DEVELOPMENT",
+        "WAITING_CONFIRMATION",
+        "RUNNING_CONFIRMATION",
+        "COMPLETE",
+        "BLOCKED_OPERATIONAL",
+    }
+    phase = str(status.get("phase", "UNKNOWN"))
+    if phase not in allowed_phases:
+        raise ValueError("Carry gatekeeper phase is invalid")
+    healthy = status.get("healthy") is True
+    if phase == "COMPLETE":
+        color = "success" if status.get("official_verdict") == "CONFIRMATION_PASS" else "secondary"
+    elif healthy:
+        color = "info" if phase.startswith("RUNNING") else "warning"
+    else:
+        color = "danger"
+    blockers = status.get("blockers", [])
+    if not isinstance(blockers, list):
+        blockers = []
+    return {
+        "available": True,
+        "healthy": healthy,
+        "color": color,
+        "phase": phase,
+        "phase_detail": str(status.get("phase_detail", "")),
+        "updated_at": status.get("updated_at"),
+        "progress_pct": float(status.get("progress_pct", 0.0) or 0.0),
+        "official_verdict": status.get("official_verdict"),
+        "artifacts_created": status.get("artifacts_created") is True,
+        "blockers": [
+            {
+                "id": str(value.get("id", "unknown")),
+                "detail": str(value.get("detail", "")),
+            }
+            for value in blockers
+            if isinstance(value, dict)
+        ],
     }
 
 
@@ -790,6 +848,12 @@ def register(blueprint):
                 "CARRY_PROTOCOL_PATH", DEFAULT_CARRY_PROTOCOL_PATH
             )
         )
+        carry_gatekeeper_status_path = pathlib.Path(
+            os.getenv(
+                "CARRY_GATEKEEPER_STATUS_PATH",
+                DEFAULT_CARRY_GATEKEEPER_STATUS_PATH,
+            )
+        )
         microstructure_root = pathlib.Path(
             os.getenv(
                 "MICROSTRUCTURE_RESEARCH_ROOT",
@@ -891,6 +955,13 @@ def register(blueprint):
             carry_protocol = {}
             errors.append(f"carry_protocol: {error}")
         try:
+            carry_gatekeeper = _carry_gatekeeper_summary(
+                _read_json(carry_gatekeeper_status_path)
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            carry_gatekeeper = {"available": False}
+            errors.append(f"carry_gatekeeper: {error}")
+        try:
             microstructure = _microstructure_summary(
                 microstructure_root
             )
@@ -924,6 +995,7 @@ def register(blueprint):
             market_health=loaded["market_health"],
             evidence=loaded["market_evidence"],
             carry=carry_readiness,
+            carry_gatekeeper=carry_gatekeeper,
             shadow_health=loaded["shadow_health"],
             performance=loaded["performance"],
             income=loaded["income_objective"],

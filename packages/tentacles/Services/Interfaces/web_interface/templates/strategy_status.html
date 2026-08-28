@@ -650,6 +650,37 @@
                         {{ "%.4f%%"|format(carry.progress_pct) }}
                     </div>
                 </div>
+                {% if carry_gatekeeper.available %}
+                <div class="card border-{{ carry_gatekeeper.color }} mt-3 mb-3">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start">
+                            <div>
+                                <strong>Gatekeeper automatico fail-closed</strong>
+                                <div class="text-muted small">{{ carry_gatekeeper.phase_detail }}</div>
+                            </div>
+                            <span class="badge badge-{{ carry_gatekeeper.color }} p-2">{{ carry_gatekeeper.phase }}</span>
+                        </div>
+                        <div class="row mt-3">
+                            {{ metric_card("Esecuzione", "HEALTHY" if carry_gatekeeper.healthy else "BLOCCATA", "success" if carry_gatekeeper.healthy else "danger") }}
+                            {{ metric_card("Artefatti economici", "CREATI" if carry_gatekeeper.artifacts_created else "NON CREATI", "warning" if carry_gatekeeper.artifacts_created else "success", "nessun dataset prima di tutti i gate") }}
+                            {{ metric_card("Verdetto ufficiale", carry_gatekeeper.official_verdict or "NON DISPONIBILE", "secondary") }}
+                            {{ metric_card("Ordini", "DISABILITATI", "success", "nessuna promozione automatica") }}
+                        </div>
+                        {% if carry_gatekeeper.blockers %}
+                        <div class="small text-muted">
+                            Blocchi correnti:
+                            {% for blocker in carry_gatekeeper.blockers %}
+                                <code>{{ blocker.id }}</code>{% if not loop.last %}, {% endif %}
+                            {% endfor %}.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning mt-3 mb-3">
+                    Gatekeeper automatico Carry non ancora disponibile nel container web.
+                </div>
+                {% endif %}
                 {% if carry.blockers %}
                 <div class="alert alert-{{ carry.color }} mt-3 mb-3" role="status">
                     <strong>Perché lo sviluppo è bloccato:</strong>

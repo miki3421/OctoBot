@@ -6,6 +6,7 @@ import dataclasses
 import datetime
 import fcntl
 import hashlib
+import itertools
 import json
 import math
 import os
@@ -132,11 +133,9 @@ def run_observation_once(
                 "microstructure observer is already active"
             ) from error
         try:
-            records = load_microstructure_records(config.journal_path)
-            records = _synchronize_archive(
-                config.journal_path, archive_root, records
+            previous, _ = _synchronize_archive(
+                config.journal_path, archive_root
             )
-            previous = records[-1] if records else None
             if previous is not None:
                 previous_bucket = datetime.datetime.fromisoformat(
                     previous["bucket_start_utc"]
@@ -204,10 +203,16 @@ def run_observation_once(
 def load_microstructure_records(
     path_value: str | pathlib.Path,
 ) -> list[dict]:
+    return list(iter_microstructure_records(path_value))
+
+
+def iter_microstructure_records(
+    path_value: str | pathlib.Path,
+) -> typing.Iterator[dict]:
+    """Yield a verified journal without retaining the full history in RAM."""
     path = pathlib.Path(path_value)
     if not path.exists():
-        return []
-    records = []
+        return
     previous_hash = None
     previous_bucket = None
     with path.open("r", encoding="utf-8") as stream:
@@ -249,10 +254,9 @@ def load_microstructure_records(
                 raise ValueError(
                     "microstructure journal safety invariant failed"
                 )
-            records.append(record)
             previous_hash = record["record_hash"]
             previous_bucket = bucket
-    return records
+            yield record
 
 
 def _collect_record(
@@ -797,31 +801,30 @@ def _record_hash(record):
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _synchronize_archive(journal_path, archive_root, journal_records):
+def _synchronize_archive(journal_path, archive_root):
     archive_root.mkdir(parents=True, exist_ok=True)
-    for record in journal_records:
+    for record in iter_microstructure_records(journal_path):
         _archive_record(archive_root, record)
-    archived = _load_archive_records(archive_root)
-    journal_hashes = [
-        record["record_hash"] for record in journal_records
-    ]
-    archive_hashes = [record["record_hash"] for record in archived]
-    if archive_hashes[: len(journal_hashes)] != journal_hashes:
-        raise ValueError(
-            "microstructure archive is not a prefix extension of journal"
-        )
-    if len(archive_hashes) < len(journal_hashes):
-        raise ValueError("microstructure archive is shorter than journal")
-    for record in archived[len(journal_hashes) :]:
-        _append_jsonl(journal_path, record)
-    if len(archived) != len(journal_records):
-        recovered = load_microstructure_records(journal_path)
-        if [value["record_hash"] for value in recovered] != archive_hashes:
+    sentinel = object()
+    last_archive_record = None
+    archived_count = 0
+    for journal_record, archive_record in itertools.zip_longest(
+        iter_microstructure_records(journal_path),
+        iter_archive_records(archive_root),
+        fillvalue=sentinel,
+    ):
+        if archive_record is sentinel:
+            raise ValueError("microstructure archive is shorter than journal")
+        archived_count += 1
+        last_archive_record = archive_record
+        if journal_record is sentinel:
+            _append_jsonl(journal_path, archive_record)
+            continue
+        if journal_record["record_hash"] != archive_record["record_hash"]:
             raise ValueError(
-                "microstructure archive recovery verification failed"
+                "microstructure archive is not a prefix extension of journal"
             )
-        return recovered
-    return journal_records
+    return last_archive_record, archived_count
 
 
 def _archive_record(archive_root, record):
@@ -848,8 +851,13 @@ def _archive_record(archive_root, record):
 
 
 def _load_archive_records(archive_root):
-    records = []
-    for path in archive_root.glob("*.json"):
+    return list(iter_archive_records(archive_root))
+
+
+def iter_archive_records(archive_root):
+    previous_hash = None
+    previous_bucket = None
+    for path in sorted(pathlib.Path(archive_root).glob("*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as error:
@@ -869,11 +877,6 @@ def _load_archive_records(archive_root):
             raise ValueError(
                 "microstructure archive safety invariant failed"
             )
-        records.append(record)
-    records.sort(key=lambda value: value["bucket_start_utc"])
-    previous_hash = None
-    previous_bucket = None
-    for record in records:
         bucket = datetime.datetime.fromisoformat(
             record["bucket_start_utc"]
         )
@@ -889,7 +892,7 @@ def _load_archive_records(archive_root):
             )
         previous_hash = record["record_hash"]
         previous_bucket = bucket
-    return records
+        yield record
 
 
 def _append_jsonl(path, record):

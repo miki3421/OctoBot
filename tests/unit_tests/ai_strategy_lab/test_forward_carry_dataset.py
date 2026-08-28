@@ -239,6 +239,59 @@ def test_refuses_dataset_before_default_readiness_gate(tmp_path):
         )
 
 
+def test_entry_window_excludes_later_rows_and_labels(tmp_path):
+    journal, evidence, config = _artifacts(tmp_path, ready=True)
+    cutoff = START + datetime.timedelta(hours=8)
+
+    dataset = forward_carry_dataset.build_forward_carry_dataset(
+        journal,
+        evidence,
+        horizon_hours=(8,),
+        entry_end_exclusive_utc=cutoff,
+        evidence_config=config,
+    )
+
+    assert dataset["row_count"] == 1
+    assert dataset["rows"][0]["entry_timestamp_ms"] == int(
+        START.timestamp() * 1000
+    )
+    assert dataset["entry_window"] == {
+        "start_inclusive_utc": None,
+        "end_exclusive_utc": cutoff.isoformat(),
+    }
+    assert dataset["exclusions"]["missing_exact_exit_bucket"] == 0
+
+    forward_carry_dataset.save_forward_carry_dataset(
+        dataset, tmp_path / "windowed.npz"
+    )
+    loaded = forward_carry_dataset.load_forward_carry_dataset(
+        tmp_path / "windowed.npz"
+    )
+    assert loaded["manifest"]["entry_window"] == dataset["entry_window"]
+
+
+def test_entry_window_rejects_naive_or_reversed_bounds(tmp_path):
+    journal, evidence, config = _artifacts(tmp_path, ready=True)
+
+    with pytest.raises(ValueError, match="timezone-aware"):
+        forward_carry_dataset.build_forward_carry_dataset(
+            journal,
+            evidence,
+            horizon_hours=(8,),
+            entry_end_exclusive_utc="2026-07-23T08:00:00",
+            evidence_config=config,
+        )
+    with pytest.raises(ValueError, match="positive duration"):
+        forward_carry_dataset.build_forward_carry_dataset(
+            journal,
+            evidence,
+            horizon_hours=(8,),
+            entry_start_utc="2026-07-23T08:00:00+00:00",
+            entry_end_exclusive_utc="2026-07-23T08:00:00+00:00",
+            evidence_config=config,
+        )
+
+
 def test_refuses_stale_evidence_hash(tmp_path):
     journal, evidence, config = _artifacts(tmp_path, ready=True)
     with journal.open("a", encoding="utf-8") as stream:

@@ -245,6 +245,57 @@ services:
       timeout: 10s
       retries: 3
 
+  forward-carry-gatekeeper:
+    image: octobot-local:dev
+    container_name: octobot-forward-carry-gatekeeper
+    restart: unless-stopped
+    network_mode: none
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/forward-carry-gatekeeper-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      CARRY_GATEKEEPER_INTERVAL_SECONDS: ${CARRY_GATEKEEPER_INTERVAL_SECONDS:-900}
+      CARRY_GATEKEEPER_RETRY_SECONDS: ${CARRY_GATEKEEPER_RETRY_SECONDS:-60}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/shadow/market:/shadow/market:ro
+      - ../octobot-local/backtesting/research/forward-carry-v1_1/protocol.json:/protocol/protocol.json:ro
+      - ../octobot-local/backtesting/research/forward-carry-v1_1/gatekeeper:/carry-gate
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/shadow/empty:/octobot/backtesting:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/carry-gate/status.json'));
+          last=datetime.datetime.fromisoformat(value['updated_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('healthy') is True
+          and value.get('gatekeeper_version') == 'kucoin_forward_carry_gatekeeper_v1'
+          and value.get('phase') in ('WAITING_READINESS','RUNNING_DEVELOPMENT','WAITING_CONFIRMATION','RUNNING_CONFIRMATION','COMPLETE')
+          and value.get('research_only') is True
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('real_income_authorized') is False
+          and (now-last).total_seconds() < 7200 else 1)"
+      interval: 5m
+      timeout: 10s
+      retries: 3
+
   operations-reporter:
     image: octobot-local:dev
     container_name: octobot-operations-reporter

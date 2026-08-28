@@ -47,7 +47,7 @@ def evaluate_forward_market_evidence(
     evidence_config = config or ForwardEvidenceConfig()
     evidence_config.validate()
     path = pathlib.Path(journal_path).resolve()
-    records = microstructure_module.load_microstructure_records(path)
+    records = microstructure_module.iter_microstructure_records(path)
     report = _summarize(records, evidence_config)
     report["created_at"] = datetime.datetime.now(
         datetime.timezone.utc
@@ -62,64 +62,41 @@ def evaluate_forward_market_evidence(
 
 
 def _summarize(records, config):
-    if not records:
-        return _empty_report(config)
     interval_seconds = config.interval_minutes * 60
-    buckets = [
-        datetime.datetime.fromisoformat(record["bucket_start_utc"])
-        for record in records
-    ]
-    if any(
-        int(bucket.timestamp()) % (config.interval_minutes * 60)
-        for bucket in buckets
-    ):
-        raise ValueError("forward journal bucket is not UTC interval-aligned")
-    if any(
-        int(record.get("interval_minutes", -1))
-        != config.interval_minutes
-        for record in records
-    ):
-        raise ValueError("forward journal interval changed")
-    universes = [set(record.get("symbols", {})) for record in records]
-    reference_universe = universes[0]
-    if any(universe != reference_universe for universe in universes):
-        raise ValueError("forward journal symbol universe changed")
-
-    elapsed_seconds = (buckets[-1] - buckets[0]).total_seconds()
-    expected_buckets = int(elapsed_seconds // interval_seconds) + 1
-    if not math.isclose(
-        elapsed_seconds % interval_seconds, 0.0, abs_tol=1e-6
-    ):
-        raise ValueError("forward journal bucket is not interval-aligned")
-    observed_buckets = len(records)
-    missing_buckets = expected_buckets - observed_buckets
-    if missing_buckets < 0:
-        raise ValueError("forward journal contains excess buckets")
-    coverage = observed_buckets / expected_buckets
-    gap_seconds = [
-        int((current - previous).total_seconds())
-        for previous, current in zip(buckets, buckets[1:])
-    ]
-    maximum_gap_seconds = max(gap_seconds, default=0)
-    gaps_over_interval = [
-        {
-            "previous_bucket_utc": previous.isoformat(),
-            "current_bucket_utc": current.isoformat(),
-            "missing_buckets": (
-                int((current - previous).total_seconds())
-                // interval_seconds
-                - 1
-            ),
-        }
-        for previous, current in zip(buckets, buckets[1:])
-        if (current - previous).total_seconds() > interval_seconds
-    ]
-    settled = {base: {} for base in sorted(reference_universe)}
+    first_bucket = None
+    last_bucket = None
+    previous_bucket = None
+    reference_universe = None
+    observed_buckets = 0
+    maximum_gap_seconds = 0
+    gaps_over_interval = []
+    settled = None
     for record in records:
+        bucket = datetime.datetime.fromisoformat(record["bucket_start_utc"])
+        if int(bucket.timestamp()) % interval_seconds:
+            raise ValueError("forward journal bucket is not UTC interval-aligned")
+        if int(record.get("interval_minutes", -1)) != config.interval_minutes:
+            raise ValueError("forward journal interval changed")
+        universe = set(record.get("symbols", {}))
+        if reference_universe is None:
+            reference_universe = universe
+            settled = {base: {} for base in sorted(reference_universe)}
+            first_bucket = bucket
+        elif universe != reference_universe:
+            raise ValueError("forward journal symbol universe changed")
+        if previous_bucket is not None:
+            gap = int((bucket - previous_bucket).total_seconds())
+            maximum_gap_seconds = max(maximum_gap_seconds, gap)
+            if gap > interval_seconds:
+                gaps_over_interval.append(
+                    {
+                        "previous_bucket_utc": previous_bucket.isoformat(),
+                        "current_bucket_utc": bucket.isoformat(),
+                        "missing_buckets": gap // interval_seconds - 1,
+                    }
+                )
         for base, values in record["symbols"].items():
-            points = values.get("funding", {}).get(
-                "settled_last_24h", []
-            )
+            points = values.get("funding", {}).get("settled_last_24h", [])
             if not isinstance(points, list):
                 raise ValueError(
                     f"settled funding is invalid in journal for {base}"
@@ -137,6 +114,21 @@ def _summarize(records, config):
                         f"settled funding changed for {base} at {timestamp}"
                     )
                 settled[base][timestamp] = rate
+        observed_buckets += 1
+        previous_bucket = bucket
+        last_bucket = bucket
+    if observed_buckets == 0:
+        return _empty_report(config)
+    elapsed_seconds = (last_bucket - first_bucket).total_seconds()
+    expected_buckets = int(elapsed_seconds // interval_seconds) + 1
+    if not math.isclose(
+        elapsed_seconds % interval_seconds, 0.0, abs_tol=1e-6
+    ):
+        raise ValueError("forward journal bucket is not interval-aligned")
+    missing_buckets = expected_buckets - observed_buckets
+    if missing_buckets < 0:
+        raise ValueError("forward journal contains excess buckets")
+    coverage = observed_buckets / expected_buckets
     settlement_counts = {
         base: len(points) for base, points in settled.items()
     }
@@ -157,7 +149,7 @@ def _summarize(records, config):
     covered_span_days = (
         expected_buckets * interval_seconds / (24 * 3600)
     )
-    earliest_span_ready_at = buckets[0] + datetime.timedelta(
+    earliest_span_ready_at = first_bucket + datetime.timedelta(
         seconds=(required_span_buckets - 1) * interval_seconds
     )
     checks = {
@@ -189,8 +181,8 @@ def _summarize(records, config):
         "checks": checks,
         "thresholds": dataclasses.asdict(config),
         "journal": {
-            "first_bucket_utc": buckets[0].isoformat(),
-            "last_bucket_utc": buckets[-1].isoformat(),
+            "first_bucket_utc": first_bucket.isoformat(),
+            "last_bucket_utc": last_bucket.isoformat(),
             "observed_buckets": observed_buckets,
             "expected_buckets": expected_buckets,
             "missing_buckets": missing_buckets,
