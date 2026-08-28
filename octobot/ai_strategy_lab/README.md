@@ -1215,6 +1215,25 @@ family, not permission to rewrite V1. Confirmation and lock remain
 unmaterialized and no orders are authorized. Report SHA-256 is
 `6f65a37bb3e627bc8fa61ecf0f108e6619682f232635558a5863cdda92b33d6a`.
 
+## Cost-aware long confluence V2
+
+`cost_aware_long_confluence_v2` explicitly treats the positive development
+long leg of V1 as training information, not OOS evidence. It freezes exactly
+six candidates before reusing development: the unchanged long three-factor
+intersection, `0.40x` gross, crossed with reselection every 3, 9 or 21
+eight-hour blocks and either no regime gate or a causal positive 28-day
+equal-weight perpetual-market gate. Targets remain unchanged between anchored
+boundaries; costs stay at 8 bps per net turnover with 3x stress. Only a
+candidate passing the frozen full-development and five-fold training gates may
+be selected, using maximin fold return, median fold Sharpe, lower turnover and
+configuration id in that order. If none passes, no model is frozen and 2025
+stays sealed. If one passes, that immutable winner alone may query 2025 as the
+first OOS evidence, followed conditionally by the 2026 lock. The logical
+protocol SHA-256 is
+`5e080a7f96a80efbba0b3742d5e66f65f1039a85b74e07adefab5bd95be6aa55`;
+the protocol file SHA-256 is
+`20454ac84db7e2e9807059957f985e34bca2697a474e445a204f722b55784000`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
