@@ -8,6 +8,46 @@ import tentacles.Services.Interfaces.web_interface.controllers.strategy_status a
 
 
 class TestV5ForwardSummary(unittest.TestCase):
+    def test_execution_shadow_summary_exposes_forward_counts(self):
+        summary = status._execution_shadow_summary(
+            {
+                "mode": "execution_shadow_only",
+                "healthy": True,
+                "status": "COLLECTING",
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "automatic_promotion": False,
+                "progress_pct": 12.5,
+                "collector_healthy": True,
+                "journal_tail_verified": True,
+                "journal_bytes": 4096,
+                "counts": {
+                    "predicted": 18,
+                    "missed": 2,
+                    "selected": 6,
+                    "completed_outcomes": 15,
+                    "incomplete_outcomes": 1,
+                },
+            }
+        )
+
+        self.assertTrue(summary["available"])
+        self.assertEqual(summary["prediction_coverage_pct"], 90.0)
+        self.assertAlmostEqual(summary["selection_pct"], 100 / 3)
+        self.assertAlmostEqual(summary["outcome_completion_pct"], 100 * 15 / 18)
+        self.assertEqual(summary["color"], "success")
+
+    def test_execution_shadow_summary_rejects_order_authorization(self):
+        with self.assertRaisesRegex(ValueError, "safety invariant"):
+            status._execution_shadow_summary(
+                {
+                    "mode": "execution_shadow_only",
+                    "orders_authorized": True,
+                    "paper_orders_authorized": False,
+                    "automatic_promotion": False,
+                }
+            )
+
     def test_shadow_applied_and_candidate_weights_are_distinct(self):
         record = {
             "target_weights": {"LINK": 0.06, "ETH": 0.0},

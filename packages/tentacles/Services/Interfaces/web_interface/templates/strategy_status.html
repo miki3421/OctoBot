@@ -422,6 +422,49 @@
                         Il collector scalping non ha ancora pubblicato il primo stato.
                     </div>
                 {% endif %}
+                {% if execution_shadow.available %}
+                <div class="card border-{{ execution_shadow.color }} mt-3">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="mb-1">Execution V2 · forward shadow orderless</h5>
+                                <div class="text-muted small">
+                                    Il modello congelato decide se tentare maker; non decide la direzione del trade e non può inviare ordini.
+                                </div>
+                            </div>
+                            <span class="badge badge-{{ execution_shadow.color }} p-2">{{ execution_shadow.status }}</span>
+                        </div>
+                        <div class="row">
+                            {{ metric_card("Avanzamento 30 giorni", "%.4f%%"|format(execution_shadow.progress_pct), "info", (execution_shadow.forward_start or "-")[:10] ~ " → " ~ (execution_shadow.forward_end or "-")[:10]) }}
+                            {{ metric_card("Prediction valide", execution_shadow.predicted, "info", "%.2f%% coverage"|format(execution_shadow.prediction_coverage_pct)) }}
+                            {{ metric_card("Prediction mancate", execution_shadow.missed, "success" if execution_shadow.missed == 0 else "warning", "mai ricostruite ex post") }}
+                            {{ metric_card("Tentativi maker", execution_shadow.selected, "info", "%.2f%% delle prediction"|format(execution_shadow.selection_pct)) }}
+                            {{ metric_card("Outcome maturi", execution_shadow.completed_outcomes, "info", "%.2f%% delle prediction"|format(execution_shadow.outcome_completion_pct)) }}
+                            {{ metric_card("Outcome incompleti", execution_shadow.incomplete_outcomes, "success" if execution_shadow.incomplete_outcomes == 0 else "warning") }}
+                            {{ metric_card("Collector", "HEALTHY" if execution_shadow.collector_healthy else "NON FRESCO", "success" if execution_shadow.collector_healthy else "danger") }}
+                            {{ metric_card("Catena journal", "VERIFICATA" if execution_shadow.journal_tail_verified else "ERRORE", "success" if execution_shadow.journal_tail_verified else "danger", "%.2f KB"|format(execution_shadow.journal_bytes / 1024)) }}
+                            {{ metric_card("Ordini", "DISABILITATI", "success", "paper e reali") }}
+                        </div>
+                        <div class="progress mb-2" style="height: 1.4rem;">
+                            <div class="progress-bar bg-info" role="progressbar"
+                                 style="width: {{ [execution_shadow.progress_pct, 100] | min }}%; min-width: 3rem;"
+                                 aria-valuenow="{{ execution_shadow.progress_pct }}"
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ "%.4f%%"|format(execution_shadow.progress_pct) }}
+                            </div>
+                        </div>
+                        <div class="alert alert-info small mb-0">
+                            Il lock offline ha dimostrato un risparmio di execution rispetto al taker, non un alpha direzionale.
+                            Il verdetto forward sarà sigillato una sola volta al cutoff; fino ad allora questi conteggi sono soltanto monitoraggio.
+                            Protocollo <code>{{ execution_shadow.protocol_sha256 | truncate(18, True, "…") }}</code>.
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-secondary small mt-3 mb-0">
+                    Execution V2 forward shadow non ancora disponibile nel container web.
+                </div>
+                {% endif %}
                 {% if microstructure.available %}
                 <div class="card border-{{ microstructure.color }} mt-3">
                     <div class="card-body py-3">

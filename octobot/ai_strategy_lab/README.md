@@ -780,6 +780,255 @@ validate an inverted signal, trigger another same-sample correction, open the
 20--26 August lock or authorize orders. Protocol SHA-256 is
 `67201b63edba8c9d2a13679661087bb17f9cac5b2db7f772212c252ddcb27535`.
 
+V3 isolates one sequential motif that the generic V3 queue-flow regression
+could hide: absorption. The result-free protocol selects extreme 60-second
+aggressor pressure only when displayed refill/order-flow opposes it, price
+response remains muted and the five-second microprice turns against it. All
+quantiles are fitted from past features only. The sole eligible direction is
+the reversal, and the economic screen is an executable 15-minute markout with
+500 ms latency and a 14-bps taker round trip; there is no take profit, stop or
+maker-fill assumption.
+
+```bash
+python3 -m octobot.ai_strategy_lab.microstructure_absorption_v3 \
+  write-protocol \
+  --output ../octobot-local/backtesting/research/microstructure-absorption-v3/protocol.json
+
+python3 -m octobot.ai_strategy_lab.microstructure_absorption_v3 \
+  evaluate-pretest \
+  --protocol ../octobot-local/backtesting/research/microstructure-absorption-v3/protocol.json \
+  --dataset ../octobot-local/backtesting/research/scalping-evaluation-v3/pretest-dataset.npz \
+  --dataset-manifest ../octobot-local/backtesting/research/scalping-evaluation-v3/pretest-dataset.manifest.json \
+  --source-cache ../octobot-local/backtesting/research/scalping-evaluation-v1/pretest-dataset-source-cache.npz \
+  --output-root ../octobot-local/backtesting/research/microstructure-absorption-v3/experiments
+```
+
+V3 is rejected before the locked test. Its five development walk-forward
+folds select 25 non-overlapping events, all five lose, mean net markout is
+`-17.1595` bps, profit factor is `0.0453` and only `7.69%` of operating days
+are positive. Both long and short contributions are negative and doubled-cost
+stress is `-0.7745%`. The reused 13--19 August confirmation selects 20 events,
+mean net markout `-9.8483` bps, profit factor `0.3388` and `20%` positive
+operating days; its gross mean is only about `+4.15` bps before the fixed
+14-bps cost. The protocol hash is
+`dad8e2c29fa75c1a740937b3896c883a314261ed692db5376a53200e49d3639c`
+and the report hash is
+`2578446590684ce2c774756967457d5265110a0cb76ce7a6f7013ed8d903d53b`.
+The 20--26 August block remains unmaterialized and unauthorized. Reversing or
+retuning this motif on the same rows is explicitly disallowed.
+
+## Cointegration pairs V1
+
+`cointegration_pairs_v1` tests a separate market-neutral mechanism on the
+existing 18-asset Binance futures history.  Every calendar month it fits log
+price pairs on the preceding 180 closed daily observations.  Residual ADF(0)
+statistics are compared with a deterministic 20,000-path independent-random-
+walk Monte Carlo null, followed by Benjamini--Hochberg FDR control at 5%.
+Selected pairs must also satisfy frozen beta, half-life and zero-crossing
+requirements; no asset can appear in two of the maximum four pairs.  Trades
+use fixed z-score entry/exit/stop thresholds, next-day weights, signed funding
+and taker fee/slippage.  There is no maker-fill assumption or exchange client.
+
+Freeze the result-free protocol and run the pre-lock evaluator:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cointegration_pairs_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/cointegration-pairs-v1/protocol.json
+
+python3 -m octobot.ai_strategy_lab.cointegration_pairs_v1 evaluate-prelock \
+  --protocol ../octobot-local/backtesting/research/cointegration-pairs-v1/protocol.json \
+  --futures-collector BINANCE_FUTURES_FILE ... \
+  --funding-json BINANCE_FUNDING_FILE ... \
+  --output-root ../octobot-local/backtesting/research/cointegration-pairs-v1/experiments
+```
+
+V1 is rejected for insufficient activity and temporal stability.  Development
+from November 2022 through December 2024 returns `+3.2534%`, with profit factor
+`2.2907`, maximum drawdown `2.8911%` and both spread directions positive.
+Triple-cost stress remains positive at `+2.5123%`.  However, only 9 trades are
+closed, pairs are available in 7 of 26 monthly formations, just two of four
+folds are positive, Sharpe is `0.6668`, and only `15.38%` of months are
+positive.  Seven of eleven gates pass.  The confirmation year 2025 and locked
+January--June 2026 interval are not evaluated.  Protocol SHA-256 is
+`d7187da7c0c6f218b95b26e73c7586a553b5cd9a33b277f06c341e369d20a898`;
+report SHA-256 is
+`1c485d36402a6ab5cb890f01e556743c51b6d50063c929f547de59103a5608e0`.
+The same rows cannot be used to relax FDR, formation or z-score thresholds.
+
+## Funding cross-section V1
+
+`funding_cross_section_v1` tests whether the funding spread can be harvested
+without a spot hedge.  At each Monday UTC close it ranks the trailing seven
+days of completed funding settlements, goes long the lowest quartile and short
+the highest quartile, and applies inverse-volatility dollar-neutral weights
+from the following day.  The gross cap is 80%; funding, perpetual price P&L,
+taker fees, slippage and a triple-cost stress are accounted separately.
+
+The frozen protocol is written and evaluated with:
+
+```bash
+python3 -m octobot.ai_strategy_lab.funding_cross_section_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/funding-cross-section-v1/protocol.json
+
+python3 -m octobot.ai_strategy_lab.funding_cross_section_v1 evaluate-prelock \
+  --protocol ../octobot-local/backtesting/research/funding-cross-section-v1/protocol.json \
+  --futures-collector BINANCE_FUTURES_FILE ... \
+  --funding-json BINANCE_FUNDING_FILE ... \
+  --output-root ../octobot-local/backtesting/research/funding-cross-section-v1/experiments
+```
+
+V1 is rejected in development.  It collects `+9.2048%` additive funding, but
+the relative perpetual-price component is `-9.1836%`; `7.4993%` modeled
+turnover cost then leaves a compounded `-9.3332%`, Sharpe `-0.2196` and maximum
+drawdown `20.0977%`.  Triple-cost return is `-21.9757%`; only two of five
+six-month folds are positive and four of eleven gates pass.  The near-offset
+between price and funding means mechanically reversing the same portfolio is
+not a new edge: it reverses both components while retaining the cost.  The
+2025 confirmation and 2026 lock remain uncomputed.  Protocol SHA-256 is
+`deb97bc02c55cf270d5f9e613c855c858e7114c7434a863e55cde0f11fb8fddf`;
+report SHA-256 is
+`592bd65ebd850234b0b06450df7bfb7a4d588fb866aed0693da2b1e03d4a4d80`.
+
+## Quarter-hour opening flow V1
+
+`quarter_hour_flow_v1` is an economic-feasibility audit motivated by Kim and
+Hansen's quarter-hour effect.  On every UTC quarter-hour it observes only the
+first ten seconds of KuCoin BTC aggressor flow, trades its sign at executable
+top-of-book 500 ms after that observation, and measures the executable
+four-hour markout.  Fee plus slippage is fixed at 14 bps round trip; stress
+adds one second and doubles costs.  Markouts overlap and are explicitly not
+reported as a portfolio return.
+
+```bash
+python3 -m octobot.ai_strategy_lab.quarter_hour_flow_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/quarter-hour-flow-v1/protocol.json
+
+python3 -m octobot.ai_strategy_lab.quarter_hour_flow_v1 evaluate-prelock \
+  --protocol ../octobot-local/backtesting/research/quarter-hour-flow-v1/protocol.json \
+  --source-cache ../octobot-local/backtesting/research/scalping-evaluation-v1/pretest-dataset-source-cache.npz \
+  --output-root ../octobot-local/backtesting/research/quarter-hour-flow-v1/experiments
+```
+
+V1 is decisively rejected in development.  Across 1,560 events, gross mean is
+only `+0.7677` bps versus the 14-bps round trip, leaving `-13.2323` bps net,
+profit factor `0.5214`, hit rate `35%` and `4.76%` positive operating days.
+Both directions lose and zero of five folds has positive mean net markout.
+One-second/double-cost stress is `-27.2675` bps with PF `0.2729`.  Confirmation
+is not read and the 20--26 August lock is absent from the source cache and
+unmaterialized.  Protocol SHA-256 is
+`386ddd211bd26de86eb66980e630397d5106b5251f6c413e700b08a9a6968b53`;
+report SHA-256 is
+`11b0a22bb28dbe2afb3a338e750b30f299f722135b59d1ec22d521d18caa82a8`.
+
+## Passive execution V1
+
+`maker_execution_v1` uses the frozen BTC Futures Level-5 database as an
+execution diagnostic rather than a directional signal. At each UTC quarter
+hour it evaluates a virtual 1,000-USDT buy and sell. The benchmark takes the
+top-five VWAP after 500 ms. The candidate attempts a best-quote post-only order
+only when signed queue imbalance is favorable, puts 125% of displayed size in
+front of itself, grants no queue improvement from cancellations and requires
+observed aggressor volume to consume that queue plus its whole integer-contract
+quantity. An unfilled order falls back to taker after 60 seconds. Official
+XBTUSDTM contract size (`0.001 BTC`) and conservative base-tier fees (2-bps
+maker, 6-bps taker) are frozen in the protocol.
+
+```bash
+python3 -m octobot.ai_strategy_lab.maker_execution_v1 write-protocol \
+  --output ../octobot-local/backtesting/research/passive-execution-v1/protocol.json
+
+python3 -m octobot.ai_strategy_lab.maker_execution_v1 evaluate-prelock \
+  --protocol ../octobot-local/backtesting/research/passive-execution-v1/protocol.json \
+  --database ../octobot-local/backtesting/research/scalping-freezes/SCALPING_FREEZE/btc-futures-level5.sqlite \
+  --freeze-manifest ../octobot-local/backtesting/research/scalping-freezes/SCALPING_FREEZE/manifest.json \
+  --output-root ../octobot-local/backtesting/research/passive-execution-v1/experiments
+```
+
+V1 is rejected in development. It completes 3,897 of 3,918 rows (`99.464%`
+coverage), attempts 1,548 passive orders and conservatively fills only 108
+(`6.977%`). Mean saving versus immediate taker is `-0.1327` bps: buy loses
+`-0.1044` bps and sell `-0.1609` bps. All five temporal folds are negative,
+only `14.286%` of operating days improve and the 90% daily-bootstrap lower
+bound is `-0.1689` bps. Filled orders show roughly `-5` bps of adverse
+selection at five and sixty seconds. The doubled-queue/short-timeout/1.5x-fee
+stress also loses (`-0.1150` bps) and fills only `2.536%` of attempts. Three of
+eleven gates pass. Confirmation and the 20--26 August lock remain unread. The
+protocol SHA-256 is
+`079e58fa244f8266bfe99a22f1f87880b9e3aa86cce7faace88887319c45e646`;
+report SHA-256 is
+`b5f8e00f32788316fa921c9a4f19671d30267f8a17749914e29e86013a1923d1`.
+This closes the fixed imbalance-gated policy, not all learned execution models.
+
+## Learned passive execution V2 and final lock
+
+`maker_execution_v2` keeps the conservative V1 queue/fallback simulation but
+learns two quantities from development only: maker fill probability and saving
+when the maker order does not fill. Its fixed 17-feature causal model attempts
+maker execution only when predicted fill probability is at least `10%` and
+expected saving is strictly above `0.25` bps. There is no feature,
+hyperparameter or threshold search. Five expanding purged folds all pass;
+development saving is `+1.1725` bps over 1,061 selected attempts. The untouched
+13--20 August confirmation also passes with `+1.2119` bps over 469 attempts.
+
+The separate `maker_execution_locked_v2` binds the pre-lock protocol, report,
+manifest, model, confirmation predictions and immutable Level-5 freeze by hash.
+It never refits and is the only code path allowed to query 20--26 August:
+
+```bash
+python3 -m octobot.ai_strategy_lab.maker_execution_locked_v2 write-protocol \
+  --output ../octobot-local/backtesting/research/learned-passive-execution-locked-v2/protocol.json
+
+python3 -m octobot.ai_strategy_lab.maker_execution_locked_v2 evaluate-lock \
+  --protocol ../octobot-local/backtesting/research/learned-passive-execution-locked-v2/protocol.json \
+  --parent-protocol ../octobot-local/backtesting/research/learned-passive-execution-v2/protocol.json \
+  --parent-experiment ../octobot-local/backtesting/research/learned-passive-execution-v2/experiments/learned-passive-execution-v2-70ec9868e208-7c999831e0d4 \
+  --database ../octobot-local/backtesting/research/scalping-freezes/scalping-freeze-1784815309-1787753457/btc-futures-level5.sqlite \
+  --freeze-manifest ../octobot-local/backtesting/research/scalping-freezes/scalping-freeze-1784815309-1787753457/manifest.json \
+  --output-root ../octobot-local/backtesting/research/learned-passive-execution-locked-v2/experiments
+```
+
+The final lock passes all 16 frozen gates. It retains 1,258 of 1,266 rows
+(`99.368%` coverage), selects 639 attempts (`50.795%`), fills 374 (`58.529%`)
+and saves `+0.5826` bps per selected attempt versus immediate taker execution.
+Buy is `+0.6673` bps and sell `+0.5018` bps; `85.714%` of operating days are
+positive and the 90% daily-bootstrap lower bound is `+0.1659` bps. Fill AUC is
+`0.7906`; Brier is `0.1798` versus `0.2649` for the frozen constant.
+Protocol SHA-256 is
+`0d6c1cd814799280358c350f9bec6917fb61f1e92e4c3a42842e5ffc5310789e`;
+report SHA-256 is
+`bd6c85f0091050b95a2e7dc17e23a9038d6b355b62d893a8fb105d0068219fee`.
+
+This is an execution edge, not directional alpha. It can only advance to an
+orderless forward shadow overlay for an independently validated strategy. A
+post-lock structural audit also records that the frozen `1.5x` fee stress is
+not monotonic: multiplying both fees expands the maker/taker differential by
+2 bps per fill. Removing only that benefit leaves aggregate stress at
+`+0.1868` bps and buy at `+0.6142` bps, but sell at `-0.2209` bps. Therefore
+per-side stress robustness is not established and forward gates must remain
+separate. The audit content SHA-256 is
+`6979eb6f00009d06450a3fbd7748e73d62a780276b8800ac2a0436832398b711`.
+
+## Execution V2 forward shadow
+
+`execution_shadow_v1` observes the same live Level-5 SQLite/WAL in read-only
+mode and never starts a second collector. The frozen model records buy and sell
+predictions no later than 15 seconds after each UTC quarter hour. Missing or
+late predictions are permanently journaled as `MISSED`; they cannot be
+backfilled. Primary, frozen-stress and fee-neutral-stress outcomes are appended
+to a separate table only after 125 seconds. SQLite triggers forbid updates and
+deletes, and prediction/outcome tables have independent record-hash chains.
+
+The service is deployed as `octobot-execution-shadow` with no network, a
+read-only root filesystem, all capabilities dropped and read-only source and
+evidence mounts. Only `/execution-shadow` is writable. Its protocol starts at
+`2026-08-28T09:30:00Z`, ends at `2026-09-27T09:30:00Z` and has logical hash
+`e2e1b6264e70863f96f1efd763c4464d740507fcdcad8b730df46078f4539f9a`.
+The live status is written to
+`../octobot-local/execution-shadow/health.json`; the compact journal is
+`journal.sqlite`. After the fixed 30-day cutoff the official verdict is
+latched once and mirrored in `forward-evaluation.json`. Even a pass authorizes
+only later paper integration with an independently validated parent signal.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small

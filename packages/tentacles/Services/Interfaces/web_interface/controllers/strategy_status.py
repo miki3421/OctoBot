@@ -24,6 +24,7 @@ from octobot.ai_strategy_lab import forward_carry_dashboard
 DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
 DEFAULT_SHADOW_ROOT = "/shadow"
 DEFAULT_SCALPING_HEALTH_PATH = "/scalping/health.json"
+DEFAULT_EXECUTION_SHADOW_HEALTH_PATH = "/execution-shadow/health.json"
 DEFAULT_V5_PAPER_HEALTH_PATH = "/v5-paper/binance/health.json"
 DEFAULT_V5_PAPER_DB_PATH = "/v5-paper/binance/v5-paper.sqlite"
 DEFAULT_CARRY_PROTOCOL_PATH = (
@@ -207,6 +208,62 @@ def _scalping_summary(health: dict) -> dict:
     except (KeyError, TypeError, ValueError):
         pass
     return summary
+
+
+def _execution_shadow_summary(health: dict) -> dict:
+    if not health:
+        return {"available": False}
+    for field in (
+        "orders_authorized",
+        "paper_orders_authorized",
+        "automatic_promotion",
+    ):
+        if health.get(field) is not False:
+            raise ValueError(f"execution shadow safety invariant differs: {field}")
+    if health.get("mode") != "execution_shadow_only":
+        raise ValueError("execution shadow mode differs")
+    counts = health.get("counts", {})
+    if not isinstance(counts, dict):
+        counts = {}
+    predicted = int(counts.get("predicted", 0) or 0)
+    missed = int(counts.get("missed", 0) or 0)
+    selected = int(counts.get("selected", 0) or 0)
+    completed = int(counts.get("completed_outcomes", 0) or 0)
+    scheduled = predicted + missed
+    healthy = health.get("healthy") is True
+    status = str(health.get("status", "UNKNOWN"))
+    return {
+        "available": True,
+        "healthy": healthy,
+        "color": "success" if healthy else "danger",
+        "status": status,
+        "forward_start": health.get("forward_start"),
+        "forward_end": health.get("forward_end_exclusive"),
+        "progress_pct": float(health.get("progress_pct", 0.0) or 0.0),
+        "predicted": predicted,
+        "missed": missed,
+        "selected": selected,
+        "completed_outcomes": completed,
+        "incomplete_outcomes": int(
+            counts.get("incomplete_outcomes", 0) or 0
+        ),
+        "prediction_coverage_pct": (
+            100.0 * predicted / scheduled if scheduled else 0.0
+        ),
+        "selection_pct": 100.0 * selected / predicted if predicted else 0.0,
+        "outcome_completion_pct": (
+            100.0 * completed / predicted if predicted else 0.0
+        ),
+        "collector_healthy": health.get("collector_healthy") is True,
+        "journal_tail_verified": health.get("journal_tail_verified") is True,
+        "journal_bytes": int(health.get("journal_bytes", 0) or 0),
+        "protocol_sha256": health.get("protocol_sha256"),
+        "last_success_at": health.get("last_success_at"),
+        "official_evaluation_materialized": (
+            health.get("official_evaluation_materialized") is True
+        ),
+        "official_verdict": health.get("official_verdict"),
+    }
 
 
 def _microstructure_summary(root: pathlib.Path) -> dict:
@@ -714,6 +771,12 @@ def register(blueprint):
                 "SCALPING_HEALTH_PATH", DEFAULT_SCALPING_HEALTH_PATH
             )
         )
+        execution_shadow_health_path = pathlib.Path(
+            os.getenv(
+                "EXECUTION_SHADOW_HEALTH_PATH",
+                DEFAULT_EXECUTION_SHADOW_HEALTH_PATH,
+            )
+        )
         v5_paper_health_path = pathlib.Path(
             os.getenv(
                 "V5_PAPER_HEALTH_PATH", DEFAULT_V5_PAPER_HEALTH_PATH
@@ -799,6 +862,13 @@ def register(blueprint):
             scalping_health = {}
             errors.append(f"scalping_health: {error}")
         try:
+            execution_shadow = _execution_shadow_summary(
+                _read_json(execution_shadow_health_path)
+            )
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            execution_shadow = {"available": False}
+            errors.append(f"execution_shadow: {error}")
+        try:
             v5_paper_health = _read_json(v5_paper_health_path)
         except (OSError, ValueError, json.JSONDecodeError) as error:
             v5_paper_health = {}
@@ -867,6 +937,7 @@ def register(blueprint):
             shadow_last_rebalance_date=shadow_last_rebalance_date,
             scalping_health=scalping_health,
             scalping_summary=_scalping_summary(scalping_health),
+            execution_shadow=execution_shadow,
             scalping_protocol=scalping_protocol,
             microstructure=microstructure,
             microstructure_v2=microstructure_v2,

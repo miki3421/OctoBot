@@ -26,6 +26,7 @@ services:
       - ../octobot-local/backtesting:/octobot/backtesting
       - ../octobot-local/shadow:/shadow:ro
       - ../octobot-local/scalping:/scalping:ro
+      - ../octobot-local/execution-shadow:/execution-shadow:ro
       - ../octobot-local/v5-paper:/v5-paper:ro
 
   trend-shadow:
@@ -186,6 +187,59 @@ services:
           and value.get('database_integrity_check_mode') == 'explicit_offline_only'
           and value.get('connected') is True
           and value.get('book_events',0) >= 1
+          and (now-last).total_seconds() < 20 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  execution-shadow:
+    image: octobot-local:dev
+    container_name: octobot-execution-shadow
+    restart: unless-stopped
+    network_mode: none
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/execution-shadow-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      EXECUTION_SHADOW_INTERVAL_SECONDS: ${EXECUTION_SHADOW_INTERVAL_SECONDS:-1}
+      EXECUTION_SHADOW_RETRY_SECONDS: ${EXECUTION_SHADOW_RETRY_SECONDS:-5}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/scalping:/scalping:ro
+      - ../octobot-local/execution-shadow:/execution-shadow
+      - ../octobot-local/backtesting/research/learned-passive-execution-v2/experiments/learned-passive-execution-v2-70ec9868e208-7c999831e0d4:/evidence/prelock:ro
+      - ../octobot-local/backtesting/research/learned-passive-execution-locked-v2/experiments/learned-passive-execution-locked-v2-0d6c1cd81479-02f079d0784a-7c999831e0d4:/evidence/locked:ro
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/shadow/empty:/octobot/backtesting:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/execution-shadow/health.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('healthy') is True
+          and value.get('mode') == 'execution_shadow_only'
+          and value.get('status') in ('WAITING_FOR_START','COLLECTING','FORWARD_COMPLETE')
+          and value.get('public_data_only') is True
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('journal_tail_verified') is True
           and (now-last).total_seconds() < 20 else 1)"
       interval: 30s
       timeout: 10s
