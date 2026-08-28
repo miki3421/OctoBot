@@ -52,6 +52,69 @@ def test_parse_binance_funding():
     ]
 
 
+def test_parse_binance_kline_aggressive_quote_flow():
+    archive = _archive(
+        [
+            [
+                "open_time",
+                "open",
+                "high",
+                "low",
+                "close",
+                "volume",
+                "close_time",
+                "quote_volume",
+                "count",
+                "taker_buy_volume",
+                "taker_buy_quote_volume",
+                "ignore",
+            ],
+            [
+                1_700_000_000_000,
+                100,
+                102,
+                99,
+                101,
+                10,
+                1_700_003_599_999,
+                1000,
+                42,
+                6,
+                620,
+                0,
+            ],
+        ]
+    )
+
+    assert market_data.parse_binance_kline_flow_archive(archive) == [
+        [1_700_000_000, 101.0, 1000.0, 620.0]
+    ]
+
+
+def test_parse_binance_kline_flow_rejects_impossible_buy_volume():
+    with pytest.raises(ValueError, match="invalid Binance flow"):
+        market_data.parse_binance_kline_flow_archive(
+            _archive(
+                [
+                    [
+                        1_700_000_000_000,
+                        100,
+                        102,
+                        99,
+                        101,
+                        10,
+                        1_700_003_599_999,
+                        1000,
+                        42,
+                        11,
+                        1001,
+                        0,
+                    ]
+                ]
+            )
+        )
+
+
 def test_aggregate_drops_incomplete_bucket():
     candles = [
         [0, 1, 2, 0.5, 1.5, 10],

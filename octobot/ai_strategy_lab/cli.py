@@ -156,6 +156,11 @@ def create_parser() -> argparse.ArgumentParser:
     spot_parser.add_argument("--output", required=True)
     spot_parser.add_argument("--cache")
     spot_parser.add_argument("--allowed-15m-gaps", type=int, default=0)
+    spot_parser.add_argument(
+        "--candle-interval",
+        choices=("15m", "1h"),
+        default="15m",
+    )
 
     kucoin_spot_parser = subparsers.add_parser(
         "fetch-kucoin-spot-hourly",
@@ -1106,6 +1111,7 @@ def _fetch_binance_spot_archive(args: argparse.Namespace) -> int:
         args.output,
         cache_value=args.cache,
         market_type="spot",
+        candle_interval=args.candle_interval,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

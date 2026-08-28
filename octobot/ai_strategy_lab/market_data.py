@@ -8,6 +8,7 @@ import datetime
 import hashlib
 import io
 import json
+import math
 import os
 import pathlib
 import sqlite3
@@ -531,6 +532,43 @@ def parse_binance_kline_archive(archive: bytes) -> list[list[float]]:
             ]
         )
     return candles
+
+
+def parse_binance_kline_flow_archive(archive: bytes) -> list[list[float]]:
+    """Parse close and aggressive quote-volume fields from Binance klines."""
+
+    rows = _read_single_csv_archive(archive)
+    values = []
+    for row in rows:
+        if row and row[0] == "open_time":
+            continue
+        if len(row) < 11:
+            raise ValueError("Binance flow kline row lacks quote-volume fields")
+        timestamp_ms = int(row[0])
+        if timestamp_ms >= 10**15:
+            timestamp_ms //= 1000
+        close = float(row[4])
+        quote_volume = float(row[7])
+        taker_buy_quote_volume = float(row[10])
+        if (
+            not math.isfinite(close)
+            or not math.isfinite(quote_volume)
+            or not math.isfinite(taker_buy_quote_volume)
+            or close <= 0
+            or quote_volume < 0
+            or taker_buy_quote_volume < 0
+            or taker_buy_quote_volume > quote_volume * (1.0 + 1e-12)
+        ):
+            raise ValueError("invalid Binance flow kline values")
+        values.append(
+            [
+                timestamp_ms // 1000,
+                close,
+                quote_volume,
+                taker_buy_quote_volume,
+            ]
+        )
+    return values
 
 
 def parse_binance_funding_archive(archive: bytes) -> list[tuple[int, float]]:
