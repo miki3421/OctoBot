@@ -1156,6 +1156,21 @@ is `-99.8324%`. Confirmation and lock remain unmaterialized. No post-result
 inversion, long-only conversion or cost reduction is permitted. Report SHA-256
 is `8e58bbf90bb963c5b5274ef91fff287d315558b760a5b230698da71e1677be64`.
 
+## Seven-day basis-momentum factor V1
+
+`basis_momentum_v1` is preregistered before outcome evaluation from Equation 70
+and the first row of Table 21 in the institutional manuscript. At each completed
+eight-hour boundary it computes the preceding seven-day cumulative spot return
+minus perpetual return, buys the highest three values and sells the lowest
+three for the next block. The source-selected 21-block formation is fixed; no
+other lookback, inversion, filter, threshold, overlap or long-only variant is
+tested. Spot is signal-only, while perpetual price, signed funding, unchanged
+8-bps turnover cost and 3x stress determine P&L. A 21-block contiguous history
+is mandatory after a data gap. Development is diagnostic reuse and the 2025
+confirmation plus 2026 lock are sequentially sealed.
+The frozen logical protocol SHA-256 is
+`eb678d81a0434138b36a765a1817a1f3a16188b23858ab84cb12c7d8c2e315dd`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
