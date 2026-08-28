@@ -1106,14 +1106,16 @@ before `2026-08-29T00:00:00Z` remain warm-up only. The deployed
 credentials and exposes no order path. Its local health file is
 `../octobot-local/cross-venue/health.json`.
 
-## Overlapping weekly signed-flow factor V2
+## Retracted interpretation: overlapping weekly signed-flow factor V2
 
-`signed_flow_factor_v2` corrects one mismatch between V1 and Table 29 of the
-external manuscript: a new high-minus-low vintage is formed every eight hours,
-but each vintage is held for the following 21 blocks (seven days). Twenty-one
-equal `1/21` sleeves are combined and opposing orders are netted before the
-unchanged 8-bps turnover cost. Signal, universe, three names per side, 0.40
-side gross, funding and 3x cost stress remain unchanged.
+`signed_flow_factor_v2` forms a new high-minus-low vintage every eight hours
+and holds 21 overlapping `1/21` sleeves. A source audit performed before any
+further variant found that this is not the manuscript's Table 29 holding rule:
+there, `N` is the single eight-hour funding interval and "weekly" describes the
+reported return frequency. The frozen V2 artifacts remain immutable evidence
+of a distinct experiment, but V2 is retracted as a faithful replication and
+must not be used to select another signed-flow variant. V1 is the relevant
+seven-day-formation/next-eight-hour test.
 
 V2 is rejected in development despite a clear improvement. Net return is
 `+8.8083%`, annualized `+3.4272%`, with four of five folds and 16 of 18
@@ -1123,6 +1125,21 @@ The 2025 confirmation and 2026 lock remain unmaterialized. Protocol SHA-256 is
 `c1ae4642b55a1e5bf4f702d7ebc1693ce5b898261e45f2b442ccdcae58b54de4`;
 report SHA-256 is
 `d1a82dd1b8d6a3ac0cf3b06fafb79f9cc3efe00629f0720c436ac64bc5b916ee`.
+The separate `RETRACTED_INTERPRETATION_AUDIT.md` alongside the report records
+the correction without changing the protocol, report or trajectory.
+
+## Eight-hour spot/perpetual log-basis factor V2
+
+`basis_factor_v2` is preregistered before outcome evaluation as the faithful
+timing correction of basis V1. At each completed 00:00, 08:00 and 16:00 UTC
+boundary it ranks `log(perpetual close)-log(spot close)`, buys the bottom three
+and sells the top three for the next eight-hour block. Spot remains signal-only;
+only perpetual returns and signed funding enter P&L. There is no weekly holding,
+overlap, inversion, filter, threshold or long-only variant. The unchanged 8-bps
+turnover cost and 3x stress apply to every net target change. Development is
+diagnostic reuse; the basis-family 2025 confirmation and 2026 lock remain
+sequentially sealed. The frozen logical protocol SHA-256 is
+`15339149fb30d26bf64ca03e5b92a74007738ec106f5ce22121474c997c2639d`.
 
 ## Interpretation
 
