@@ -1171,6 +1171,20 @@ confirmation plus 2026 lock are sequentially sealed.
 The frozen logical protocol SHA-256 is
 `eb678d81a0434138b36a765a1817a1f3a16188b23858ab84cb12c7d8c2e315dd`.
 
+V1 is rejected in development. Across 2,743 valid outcomes it returns
+`-85.2584%` (`-53.4567%` annualized), with Sharpe `-3.6241`, profit factor
+`0.7102`, drawdown `85.3881%`, zero positive folds out of five and zero
+positive leave-one-symbol-out audits out of 18. Price and funding contribute
+an additive `+61.4682%` and `+6.1537%`, but `3,171.4667x` turnover costs
+`253.7173%`; triple-cost return is `-99.9087%`. Confirmation and lock remain
+unmaterialized, forward validation does not start and no orders are authorized.
+No post-result inversion, alternate formation horizon, filter, overlapping
+holding, long-only conversion or cost reduction is permitted on this sample.
+Report SHA-256 is
+`64b87a8ea24c299a14e9ac6d9e1a48036dc342ad0a7e29cbc801e1b323b642dc`;
+development trajectory SHA-256 is
+`9010caa427c2a2ba4284c20b2426463ce38eb8b235181603efc5a91ac6445db1`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
