@@ -1293,6 +1293,17 @@ replaced on that block. The logical protocol SHA-256 is
 the protocol file SHA-256 is
 `6b163e3221911e048e18c95f5fa7697e64fe426b89950086faccb9470ad7872a`.
 
+Expanded training freezes `r9-always_on`: the unchanged long confluence,
+`0.40x` gross, no market gate and reselection every nine blocks (`72h`). Twelve
+of 16 candidates are structurally eligible. The winner has four positive
+3x-cost half-year folds, worst stress fold `-17.2751%` and median stress-fold
+Sharpe `0.4385`. Across 2022--2025 it returns `+121.4017%`, with annualized
+market alpha `+10.3851%`, Sharpe `0.8916`, drawdown `30.7009%` and
+`227.4667x` turnover; 3x-cost return remains `+53.8014%`. These are training
+metrics, not a pass. The selected-model file SHA-256 is
+`6d17aae4e351679667bd440603d27fceabe2b534bfb11bc0646feb1a190fee2e`.
+The 2026 OOS period remains sealed and no orders are authorized.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
