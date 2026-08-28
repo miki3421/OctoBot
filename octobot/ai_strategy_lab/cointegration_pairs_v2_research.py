@@ -74,6 +74,9 @@ def _load_market(
 
     timestamps = numpy.asarray(panel["timestamps"], dtype=numpy.int64)
     symbols = [str(value) for value in panel["symbols"]]
+    universe_symbols = [
+        str(value["symbol"]) for value in universe["symbols"]
+    ]
     closes = numpy.asarray(panel["closes"], dtype=numpy.float64)
     funding = numpy.asarray(panel["funding_rates"], dtype=numpy.float64)
     funding_counts = numpy.asarray(panel["funding_counts"], dtype=numpy.int16)
@@ -86,7 +89,7 @@ def _load_market(
         or funding_counts.shape != expected_shape
     ):
         raise DataQualityError("unexpected frozen market shape")
-    if symbols != universe["symbols"] or len(set(symbols)) != len(symbols):
+    if symbols != universe_symbols or len(set(symbols)) != len(symbols):
         raise DataQualityError("history symbols differ from the frozen universe")
     if numpy.any(numpy.diff(timestamps) != 86_400):
         raise DataQualityError("frozen market dates are not contiguous UTC days")

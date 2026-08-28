@@ -72,6 +72,53 @@ def test_protocol_loader_rejects_mutation(tmp_path):
         research._load_protocol(path)
 
 
+def test_market_loader_reads_structured_frozen_universe_symbols(
+    monkeypatch, tmp_path
+):
+    symbols = [
+        f"ASSET{index:03d}USDT"
+        for index in range(protocol.UNIVERSE_ASSETS)
+    ]
+    rows = parent.FORMATION_DAYS
+    timestamps = numpy.arange(rows, dtype=numpy.int64) * 86_400
+    panel = {
+        "timestamps": timestamps,
+        "symbols": numpy.asarray(symbols),
+        "closes": numpy.ones((rows, len(symbols))),
+        "funding_rates": numpy.zeros((rows, len(symbols))),
+        "funding_counts": numpy.ones(
+            (rows, len(symbols)), dtype=numpy.int16
+        ),
+    }
+    snapshot_manifest = {
+        "source_bundle_sha256": protocol.SOURCE_SNAPSHOT_BUNDLE_SHA256
+    }
+    history_manifest = {
+        "history_bundle_sha256": protocol.HISTORY_BUNDLE_SHA256
+    }
+    universe = {
+        "selected_contracts": protocol.UNIVERSE_ASSETS,
+        "symbols": [{"symbol": value} for value in symbols],
+    }
+    monkeypatch.setattr(
+        research.source,
+        "_load_snapshot",
+        lambda *_args: (tmp_path / "snapshot", snapshot_manifest, universe, {}),
+    )
+    monkeypatch.setattr(
+        research.source,
+        "_load_history",
+        lambda *_args: (tmp_path / "history", history_manifest, panel),
+    )
+
+    *_metadata, market = research._load_market(
+        tmp_path / "snapshot", tmp_path / "history"
+    )
+
+    assert market["symbols"] == symbols
+    assert market["closes"].shape == (rows, protocol.UNIVERSE_ASSETS)
+
+
 def test_bh_uses_all_eligible_hypotheses_not_prefiltered_candidates():
     assert research._bh_threshold([0.001], total_tests=1) == 0.001
     assert research._bh_threshold([0.001], total_tests=100) is None
