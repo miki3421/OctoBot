@@ -1304,6 +1304,17 @@ metrics, not a pass. The selected-model file SHA-256 is
 `6d17aae4e351679667bd440603d27fceabe2b534bfb11bc0646feb1a190fee2e`.
 The 2026 OOS period remains sealed and no orders are authorized.
 
+The single January--June 2026 OOS query rejects V4. Across 543 blocks, 462
+invested, `r9-always_on` returns `-17.9189%` (`-32.8654%` annualized), with
+annualized market alpha `-13.5473%`, Sharpe `-1.4783`, profit factor `0.8753`
+and drawdown `23.4909%`. Triple-cost return is `-22.4848%`. Four of 12 gates
+pass; no historical candidate or forward validation is created, and the frozen
+protocol forbids a replacement model on this OOS block. This consumes the last
+chronological holdout for the confluence line: further variants through June
+2026 are diagnostic training only and require genuinely new forward data.
+Report SHA-256 is
+`0edc3745f9bc56fac5f20f8c4fad24ac71fbd28d7016c6e095fee85ec0ab16ff`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
