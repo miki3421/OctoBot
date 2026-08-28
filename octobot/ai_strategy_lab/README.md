@@ -971,6 +971,20 @@ python3 -m octobot.ai_strategy_lab.diversified_trend_cointegration_v1 \
   --output ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/protocol-v1_2.json
 ```
 
+After the trainer source is reviewed, tested and committed, its one official
+selection run uses only the hash-bound component inputs:
+
+```bash
+python3 -m octobot.ai_strategy_lab.diversified_trend_cointegration_v1_research \
+  --protocol ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/protocol-v1_2.json \
+  --trend-report FROZEN_V13_REPORT \
+  --cointegration-report FROZEN_V2_REPORT \
+  --cointegration-null FROZEN_V2_NULL \
+  --snapshot FROZEN_SOURCE_SNAPSHOT_DIRECTORY \
+  --history FROZEN_HISTORY_DIRECTORY \
+  --output-root ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/training
+```
+
 If no allocation passes the frozen structural training eligibility, the family
 closes. If one is selected, it may enter only a 180-day append-only orderless
 forward observation; no historical result enables shadow, paper or live orders.
