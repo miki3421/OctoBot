@@ -1147,6 +1147,15 @@ next segment from flat with cost. No signal, gate or economic parameter changes.
 The amended logical protocol SHA-256 is
 `d0946c23e1cb76ae5d4158f5dc6c38bbeb6c200b137e306c2fead1cda6532015`.
 
+V2 is rejected in development. Across 2,743 valid outcomes it returns
+`-78.6796%` (`-46.0647%` annualized), with Sharpe `-3.0781`, drawdown
+`79.6015%`, zero positive folds out of five and zero positive leave-one-symbol-
+out audits out of 18. Price and funding contribute an additive `+81.4716%` and
+`+10.6408%`, but `3,022.9333x` turnover costs `241.8347%`; triple-cost return
+is `-99.8324%`. Confirmation and lock remain unmaterialized. No post-result
+inversion, long-only conversion or cost reduction is permitted. Report SHA-256
+is `8e58bbf90bb963c5b5274ef91fff287d315558b760a5b230698da71e1677be64`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
