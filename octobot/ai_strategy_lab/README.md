@@ -1276,6 +1276,23 @@ is now training-only for any later family; V3 cannot be retuned and retested on
 it. Report SHA-256 is
 `977836cacc3c17c006cfac0b65bb804abb406870b94efe83c3d6e27fe573ee6b`.
 
+## Expanded-training long confluence V4
+
+V4 declares July 2022 through December 2025—including the now-observed V3
+confirmation—as training only and reserves January through June 2026 for one
+OOS query. Before reading 2026 it freezes exactly 16 candidates: reselection
+every 3, 9, 21 or 42 blocks crossed with no market gate, positive 28-day
+equal-weight market return, positive 84-day return, or both. Signal, `0.40x`
+gross, calendar anchor, 8-bps turnover cost and 3x stress remain unchanged.
+One structurally eligible candidate is always selected by positive stress-fold
+count, worst stress-fold return, median stress-fold Sharpe, base alpha, lower
+turnover and configuration id, in that order. Selection is training, not an
+economic pass. The frozen winner alone may query 2026; a failure cannot be
+replaced on that block. The logical protocol SHA-256 is
+`9e209d306143e31dd74499b757912cd62e912579994043f5a97e1ef0e2775d69`;
+the protocol file SHA-256 is
+`6b163e3221911e048e18c95f5fa7697e64fe426b89950086faccb9470ad7872a`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
