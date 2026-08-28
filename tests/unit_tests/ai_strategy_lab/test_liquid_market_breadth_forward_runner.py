@@ -297,3 +297,24 @@ def test_runner_surface_is_orderless_and_has_no_downloader():
     assert "create_order" not in source
     assert "paper_orders_authorized\": True" not in source
     assert runner.protocol.frozen_protocol()["historical_evaluation_allowed"] is False
+
+
+def test_source_lineage_is_independent_from_container_mount_paths(tmp_path):
+    originals = {
+        "runner_test_path": pathlib.Path(__file__).resolve(),
+        "protocol_test_path": pathlib.Path(
+            runner.protocol.__file__
+        ).resolve().parents[2]
+        / "tests/unit_tests/ai_strategy_lab/test_liquid_market_breadth_forward_v2.py",
+        "entrypoint_path": pathlib.Path(__file__).resolve().parents[3]
+        / "docker/breadth-forward-observer-entrypoint.sh",
+    }
+    copies = {}
+    for name, source in originals.items():
+        destination = tmp_path / name
+        destination.write_bytes(source.read_bytes())
+        copies[name] = destination
+    host = type("Config", (), originals)
+    container = type("Config", (), copies)
+
+    assert runner._source_artifacts(host) == runner._source_artifacts(container)

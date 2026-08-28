@@ -151,8 +151,11 @@ def _verify_parent(config: ForwardConfig) -> dict:
     if not all(checks):
         raise DataQualityError("parent V1 evidence metadata differs")
     return {
-        label: {"path": str(path.resolve()), "sha256": expected_hash}
-        for label, (path, expected_hash) in paths.items()
+        label: {
+            "logical_id": f"parent_v1_{label}",
+            "sha256": expected_hash,
+        }
+        for label, (_path, expected_hash) in paths.items()
     }
 
 
@@ -195,8 +198,11 @@ def _verify_upstream(config: ForwardConfig) -> dict:
     ):
         raise DataQualityError("upstream safety lineage differs")
     return {
-        label: {"path": str(path.resolve()), "sha256": expected_hash}
-        for label, path, expected_hash in files
+        label: {
+            "logical_id": f"diversified_upstream_{label}",
+            "sha256": expected_hash,
+        }
+        for label, _path, expected_hash in files
     }
 
 
@@ -217,7 +223,6 @@ def _source_artifacts(config: ForwardConfig) -> list[dict]:
         artifacts.append(
             {
                 "label": label,
-                "path": str(path),
                 "bytes": path.stat().st_size,
                 "sha256": common._sha256(path),
             }
