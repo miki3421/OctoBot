@@ -1203,6 +1203,18 @@ sealed. The frozen logical protocol SHA-256 is
 the protocol file SHA-256 is
 `0b59f83e29d757a9840775a658eb4486b26b1fbc20d11dffcaf04fb838b37761`.
 
+V1 is rejected in development. It is invested in 1,643 of 2,743 blocks
+(`59.90%`) and returns `-54.8458%` (`-27.2117%` annualized), with Sharpe
+`-1.1025`, profit factor `0.8637`, drawdown `72.2011%`, one positive fold out
+of five and zero positive leave-one-symbol-out audits out of 18. Price and
+funding contribute an additive `+94.6108%` and `+7.6818%`, but `2,169.4667x`
+turnover costs `173.5573%`. The cost-allocated long side is positive
+(`+14.7587%`) while short is `-86.0234%`; triple-cost return is `-98.6048%`.
+That asymmetry is training evidence for a separately preregistered long-only
+family, not permission to rewrite V1. Confirmation and lock remain
+unmaterialized and no orders are authorized. Report SHA-256 is
+`6f65a37bb3e627bc8fa61ecf0f108e6619682f232635558a5863cdda92b33d6a`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
