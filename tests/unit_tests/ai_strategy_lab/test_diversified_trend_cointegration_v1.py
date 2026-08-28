@@ -13,7 +13,15 @@ def test_frozen_protocol_is_result_free_and_orderless():
     assert value["orders_authorized"] is False
     assert value["paper_orders_authorized"] is False
     assert value["automatic_promotion"] is False
-    assert value["hypothesis"]["all_component_outcomes_seen_before_protocol"]
+    assert value["hypothesis"][
+        "all_historical_market_paths_seen_by_other_families"
+    ]
+    assert not value["hypothesis"][
+        "cointegration_2025_2026_signal_outcomes_seen_before_protocol"
+    ]
+    assert not value["pre_outcome_amendment"][
+        "combined_trajectories_read_before_change"
+    ]
 
 
 def test_allocations_are_fixed_two_sleeve_budgets():
