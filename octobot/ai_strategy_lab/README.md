@@ -956,6 +956,25 @@ increments inside the strictest possible first-rank BH boundary for 7,140
 pairs.  Historical success could authorize only a 180-day append-only,
 orderless forward observer; shadow, paper and real orders remain disabled.
 
+## Diversified trend and cointegration V1
+
+This training-informed meta-portfolio leaves the internal V13 trend and V2
+cointegration rules untouched. It discloses three fixed capital budgets
+(`80/20`, `65/35`, `50/50`), evaluates them at base and triple costs on seven
+half-year training folds, and deterministically selects at most one model.
+Every historical component outcome is already known and is therefore training,
+not promotion evidence. Write the result-free protocol before constructing any
+combined trajectory:
+
+```bash
+python3 -m octobot.ai_strategy_lab.diversified_trend_cointegration_v1 \
+  --output ../octobot-local/backtesting/research/diversified-trend-cointegration-v1/protocol.json
+```
+
+If no allocation passes the frozen structural training eligibility, the family
+closes. If one is selected, it may enter only a 180-day append-only orderless
+forward observation; no historical result enables shadow, paper or live orders.
+
 ## Funding cross-section V1
 
 `funding_cross_section_v1` tests whether the funding spread can be harvested
