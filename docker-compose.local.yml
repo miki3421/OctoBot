@@ -291,6 +291,64 @@ services:
       timeout: 30s
       retries: 3
 
+  breadth-forward-observer:
+    image: octobot-local:dev
+    container_name: octobot-breadth-forward-observer
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/breadth-forward-observer-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      BREADTH_FORWARD_RETRY_SECONDS: ${BREADTH_FORWARD_RETRY_SECONDS:-900}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/backtesting:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting:ro
+      - ../octobot-local/diversified-forward:/diversified-forward:ro
+      - ../octobot-local/breadth-forward:/breadth-forward
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/shadow/empty:/octobot/backtesting:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/breadth-forward/health.json'));
+          lock=json.load(open('/breadth-forward/implementation-lock.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('observer_type') == 'liquid_market_breadth_forward_observer_v2'
+          and value.get('mode') == 'forward_observation_only'
+          and value.get('phase') in ('warmup','forward','waiting_for_gate_cutoff')
+          and value.get('research_only') is True
+          and value.get('public_data_only') is True
+          and value.get('network_required') is False
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('gate_evaluation_authorized') is False
+          and value.get('pre_cutoff_aggregate_metrics_calculated') is False
+          and lock.get('orders_authorized') is False
+          and value.get('implementation_lock_sha256') == lock.get('implementation_lock_sha256')
+          and (now-last).total_seconds() < 172800 else 1)"
+      interval: 15m
+      timeout: 30s
+      retries: 3
+
   scalping-observer:
     image: octobot-local:dev
     container_name: octobot-scalping-observer
