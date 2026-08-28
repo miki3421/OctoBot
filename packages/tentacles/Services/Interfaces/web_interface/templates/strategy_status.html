@@ -643,6 +643,8 @@
                     {{ metric_card("Ordini", "DISABILITATI", "success", "paper e reali") }}
                     {{ metric_card("Protocollo", diversified_forward.protocol_sha256 | truncate(18, True, "…"), "secondary") }}
                     {{ metric_card("Implementation lock", diversified_forward.implementation_lock_sha256 | truncate(18, True, "…"), "secondary") }}
+                    {{ metric_card("Gatekeeper", diversified_forward.gatekeeper_phase | replace("_", " ") | upper if diversified_forward.gatekeeper_available else "NON DISPONIBILE", "success" if diversified_forward.gatekeeper_healthy and diversified_forward.gatekeeper_available else "danger", "senza rete · single-run") }}
+                    {{ metric_card("Gate lock", diversified_forward.gate_lock_sha256 | truncate(18, True, "…") if diversified_forward.gate_lock_sha256 else "-", "secondary", "valutatore PASS/FAIL congelato") }}
                 </div>
                 <div class="progress mb-3" style="height: 1.4rem;">
                     <div class="progress-bar bg-info" role="progressbar"

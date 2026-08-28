@@ -54,9 +54,35 @@ class TestV5ForwardSummary(unittest.TestCase):
             "gate_calendar_complete": False,
             "storage_bytes": {"daily_archive": 1024, "raw_archive": 1024},
         }
+        gate_lock = {
+            "gate_version": (
+                "crypto_diversified_trend_cointegration_forward_gate_v1"
+            ),
+            "status": "immutable_result_free_pre_forward_gate_lock",
+            "forward_protocol_sha256": "protocol",
+            "observer_implementation_lock_sha256": "lock",
+            "gate_lock_sha256": "gate-lock",
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+        }
+        gatekeeper_health = {
+            "service": "diversified_forward_gatekeeper_v1",
+            "status": "healthy",
+            "phase": "waiting_for_cutoff",
+            "research_only": True,
+            "pre_cutoff_economic_metrics_calculated": False,
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+        }
 
         summary = status._diversified_forward_summary(
-            health, protocol, lock
+            health,
+            protocol,
+            lock,
+            gate_lock,
+            gatekeeper_health,
         )
 
         self.assertTrue(summary["available"])
@@ -65,11 +91,61 @@ class TestV5ForwardSummary(unittest.TestCase):
         self.assertEqual(summary["warmup_records"], 57)
         self.assertEqual(summary["warmup_required"], 61)
         self.assertEqual(summary["progress_pct"], 0)
+        self.assertTrue(summary["gatekeeper_available"])
+        self.assertTrue(summary["gatekeeper_healthy"])
+        self.assertEqual(summary["gatekeeper_phase"], "waiting_for_cutoff")
+        self.assertEqual(summary["gate_lock_sha256"], "gate-lock")
         self.assertEqual(
             [value["id"] for value in summary["blockers"]],
             ["official_start", "observed_days", "calendar_cutoff"],
         )
         self.assertFalse(summary["orders_authorized"])
+
+    def test_diversified_forward_summary_rejects_gate_order_authorization(self):
+        base = {
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+        }
+        health = {
+            **base,
+            "mode": "forward_observation_only",
+            "public_data_only": True,
+            "gate_evaluation_authorized": False,
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+            "phase": "warmup",
+        }
+        protocol = {
+            **base,
+            "protocol_version": (
+                "crypto_diversified_trend_cointegration_forward_v1"
+            ),
+            "protocol_sha256": "protocol",
+            "results": None,
+        }
+        implementation_lock = {
+            **base,
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+        }
+        gate_lock = {
+            **base,
+            "paper_orders_authorized": True,
+        }
+        gatekeeper_health = {
+            **base,
+            "service": "diversified_forward_gatekeeper_v1",
+        }
+
+        with self.assertRaisesRegex(ValueError, "safety invariant"):
+            status._diversified_forward_summary(
+                health,
+                protocol,
+                implementation_lock,
+                gate_lock,
+                gatekeeper_health,
+            )
 
     def test_diversified_forward_summary_rejects_paper_authorization(self):
         with self.assertRaisesRegex(ValueError, "safety invariant"):

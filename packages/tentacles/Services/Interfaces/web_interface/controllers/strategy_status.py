@@ -45,6 +45,12 @@ DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH = (
 DEFAULT_DIVERSIFIED_FORWARD_LOCK_PATH = (
     "/diversified-forward/implementation-lock.json"
 )
+DEFAULT_DIVERSIFIED_FORWARD_GATE_LOCK_PATH = (
+    "/diversified-forward/gate-lock.json"
+)
+DEFAULT_DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH = (
+    "/diversified-forward/gate-runtime/health.json"
+)
 DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH = (
     "/octobot/backtesting/research/diversified-trend-cointegration-v1/"
     "forward-protocol-v1.json"
@@ -335,7 +341,11 @@ def _carry_gatekeeper_summary(status: dict) -> dict:
 
 
 def _diversified_forward_summary(
-    health: dict, protocol: dict, implementation_lock: dict
+    health: dict,
+    protocol: dict,
+    implementation_lock: dict,
+    gate_lock: dict | None = None,
+    gatekeeper_health: dict | None = None,
 ) -> dict:
     if not health or not protocol or not implementation_lock:
         return {"available": False}
@@ -374,6 +384,60 @@ def _diversified_forward_summary(
     phase = str(health.get("phase", "unknown"))
     if phase not in {"warmup", "forward"}:
         raise ValueError("diversified forward phase differs")
+    gate_lock = gate_lock or {}
+    gatekeeper_health = gatekeeper_health or {}
+    if bool(gate_lock) != bool(gatekeeper_health):
+        raise ValueError("diversified forward gatekeeper evidence is incomplete")
+    gatekeeper_available = bool(gate_lock)
+    gatekeeper_healthy = True
+    gatekeeper_phase = None
+    if gatekeeper_available:
+        for name, value in (
+            ("gate lock", gate_lock),
+            ("gatekeeper health", gatekeeper_health),
+        ):
+            for field in (
+                "orders_authorized",
+                "paper_orders_authorized",
+                "automatic_promotion",
+            ):
+                if value.get(field) is not False:
+                    raise ValueError(
+                        f"diversified forward {name} safety invariant "
+                        f"differs: {field}"
+                    )
+        if (
+            gate_lock.get("gate_version")
+            != "crypto_diversified_trend_cointegration_forward_gate_v1"
+            or gate_lock.get("status")
+            != "immutable_result_free_pre_forward_gate_lock"
+            or gate_lock.get("forward_protocol_sha256")
+            != protocol.get("protocol_sha256")
+            or gate_lock.get("observer_implementation_lock_sha256")
+            != implementation_lock.get("implementation_lock_sha256")
+        ):
+            raise ValueError("diversified forward gate lock lineage differs")
+        gatekeeper_phase = str(gatekeeper_health.get("phase", "unknown"))
+        if (
+            gatekeeper_health.get("service")
+            != "diversified_forward_gatekeeper_v1"
+            or gatekeeper_health.get("research_only") is not True
+            or gatekeeper_health.get(
+                "pre_cutoff_economic_metrics_calculated"
+            )
+            is not False
+            or gatekeeper_phase
+            not in {
+                "waiting_for_cutoff",
+                "waiting_for_complete_evidence",
+                "official_evaluation_running",
+                "official_evaluation_complete",
+                "official_evaluation_failed_closed",
+                "readiness_failed_closed",
+            }
+        ):
+            raise ValueError("diversified forward gatekeeper mode differs")
+        gatekeeper_healthy = gatekeeper_health.get("status") == "healthy"
     official_records = int(health.get("official_records", 0) or 0)
     warmup_records = int(health.get("warmup_records", 0) or 0)
     decision_records = int(health.get("decision_records", 0) or 0)
@@ -390,7 +454,8 @@ def _diversified_forward_summary(
         protocol.get("forward_gate", {}).get("minimum_observed_days", 165)
         or 165
     )
-    healthy = health.get("status") == "healthy"
+    observer_healthy = health.get("status") == "healthy"
+    healthy = observer_healthy and gatekeeper_healthy
     blockers = []
     if phase == "warmup":
         blockers.append(
@@ -425,11 +490,22 @@ def _diversified_forward_summary(
                 ),
             }
         )
-    if not healthy:
+    if not observer_healthy:
         blockers.append(
             {
                 "id": "observer_health",
                 "detail": str(health.get("error", "observer non healthy")),
+            }
+        )
+    if gatekeeper_available and not gatekeeper_healthy:
+        blockers.append(
+            {
+                "id": "gatekeeper_health",
+                "detail": str(
+                    gatekeeper_health.get(
+                        "detail", "gatekeeper non healthy"
+                    )
+                ),
             }
         )
     storage = health.get("storage_bytes", {})
@@ -461,6 +537,10 @@ def _diversified_forward_summary(
         "implementation_lock_sha256": implementation_lock.get(
             "implementation_lock_sha256"
         ),
+        "gatekeeper_available": gatekeeper_available,
+        "gatekeeper_healthy": gatekeeper_healthy,
+        "gatekeeper_phase": gatekeeper_phase,
+        "gate_lock_sha256": gate_lock.get("gate_lock_sha256"),
         "last_market_record_hash": health.get("last_market_record_hash"),
         "last_journal_hash": health.get("last_journal_hash"),
         "storage_megabytes": sum(
@@ -1027,6 +1107,18 @@ def register(blueprint):
                 DEFAULT_DIVERSIFIED_FORWARD_LOCK_PATH,
             )
         )
+        diversified_forward_gate_lock_path = pathlib.Path(
+            os.getenv(
+                "DIVERSIFIED_FORWARD_GATE_LOCK_PATH",
+                DEFAULT_DIVERSIFIED_FORWARD_GATE_LOCK_PATH,
+            )
+        )
+        diversified_forward_gatekeeper_health_path = pathlib.Path(
+            os.getenv(
+                "DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH",
+                DEFAULT_DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH,
+            )
+        )
         diversified_forward_protocol_path = pathlib.Path(
             os.getenv(
                 "DIVERSIFIED_FORWARD_PROTOCOL_PATH",
@@ -1147,6 +1239,8 @@ def register(blueprint):
                 _read_json(diversified_forward_health_path),
                 _read_json(diversified_forward_protocol_path),
                 _read_json(diversified_forward_lock_path),
+                _read_json(diversified_forward_gate_lock_path),
+                _read_json(diversified_forward_gatekeeper_health_path),
             )
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
             diversified_forward = {"available": False}
