@@ -919,6 +919,28 @@ report SHA-256 is
 `1c485d36402a6ab5cb890f01e556743c51b6d50063c929f547de59103a5608e0`.
 The same rows cannot be used to relax FDR, formation or z-score thresholds.
 
+## Expanded cointegration pairs V2
+
+V2 is a declared training-informed continuation of V1.  It keeps the same
+180-day monthly Engle--Granger formation, beta/half-life/zero-crossing filters,
+four-pair cap, z-score thresholds and taker economics, while testing whether
+the already frozen 120-contract liquid universe fixes V1's lack of activity.
+All historical periods are diagnostic reuse and cannot promote the strategy.
+
+Before any V2 return is calculated, freeze its result-free protocol:
+
+```bash
+python3 -m octobot.ai_strategy_lab.cointegration_pairs_v2 \
+  --output ../octobot-local/backtesting/research/expanded-cointegration-pairs-v2/protocol.json
+```
+
+The expanded test also corrects the multiple-testing denominator: all eligible
+pairs count in Benjamini--Hochberg, including pairs rejected by later filters.
+Its deterministic 1.5-million-path null gives more than ten empirical p-value
+increments inside the strictest possible first-rank BH boundary for 7,140
+pairs.  Historical success could authorize only a 180-day append-only,
+orderless forward observer; shadow, paper and real orders remain disabled.
+
 ## Funding cross-section V1
 
 `funding_cross_section_v1` tests whether the funding spread can be harvested
