@@ -165,9 +165,33 @@ python3 -m octobot.ai_strategy_lab.category_momentum_v1 \
   --output ../octobot-local/backtesting/research/category-momentum-v1/protocol.json
 ```
 
-It has no exchange client or order path.  Source acquisition and the evaluator
-must be implemented and committed after this protocol freeze, and before any
-historical return is calculated.
+The committed research runner has no authenticated client or order path.  It
+first freezes one public source snapshot, then one history bundle, and finally
+runs the sequential gates exactly once:
+
+```bash
+python3 -m octobot.ai_strategy_lab.category_momentum_v1_research \
+  snapshot-sources \
+  --protocol ../octobot-local/backtesting/research/category-momentum-v1/protocol.json \
+  --output-root ../octobot-local/backtesting/research/category-momentum-v1/sources
+
+python3 -m octobot.ai_strategy_lab.category_momentum_v1_research \
+  fetch-history \
+  --protocol ../octobot-local/backtesting/research/category-momentum-v1/protocol.json \
+  --snapshot SOURCE_SNAPSHOT_DIRECTORY \
+  --output-root ../octobot-local/backtesting/research/category-momentum-v1/history
+
+python3 -m octobot.ai_strategy_lab.category_momentum_v1_research evaluate \
+  --protocol ../octobot-local/backtesting/research/category-momentum-v1/protocol.json \
+  --snapshot SOURCE_SNAPSHOT_DIRECTORY \
+  --history HISTORY_DIRECTORY \
+  --output-root ../octobot-local/backtesting/research/category-momentum-v1/evaluations
+```
+
+All source responses, derived inputs, code and manifests are hash-bound.  A
+second official snapshot, history freeze or evaluation for the same protocol
+is rejected.  Failure of the structural snapshot or of any earlier gate keeps
+later outcomes sealed and never authorizes shadow, paper or real orders.
 
 The V10 diagnostic meta-filter evaluates only V3 weekly candidates. It trains
 a small logistic model in four expanding, seven-day-purged folds and compares
