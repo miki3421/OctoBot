@@ -238,6 +238,59 @@ services:
       timeout: 30s
       retries: 3
 
+  diversified-forward-gatekeeper:
+    image: octobot-local:dev
+    container_name: octobot-diversified-forward-gatekeeper
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/diversified-forward-gatekeeper-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      DIVERSIFIED_GATE_PRE_CUTOFF_CHECK_SECONDS: ${DIVERSIFIED_GATE_PRE_CUTOFF_CHECK_SECONDS:-86400}
+      DIVERSIFIED_GATE_RETRY_SECONDS: ${DIVERSIFIED_GATE_RETRY_SECONDS:-900}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/backtesting:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting:ro
+      - ../octobot-local/diversified-forward:/diversified-forward:ro
+      - ../octobot-local/diversified-forward/official-gate:/diversified-forward/official-gate
+      - ../octobot-local/diversified-forward/gate-runtime:/gate-runtime
+      - ../octobot-local/shadow/empty:/octobot/user:ro
+      - ../octobot-local/shadow/empty:/octobot/tentacles:ro
+      - ../octobot-local/shadow/empty:/octobot/logs:ro
+      - ../octobot-local/shadow/empty:/octobot/backtesting:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/gate-runtime/health.json'));
+          lock=json.load(open('/diversified-forward/gate-lock.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('service') == 'diversified_forward_gatekeeper_v1'
+          and value.get('research_only') is True
+          and value.get('pre_cutoff_economic_metrics_calculated') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and lock.get('gate_lock_sha256') == 'bd44d3c88b940aca898ff4c8911e0ed1bf78b3259817b9350b38e0958e8c1a73'
+          and (now-last).total_seconds() < 172800 else 1)"
+      interval: 15m
+      timeout: 30s
+      retries: 3
+
   scalping-observer:
     image: octobot-local:dev
     container_name: octobot-scalping-observer
