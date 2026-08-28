@@ -11,8 +11,12 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import math
 import pathlib
+import statistics
 import typing
+
+import numpy
 
 from octobot.ai_strategy_lab import cointegration_pairs_v1 as common
 from octobot.ai_strategy_lab import cost_aware_long_confluence_v2 as engine
@@ -54,6 +58,9 @@ REGIMES = (
 REGIME_28D_BLOCKS = 28 * 3
 REGIME_84D_BLOCKS = 84 * 3
 FORWARD_START_UTC = "2026-08-29T00:00:00+00:00"
+EXPECTED_V3_REPORT_SHA256 = (
+    "977836cacc3c17c006cfac0b65bb804abb406870b94efe83c3d6e27fe573ee6b"
+)
 
 
 def candidate_configurations() -> list[dict]:
@@ -231,17 +238,402 @@ def write_or_verify_protocol(
     return payload
 
 
+def _artifact(path: pathlib.Path) -> dict:
+    return {
+        "path": str(path),
+        "bytes": path.stat().st_size,
+        "sha256": common._sha256(path),
+    }
+
+
+def _market_regime_is_positive(market: dict, index: int, blocks: int) -> bool:
+    if index < blocks:
+        return False
+    if (
+        int(market["timestamps"][index])
+        - int(market["timestamps"][index - blocks])
+        != blocks * engine.BLOCK_SECONDS
+    ):
+        return False
+    cumulative = market["closes"][index] / market["closes"][index - blocks] - 1.0
+    return bool(numpy.mean(cumulative) > 0.0)
+
+
+def _regime_passes(market: dict, index: int, regime: str) -> bool:
+    if regime == "always_on":
+        return True
+    short = _market_regime_is_positive(market, index, REGIME_28D_BLOCKS)
+    if regime == "ew_28d_positive":
+        return short
+    long = _market_regime_is_positive(market, index, REGIME_84D_BLOCKS)
+    if regime == "ew_84d_positive":
+        return long
+    if regime == "ew_28d_and_84d_positive":
+        return short and long
+    raise ValueError("unknown V4 regime")
+
+
+def build_target_matrix(market: dict, configuration: dict) -> numpy.ndarray:
+    if configuration not in candidate_configurations():
+        raise ValueError("configuration is outside the frozen V4 grid")
+    targets = numpy.zeros(
+        (len(market["timestamps"]), len(market["symbols"])),
+        dtype=numpy.float64,
+    )
+    current = numpy.zeros(len(market["symbols"]), dtype=numpy.float64)
+    previous_timestamp = None
+    for index, timestamp_value in enumerate(market["timestamps"]):
+        timestamp = int(timestamp_value)
+        if (
+            previous_timestamp is not None
+            and timestamp - previous_timestamp != engine.BLOCK_SECONDS
+        ):
+            current = numpy.zeros_like(current)
+        if engine._is_rebalance_boundary(
+            timestamp, configuration["rebalance_blocks"]
+        ):
+            if index >= engine.FORMATION_BLOCKS and _regime_passes(
+                market, index, configuration["regime"]
+            ):
+                current = engine.long_target_from_features(
+                    *engine.parent.signal_values(market, index),
+                    market["symbols"],
+                )
+            else:
+                current = numpy.zeros_like(current)
+        targets[index] = current
+        previous_timestamp = timestamp
+    gross = numpy.sum(numpy.abs(targets), axis=1)
+    net = numpy.sum(targets, axis=1)
+    if numpy.any(gross > engine.PORTFOLIO_GROSS_EXPOSURE + 1e-12):
+        raise ValueError("V4 target exceeds frozen gross")
+    if numpy.any(net < -1e-12) or numpy.any(numpy.abs(net - gross) > 1e-12):
+        raise ValueError("V4 target contains a short exposure")
+    return targets
+
+
+def _finite_report(report: dict) -> bool:
+    values = (
+        report["total_return"],
+        report["annualized_return"],
+        report["annualized_market_alpha"],
+        report["sharpe_zero_rate"],
+        report["maximum_drawdown"],
+        report["market_beta"],
+        report["maximum_symbol_absolute_contribution_share"],
+        report["total_turnover"],
+    )
+    return all(math.isfinite(float(value)) for value in values)
+
+
+def _eligibility(
+    development: dict,
+    base_folds: list[dict],
+    stress_folds: list[dict],
+    specification: dict,
+) -> dict:
+    checks = {
+        "minimum_invested_blocks": (
+            development["invested_blocks"]
+            >= specification["minimum_invested_blocks"]
+        ),
+        "minimum_invested_blocks_per_fold": all(
+            fold["invested_blocks"]
+            >= specification["minimum_invested_blocks_per_fold"]
+            for fold in base_folds
+        ),
+        "required_base_folds_present": (
+            len(base_folds) == specification["required_folds"]
+        ),
+        "required_stress_folds_present": (
+            len(stress_folds) == specification["required_folds"]
+        ),
+        "all_metrics_finite": all(
+            _finite_report(report)
+            for report in [development, *base_folds, *stress_folds]
+        ),
+    }
+    return {
+        "checks": checks,
+        "passed_checks": sum(checks.values()),
+        "total_checks": len(checks),
+        "passed": all(checks.values()),
+    }
+
+
+def _selection_values(candidate: dict) -> dict:
+    stress_folds = candidate["stress_folds"]
+    return {
+        "positive_stress_folds": sum(
+            fold["total_return"] > 0 for fold in stress_folds
+        ),
+        "minimum_stress_fold_total_return": min(
+            fold["total_return"] for fold in stress_folds
+        ),
+        "median_stress_fold_sharpe": statistics.median(
+            fold["sharpe_zero_rate"] for fold in stress_folds
+        ),
+        "full_training_annualized_market_alpha": candidate["development"][
+            "annualized_market_alpha"
+        ],
+        "full_training_turnover": candidate["development"]["total_turnover"],
+        "configuration_id": candidate["configuration"]["configuration_id"],
+    }
+
+
+def select_candidate(candidates: list[dict]) -> dict:
+    eligible = [
+        candidate for candidate in candidates if candidate["eligibility"]["passed"]
+    ]
+    if not eligible:
+        raise ValueError("no structurally eligible V4 training candidate")
+    for candidate in eligible:
+        candidate["selection_values"] = _selection_values(candidate)
+    return sorted(
+        eligible,
+        key=lambda candidate: (
+            -candidate["selection_values"]["positive_stress_folds"],
+            -candidate["selection_values"][
+                "minimum_stress_fold_total_return"
+            ],
+            -candidate["selection_values"]["median_stress_fold_sharpe"],
+            -candidate["selection_values"][
+                "full_training_annualized_market_alpha"
+            ],
+            candidate["selection_values"]["full_training_turnover"],
+            candidate["selection_values"]["configuration_id"],
+        ),
+    )[0]
+
+
+def train_and_freeze(
+    protocol_value,
+    v3_report_value,
+    futures_values,
+    spot_values,
+    flow_manifest_values,
+    flow_cache_value,
+    funding_values,
+    output_root_value,
+) -> dict:
+    """Run expanded training only and freeze exactly one selected model."""
+
+    protocol_path = pathlib.Path(protocol_value).resolve()
+    protocol = write_or_verify_protocol(protocol_path)
+    v3_report_path = pathlib.Path(v3_report_value).resolve()
+    if common._sha256(v3_report_path) != EXPECTED_V3_REPORT_SHA256:
+        raise ValueError("V3 report lineage hash differs")
+    market, artifacts = engine.parent.load_market(
+        futures_values,
+        spot_values,
+        flow_manifest_values,
+        flow_cache_value,
+        funding_values,
+    )
+    dependencies = {
+        "v2_training_engine": pathlib.Path(engine.__file__).resolve(),
+        "confluence_market_loader": pathlib.Path(engine.parent.__file__).resolve(),
+        "accounting": pathlib.Path(
+            engine.parent.parent.execution_parent.__file__
+        ).resolve(),
+    }
+    artifacts["trainer"] = _artifact(pathlib.Path(__file__).resolve())
+    artifacts["dependencies"] = {
+        name: _artifact(path) for name, path in sorted(dependencies.items())
+    }
+    artifacts["v3_training_lineage"] = _artifact(v3_report_path)
+    artifacts["frozen_protocol"] = _artifact(protocol_path)
+    source_bundle_sha256 = common._json_hash(artifacts)
+
+    candidate_reports = []
+    trajectories = {}
+    for configuration in candidate_configurations():
+        targets = build_target_matrix(market, configuration)
+        development = engine.simulate_period(
+            market,
+            TRAINING_START,
+            TRAINING_END,
+            target_matrix=targets,
+            include_trajectory=True,
+        )
+        trajectories[configuration["configuration_id"]] = development.pop(
+            "_trajectory"
+        )
+        stress = engine.simulate_period(
+            market,
+            TRAINING_START,
+            TRAINING_END,
+            target_matrix=targets,
+            cost_multiplier=engine.STRESS_COST_MULTIPLIER,
+        )
+        base_folds = [
+            engine.simulate_period(market, start, end, target_matrix=targets)
+            for start, end in TRAINING_FOLDS
+        ]
+        stress_folds = [
+            engine.simulate_period(
+                market,
+                start,
+                end,
+                target_matrix=targets,
+                cost_multiplier=engine.STRESS_COST_MULTIPLIER,
+            )
+            for start, end in TRAINING_FOLDS
+        ]
+        eligibility = _eligibility(
+            development,
+            base_folds,
+            stress_folds,
+            protocol["training"]["eligibility"],
+        )
+        candidate_reports.append(
+            {
+                "configuration": configuration,
+                "development": development,
+                "stress": stress,
+                "base_folds": base_folds,
+                "stress_folds": stress_folds,
+                "eligibility": eligibility,
+            }
+        )
+    selected = select_candidate(candidate_reports)
+    candidate_summary_sha256 = common._json_hash(candidate_reports)
+
+    output_root = pathlib.Path(output_root_value).resolve()
+    experiment = output_root / (
+        "expanded-training-long-confluence-v4-"
+        + protocol["protocol_sha256"][:12]
+        + "-"
+        + source_bundle_sha256[:12]
+    )
+    experiment.mkdir(parents=True, exist_ok=False)
+    trajectories_path = experiment / "training-trajectories.json"
+    common._atomic_json(
+        trajectories_path,
+        {
+            "schema_version": SCHEMA_VERSION,
+            "protocol_sha256": protocol["protocol_sha256"],
+            "source_bundle_sha256": source_bundle_sha256,
+            "maximum_outcome_utc": TRAINING_END.isoformat(),
+            "configurations": trajectories,
+        },
+    )
+    model_path = experiment / "selected-model.json"
+    model = {
+        "schema_version": SCHEMA_VERSION,
+        "protocol_sha256": protocol["protocol_sha256"],
+        "source_bundle_sha256": source_bundle_sha256,
+        "candidate_summary_sha256": candidate_summary_sha256,
+        "selected_configuration": selected["configuration"],
+        "selection_values": selected["selection_values"],
+        "maximum_training_outcome_utc": TRAINING_END.isoformat(),
+        "training_is_promotional_evidence": False,
+        "oos_2026_evaluated": False,
+        "orders_authorized": False,
+        "paper_orders_authorized": False,
+        "automatic_promotion": False,
+    }
+    model["content_sha256"] = common._json_hash(model)
+    common._atomic_json(model_path, model)
+    report = {
+        "schema_version": SCHEMA_VERSION,
+        "protocol_version": PROTOCOL_VERSION,
+        "created_at": datetime.datetime.now(engine.parent.parent.UTC).isoformat(),
+        "research_only": True,
+        "public_data_only": True,
+        "credentials_used": False,
+        "orders_authorized": False,
+        "paper_orders_authorized": False,
+        "automatic_promotion": False,
+        "training_only": True,
+        "maximum_outcome_utc": TRAINING_END.isoformat(),
+        "oos_2026_evaluated": False,
+        "protocol_path": str(protocol_path),
+        "protocol_file_sha256": common._sha256(protocol_path),
+        "protocol_sha256": protocol["protocol_sha256"],
+        "source_bundle_sha256": source_bundle_sha256,
+        "source_artifacts": artifacts,
+        "candidates": candidate_reports,
+        "candidate_summary_sha256": candidate_summary_sha256,
+        "eligible_candidate_count": sum(
+            candidate["eligibility"]["passed"] for candidate in candidate_reports
+        ),
+        "selected_configuration": selected["configuration"],
+        "selection_values": selected["selection_values"],
+        "selected_model_path": str(model_path),
+        "selected_model_sha256": common._sha256(model_path),
+        "selected_model_content_sha256": model["content_sha256"],
+        "training_trajectories": {
+            "path": str(trajectories_path),
+            "sha256": common._sha256(trajectories_path),
+        },
+        "oos_access_authorized": True,
+        "verdict": "ONE_TRAINING_MODEL_FROZEN_2026_OOS_AUTHORIZED",
+        "results_do_not_authorize_orders": True,
+    }
+    report_path = experiment / "training-report.json"
+    common._atomic_json(report_path, report)
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "protocol_sha256": protocol["protocol_sha256"],
+        "source_bundle_sha256": source_bundle_sha256,
+        "report_path": str(report_path),
+        "report_sha256": common._sha256(report_path),
+        "training_trajectories_path": str(trajectories_path),
+        "training_trajectories_sha256": common._sha256(trajectories_path),
+        "selected_model_path": str(model_path),
+        "selected_model_sha256": common._sha256(model_path),
+        "oos_2026_evaluated": False,
+        "orders_authorized": False,
+        "paper_orders_authorized": False,
+        "automatic_promotion": False,
+    }
+    manifest["content_sha256"] = common._json_hash(manifest)
+    common._atomic_json(experiment / "manifest.json", manifest)
+    return {
+        "directory": str(experiment),
+        "report": report,
+        "manifest": manifest,
+    }
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     write = subparsers.add_parser("write-protocol")
     write.add_argument("--output", required=True)
+    train = subparsers.add_parser("train-and-freeze")
+    train.add_argument("--protocol", required=True)
+    train.add_argument("--v3-report", required=True)
+    train.add_argument("--futures-collector", action="append", required=True)
+    train.add_argument("--spot-collector", action="append", required=True)
+    train.add_argument("--flow-manifest", action="append", required=True)
+    train.add_argument("--flow-cache", required=True)
+    train.add_argument("--funding", action="append", required=True)
+    train.add_argument("--output-root", required=True)
     return parser
 
 
 def main(argv=None) -> int:
     arguments = _parser().parse_args(argv)
-    print(json.dumps(write_or_verify_protocol(arguments.output), indent=2))
+    if arguments.command == "write-protocol":
+        print(json.dumps(write_or_verify_protocol(arguments.output), indent=2))
+        return 0
+    print(
+        json.dumps(
+            train_and_freeze(
+                arguments.protocol,
+                arguments.v3_report,
+                arguments.futures_collector,
+                arguments.spot_collector,
+                arguments.flow_manifest,
+                arguments.flow_cache,
+                arguments.funding,
+                arguments.output_root,
+            ),
+            indent=2,
+        )
+    )
     return 0
 
 
