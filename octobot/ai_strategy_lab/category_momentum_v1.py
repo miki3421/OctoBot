@@ -60,7 +60,7 @@ LIQUIDITY_LOOKBACK_DAYS = 28
 MINIMUM_CONTIGUOUS_HISTORY_DAYS = 90
 FORMATION_DAYS = 7
 HOLDING_DAYS = 1
-MINIMUM_CATEGORY_ASSETS = 3
+MINIMUM_CATEGORY_ASSETS = 4
 MAXIMUM_CATEGORY_OVERLAP = 0.70
 MINIMUM_REPRESENTATIVE_CATEGORIES = 6
 CATEGORY_SELECTION_DENOMINATOR = 6
@@ -108,7 +108,7 @@ def frozen_protocol() -> dict:
         "schema_version": SCHEMA_VERSION,
         "protocol_version": PROTOCOL_VERSION,
         "preregistered_on": PREREGISTRATION_DATE,
-        "status": "result_free_protocol_before_new_price_outcomes",
+        "status": "result_free_protocol_after_weight_feasibility_correction",
         "research_only": True,
         "public_data_only": True,
         "credentials_used": False,
@@ -335,6 +335,17 @@ def frozen_protocol() -> dict:
             "one externally selected 7-day formation, 1-day holding and "
             "direction; no local lookback, threshold or side search"
         ),
+        "pre_outcome_correction": {
+            "previous_protocol_sha256": (
+                "1df68c978a165d1c090f13a5ee3840affb83dd249475a50e08bc3b303c8141c9"
+            ),
+            "reason": (
+                "three assets cannot sum to unit category weight under a "
+                "strict 30 percent per-asset cap"
+            ),
+            "change": "minimum category membership increased from 3 to 4",
+            "economic_outcomes_read_before_change": False,
+        },
         "promotion_consequence": (
             "three historical passes authorize only an orderless forward "
             "observer; no shadow target, paper or real order"

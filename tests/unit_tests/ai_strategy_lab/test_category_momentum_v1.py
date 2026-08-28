@@ -30,6 +30,14 @@ def test_protocol_freezes_external_horizon_taxonomy_and_costs():
     assert protocol["economics"]["slippage_per_turnover"] == 0.0002
     assert protocol["economics"]["stress_cost_multiplier"] == 3.0
     assert protocol["signal"]["model_fitted"] is False
+    assert (
+        protocol["signal"]["category_minimum_assets"]
+        * protocol["signal"]["maximum_asset_category_weight"]
+        >= 1.0
+    )
+    assert protocol["pre_outcome_correction"][
+        "economic_outcomes_read_before_change"
+    ] is False
 
 
 def test_historical_windows_are_sequential_but_never_promotional():
