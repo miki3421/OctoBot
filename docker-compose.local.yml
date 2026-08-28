@@ -141,6 +141,54 @@ services:
       timeout: 10s
       retries: 3
 
+  cross-venue-observer:
+    image: octobot-local:dev
+    container_name: octobot-cross-venue-observer
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    entrypoint:
+      - /bin/bash
+      - /workspace/docker/cross-venue-observer-entrypoint.sh
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      CROSS_VENUE_INTERVAL_SECONDS: ${CROSS_VENUE_INTERVAL_SECONDS:-900}
+      CROSS_VENUE_RETRY_SECONDS: ${CROSS_VENUE_RETRY_SECONDS:-60}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/cross-venue:/cross-venue
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/cross-venue/health.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('observer_type') == 'binance_kucoin_cross_venue_books_v1'
+          and value.get('mode') == 'observation_only'
+          and value.get('public_data_only') is True
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is False
+          and value.get('automatic_promotion') is False
+          and value.get('symbol_count') == 18
+          and value.get('archive_consistent') is True
+          and value.get('full_payload_duplicate_journal') is False
+          and value.get('archived_records',0) >= 1
+          and (now-last).total_seconds() < 2700 else 1)"
+      interval: 5m
+      timeout: 15s
+      retries: 3
+
   scalping-observer:
     image: octobot-local:dev
     container_name: octobot-scalping-observer

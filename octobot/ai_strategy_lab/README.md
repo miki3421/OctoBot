@@ -1086,6 +1086,44 @@ Protocol SHA-256 is
 report SHA-256 is
 `624607f00e2247c2b37d4fed42c74ebd8dad1148c7a012426ff2c90cf4a2fd18`.
 
+## Synchronized cross-venue forward observer
+
+`cross_venue_observer` is a separate public-data-only collector, not a V1
+continuation and not a strategy. Every 15 minutes it requests 20-level Binance
+and KuCoin perpetual books concurrently for the 18 common symbols, plus public
+mark/index, current funding, funding interval, open interest and timing. It
+stores equal-base executable curves for 100, 500 and 1,000 USDT per leg and
+marks a row forward-eligible only when client request midpoints differ by at
+most one second and both server books are no more than 30 seconds old (or five
+seconds in the future). Cross-server timestamp skew remains diagnostic because
+an unchanged but valid book naturally has an older last-update timestamp.
+
+The canonical records are atomic `json.gz` files linked by SHA-256. A compact
+JSONL index is rebuildable from those records and does not duplicate the full
+payload. A full archive/index/hash/safety audit runs at least daily. Records
+before `2026-08-29T00:00:00Z` remain warm-up only. The deployed
+`octobot-cross-venue-observer` service mounts no OctoBot user data or private
+credentials and exposes no order path. Its local health file is
+`../octobot-local/cross-venue/health.json`.
+
+## Overlapping weekly signed-flow factor V2
+
+`signed_flow_factor_v2` corrects one mismatch between V1 and Table 29 of the
+external manuscript: a new high-minus-low vintage is formed every eight hours,
+but each vintage is held for the following 21 blocks (seven days). Twenty-one
+equal `1/21` sleeves are combined and opposing orders are netted before the
+unchanged 8-bps turnover cost. Signal, universe, three names per side, 0.40
+side gross, funding and 3x cost stress remain unchanged.
+
+V2 is rejected in development despite a clear improvement. Net return is
+`+8.8083%`, annualized `+3.4272%`, with four of five folds and 16 of 18
+leave-one-symbol-out runs positive. Sharpe is only `0.2936`, drawdown is
+`29.4891%`, half the months are positive and triple-cost return is `-7.6777%`.
+The 2025 confirmation and 2026 lock remain unmaterialized. Protocol SHA-256 is
+`c1ae4642b55a1e5bf4f702d7ebc1693ce5b898261e45f2b442ccdcae58b54de4`;
+report SHA-256 is
+`d1a82dd1b8d6a3ac0cf3b06fafb79f9cc3efe00629f0720c436ac64bc5b916ee`.
+
 ## Interpretation
 
 The initial models are a deterministic logistic regression and a small
