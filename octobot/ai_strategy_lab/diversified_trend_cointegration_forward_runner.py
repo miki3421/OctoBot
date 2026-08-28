@@ -45,6 +45,9 @@ UTC = datetime.timezone.utc
 DAY_MILLISECONDS = 86_400_000
 BINANCE_API_ROOT = "https://fapi.binance.com"
 MAXIMUM_FUNDING_PAGES = 8
+SUPERSEDED_IMPLEMENTATION_LOCK_SHA256 = (
+    "ffd924ee26590d427e668bf9dd4b8632cd6b84a15d38d57ef2f83d178fc35f1b"
+)
 
 
 class DataQualityError(ValueError):
@@ -363,6 +366,23 @@ def create_or_verify_implementation_lock(
         "orders_authorized": False,
         "paper_orders_authorized": False,
         "automatic_promotion": False,
+        "pre_forward_implementation_amendment": {
+            "superseded_implementation_lock_sha256": (
+                SUPERSEDED_IMPLEMENTATION_LOCK_SHA256
+            ),
+            "reason": (
+                "compare the persisted canonical JSON symbol mapping by exact "
+                "membership rather than insertion order"
+            ),
+            "warmup_records_acquired_before_change": 57,
+            "official_forward_records_before_change": 0,
+            "decision_records_before_change": 0,
+            "forward_economic_outcomes_seen_before_change": 0,
+            "strategy_parameters_changed": False,
+            "economic_accounting_changed": False,
+            "timeline_or_gate_changed": False,
+            "raw_and_normalized_warmup_evidence_reused": True,
+        },
         "protocol_sha256": context["protocol"]["protocol_sha256"],
         "protocol_file_sha256": pair_common._sha256(config.protocol_path),
         "selected_model_sha256": protocol.SELECTED_MODEL_SHA256,
@@ -780,7 +800,10 @@ def load_daily_records(
             raise DataQualityError("daily archive hash chain differs")
         if previous_date is not None and date != previous_date + datetime.timedelta(days=1):
             raise DataQualityError("daily archive calendar is not contiguous")
-        if expected_symbols is not None and list(record["symbols"]) != expected_symbols:
+        if expected_symbols is not None and (
+            len(record["symbols"]) != len(expected_symbols)
+            or set(record["symbols"]) != set(expected_symbols)
+        ):
             raise DataQualityError("daily archive symbol universe differs")
         if raw_root is not None:
             _verify_raw_artifacts(record, raw_root)
@@ -837,7 +860,10 @@ def append_daily_records(
             continue
         if date != expected_next:
             raise DataQualityError("cannot append a noncontiguous daily record")
-        if list(payload["symbols"]) != expected_symbols:
+        if (
+            len(payload["symbols"]) != len(expected_symbols)
+            or set(payload["symbols"]) != set(expected_symbols)
+        ):
             raise DataQualityError("fetched daily symbol order differs")
         record = {
             "schema_version": SCHEMA_VERSION,

@@ -122,7 +122,9 @@ def test_funding_parser_rejects_a_response_for_another_symbol():
 
 def test_daily_archive_is_contiguous_hash_chained_and_raw_auditable(tmp_path):
     responses = PublicDailyResponses()
-    symbols = ["BTCUSDT", "ETHUSDT"]
+    # Deliberately differs from canonical JSON key order.  Mapping identity,
+    # not insertion order, defines the frozen universe.
+    symbols = ["ETHUSDT", "BTCUSDT"]
     fetched = runner.fetch_public_daily_range(
         symbols,
         runner.protocol.WARMUP_START,
