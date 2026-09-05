@@ -25,8 +25,8 @@ DEFAULT_BACKTEST_METADATA_PATH = (
     "/octobot/user/data/DailyTradingMode/default_campaign/backtesting/metadata.json"
 )
 PROTECTED_CAPITAL_USDT = 10_000.0
-MAX_DISPLAYED_DECISIONS = 250
-MAX_DISPLAYED_OUTCOMES = 50
+MAX_DISPLAYED_DECISIONS = 25
+MAX_DISPLAYED_OUTCOMES = 10
 
 
 def _pretty_json(value: str) -> str:
@@ -72,6 +72,60 @@ def _empty_outcome_summary() -> dict:
         "losses": 0,
         "net_pnl_excluding_funding": 0.0,
         "win_rate": 0.0,
+    }
+
+
+def _paper_execution_summary(
+    decision: dict,
+    latest_event: dict | None = None,
+    outcome: dict | None = None,
+) -> dict:
+    """Describe actual paper execution separately from signal approval."""
+
+    if outcome:
+        pnl = float(outcome.get("net_pnl_excluding_funding", 0.0) or 0.0)
+        return {
+            "kind": "closed",
+            "label": "TRADE CHIUSO",
+            "color": "success" if pnl > 0 else "danger",
+            "detail": (
+                f"{pnl:+.2f} USDT · "
+                f"{str(outcome.get('side', '-')).upper()} · funding escluso"
+            ),
+        }
+    if latest_event:
+        status = str(latest_event.get("status", "unknown")).lower()
+        reduce_only = bool(latest_event.get("reduce_only"))
+        if status == "interrupted":
+            label, color = "ORDINE INTERROTTO", "warning"
+        elif status == "open":
+            label, color = "ORDINE APERTO", "warning"
+        elif status == "filled" and not reduce_only:
+            label, color = "POSIZIONE APERTA", "warning"
+        else:
+            label, color = f"ORDINE {status.upper()}", "info"
+        return {
+            "kind": "order",
+            "label": label,
+            "color": color,
+            "detail": (
+                f"{str(latest_event.get('side', '-')).upper()} · "
+                f"{latest_event.get('order_type') or '-'} · "
+                f"qty {float(latest_event.get('quantity', 0.0) or 0.0):.8g}"
+            ),
+        }
+    if decision.get("approved") and decision.get("action") in {"BUY", "SELL"}:
+        return {
+            "kind": "signal_only",
+            "label": "NESSUN ORDINE",
+            "color": "info",
+            "detail": "segnale approvato, non eseguito",
+        }
+    return {
+        "kind": "not_executed",
+        "label": "NON ESEGUITA",
+        "color": "secondary",
+        "detail": "HOLD o proposta bloccata",
     }
 
 
@@ -167,23 +221,146 @@ def _read_decisions(database_path: str) -> tuple[list[dict], dict]:
         rows = connection.execute(
             """
             SELECT id, created_at, exchange_name, cryptocurrency, symbol, model,
-                   prompt_version, input_json, output_json, action, confidence,
-                   signal_strength, eval_note, approved, guard_reason, rationale,
-                   invalidation, horizon_minutes
+                   action, confidence, signal_strength, approved, guard_reason,
+                   rationale, invalidation, horizon_minutes
             FROM ai_decisions
             ORDER BY id DESC
             LIMIT ?
             """,
             (MAX_DISPLAYED_DECISIONS,),
         ).fetchall()
+        tables = {
+            row[0]
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        decision_ids = [int(row["id"]) for row in rows]
+        latest_events = {}
+        outcomes = {}
+        if decision_ids:
+            placeholders = ",".join("?" for _ in decision_ids)
+            if "ai_order_events" in tables:
+                event_rows = connection.execute(
+                    f"""
+                    SELECT id, decision_id, created_at, update_type, status,
+                           side, order_type, quantity, filled_quantity, price,
+                           average_price, reduce_only
+                    FROM ai_order_events
+                    WHERE id IN (
+                        SELECT MAX(id)
+                        FROM ai_order_events
+                        WHERE decision_id IN ({placeholders})
+                        GROUP BY decision_id
+                    )
+                    """,
+                    decision_ids,
+                ).fetchall()
+                latest_events = {
+                    int(row["decision_id"]): dict(row) for row in event_rows
+                }
+            if "ai_position_outcomes" in tables:
+                outcome_rows = connection.execute(
+                    f"""
+                    SELECT id, decision_id, side, entry_at, exit_at,
+                           entry_price, exit_price,
+                           net_pnl_excluding_funding,
+                           return_pct_excluding_funding, exit_reason
+                    FROM ai_position_outcomes
+                    WHERE decision_id IN ({placeholders})
+                    ORDER BY id DESC
+                    """,
+                    decision_ids,
+                ).fetchall()
+                for outcome_row in outcome_rows:
+                    outcomes.setdefault(
+                        int(outcome_row["decision_id"]), dict(outcome_row)
+                    )
 
     decisions = []
     for row in rows:
         decision = dict(row)
-        decision["input_json"] = _pretty_json(decision["input_json"])
-        decision["output_json"] = _pretty_json(decision["output_json"])
+        decision_id = int(decision["id"])
+        decision["paper_execution"] = _paper_execution_summary(
+            decision,
+            latest_events.get(decision_id),
+            outcomes.get(decision_id),
+        )
         decisions.append(decision)
     return decisions, summary
+
+
+def _read_decision_detail(database_path: str, decision_id: int) -> dict | None:
+    """Read one full audit record without inflating the journal list page."""
+
+    path = pathlib.Path(database_path)
+    if not path.is_file():
+        return None
+    with sqlite3.connect(
+        f"file:{path}?mode=ro", uri=True, timeout=2
+    ) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT id, created_at, exchange_name, cryptocurrency, symbol, model,
+                   prompt_version, input_json, output_json, action, confidence,
+                   signal_strength, eval_note, approved, guard_reason, rationale,
+                   invalidation, horizon_minutes
+            FROM ai_decisions
+            WHERE id = ?
+            """,
+            (decision_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        tables = {
+            table_row[0]
+            for table_row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
+        order_events = []
+        outcome = None
+        if "ai_order_events" in tables:
+            order_events = [
+                dict(event_row)
+                for event_row in connection.execute(
+                    """
+                    SELECT id, created_at, update_type, status, side,
+                           order_type, quantity, filled_quantity, price,
+                           average_price, reduce_only
+                    FROM ai_order_events
+                    WHERE decision_id = ?
+                    ORDER BY id
+                    """,
+                    (decision_id,),
+                ).fetchall()
+            ]
+        if "ai_position_outcomes" in tables:
+            outcome_row = connection.execute(
+                """
+                SELECT id, decision_id, side, entry_at, exit_at,
+                       entry_price, exit_price, net_pnl_excluding_funding,
+                       return_pct_excluding_funding, exit_reason
+                FROM ai_position_outcomes
+                WHERE decision_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (decision_id,),
+            ).fetchone()
+            outcome = dict(outcome_row) if outcome_row is not None else None
+    decision = dict(row)
+    decision["input_json"] = _pretty_json(decision["input_json"])
+    decision["output_json"] = _pretty_json(decision["output_json"])
+    decision["order_events"] = order_events
+    decision["paper_outcome"] = outcome
+    decision["paper_execution"] = _paper_execution_summary(
+        decision,
+        order_events[-1] if order_events else None,
+        outcome,
+    )
+    return decision
 
 
 def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
@@ -302,4 +479,21 @@ def register(blueprint):
             capital=capital,
             display_limit=MAX_DISPLAYED_DECISIONS,
             outcome_display_limit=MAX_DISPLAYED_OUTCOMES,
+        )
+
+    @blueprint.route("/ai_decisions/<int:decision_id>")
+    @login.login_required_when_activated
+    def ai_decision_detail(decision_id):
+        database_path = os.getenv(
+            "AI_DECISIONS_DB_PATH", DEFAULT_AI_DECISIONS_DB_PATH
+        )
+        try:
+            decision = _read_decision_detail(database_path, decision_id)
+        except (OSError, sqlite3.Error):
+            flask.abort(503)
+        if decision is None:
+            flask.abort(404)
+        return flask.render_template(
+            "ai_decision_detail.html",
+            decision=decision,
         )

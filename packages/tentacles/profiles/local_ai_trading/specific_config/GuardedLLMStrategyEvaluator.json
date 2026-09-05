@@ -22,7 +22,7 @@
   "max_stop_loss_pct": 2.0,
   "min_reward_risk_ratio": 1.5,
   "max_horizon_minutes": 1440,
-  "allow_sell_signals": true,
+  "allow_sell_signals": false,
   "minimum_interval_seconds": 900,
   "journal_path": "/octobot/user/ai_decisions.sqlite",
   "enable_backtesting_llm": false,

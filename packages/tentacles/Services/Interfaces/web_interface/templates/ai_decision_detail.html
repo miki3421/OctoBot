@@ -1,0 +1,64 @@
+{% extends "layout.html" %}
+{% set active_page = "ai_decisions" %}
+{% set page_title = "Decision Audit #" ~ decision.id %}
+
+{% block body %}
+<br>
+<div class="card">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+        <div>
+            <h2 class="mb-1">Decisione #{{ decision.id }}</h2>
+            <div class="text-muted">Dettaglio read-only caricato su richiesta</div>
+        </div>
+        <a class="btn btn-outline-primary" href="{{ url_for('ai_decisions') }}"><i class="fas fa-arrow-left mr-1"></i> Torna all'audit</a>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-success"><strong>Paper-only.</strong> La visualizzazione non modifica il journal e non crea ordini.</div>
+        <div class="row mb-3">
+            <div class="col-md-3"><div class="text-muted small">Ora UTC</div><strong>{{ decision.created_at }}</strong></div>
+            <div class="col-md-3"><div class="text-muted small">Mercato</div><strong>{{ decision.exchange_name }} · {{ decision.symbol }}</strong></div>
+            <div class="col-md-3"><div class="text-muted small">Decisione</div><strong>{{ decision.action }}</strong> · {{ "%.0f"|format((decision.confidence or 0) * 100) }}%</div>
+            <div class="col-md-3"><div class="text-muted small">Risk Guard</div><strong>{{ "APPROVATA" if decision.approved else "BLOCCATA / NEUTRALE" }}</strong><br><code>{{ decision.guard_reason }}</code></div>
+        </div>
+        <div class="card border-{{ decision.paper_execution.color }} mb-3">
+            <div class="card-body">
+                <h5 class="mb-1">Esecuzione paper</h5>
+                <span class="badge badge-{{ decision.paper_execution.color }}">{{ decision.paper_execution.label }}</span>
+                <span class="ml-2">{{ decision.paper_execution.detail }}</span>
+                {% if decision.paper_outcome %}
+                <div class="small mt-2">
+                    Entry {{ "%.8g"|format(decision.paper_outcome.entry_price) }} il {{ decision.paper_outcome.entry_at }} ·
+                    exit {{ "%.8g"|format(decision.paper_outcome.exit_price) }} il {{ decision.paper_outcome.exit_at }} ·
+                    motivo <code>{{ decision.paper_outcome.exit_reason }}</code>.
+                </div>
+                {% elif decision.order_events %}
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead><tr><th>Ora UTC</th><th>Evento</th><th>Stato</th><th>Lato</th><th>Tipo</th><th>Quantità</th><th>Prezzo</th></tr></thead>
+                        <tbody>
+                        {% for event in decision.order_events %}
+                        <tr>
+                            <td>{{ event.created_at }}</td>
+                            <td>{{ event.update_type or "-" }}</td>
+                            <td>{{ event.status or "-" }}</td>
+                            <td>{{ event.side or "-" }}</td>
+                            <td>{{ event.order_type or "-" }}</td>
+                            <td>{{ "%.8g"|format(event.quantity or 0) }}</td>
+                            <td>{{ "%.8g"|format(event.average_price or event.price or 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card mb-3"><div class="card-body"><h5>Motivazione</h5><p>{{ decision.rationale or "-" }}</p><div class="small"><strong>Invalidazione:</strong> {{ decision.invalidation or "-" }}</div></div></div>
+        <div class="small text-muted mb-2">Modello {{ decision.model or "-" }} · prompt {{ decision.prompt_version or "-" }} · orizzonte {{ decision.horizon_minutes or "-" }} min · eval {{ decision.eval_note or "-" }}</div>
+        <h5>Input tecnico</h5>
+        <pre class="border rounded p-3 small text-wrap">{{ decision.input_json }}</pre>
+        <h5>Output strutturato</h5>
+        <pre class="border rounded p-3 small text-wrap">{{ decision.output_json }}</pre>
+    </div>
+</div>
+{% endblock %}

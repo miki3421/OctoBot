@@ -144,7 +144,8 @@ def deterministic_alignment_decision(
 
     action = "BUY" if direction == "BULLISH" else "SELL"
     formatted = ", ".join(
-        f"{time_frame}={time_direction} ({bullish}/{bullish + bearish})"
+        f"{time_frame}={time_direction} "
+        f"({bullish if time_direction == 'BULLISH' else bearish}/{bullish + bearish})"
         for time_frame, time_direction, _, bullish, bearish in summaries
     )
     return LLMTradingDecision(
@@ -190,6 +191,138 @@ def _regime_hold(rationale: str, invalidation: str) -> "LLMTradingDecision":
         horizon_minutes=1,
         rationale=rationale,
         invalidation=invalidation,
+    )
+
+
+def semantic_trend_v2_decision(
+    technical_data: dict[str, list[dict]],
+    required_time_frames: typing.Iterable[typing.Any],
+) -> "LLMTradingDecision":
+    """Trade pullbacks with the physical meaning of the existing indicators.
+
+    OctoBot evaluator notes normally encode ``negative=buy`` and
+    ``positive=sell``.  Two inputs in the local matrix also expose physical
+    trend direction: positive DoubleMovingAverage means price is above its
+    averages, and positive ADX means the fast EMA is above the slow EMA.  The
+    legacy majority vote interpreted both as contrarian sell votes.  V2 uses
+    those two measurements only for the 4h/1h regime and keeps MACD, RSI and
+    Bollinger Bands as lower-timeframe entry timing.
+    """
+
+    configured = {
+        str(getattr(time_frame, "value", time_frame))
+        for time_frame in required_time_frames
+    }
+    missing_time_frames = {"15m", "1h", "4h"} - configured
+    if missing_time_frames:
+        return _regime_hold(
+            "Semantic Trend V2 requires 15m, 1h and 4h; missing="
+            f"{','.join(sorted(missing_time_frames))}.",
+            "All three frozen timeframes are required.",
+        )
+
+    def notes(time_frame: str, evaluator_names: tuple[str, ...]) -> dict[str, float] | None:
+        available = {
+            _evaluator_short_name(evaluation): evaluation.get("eval_note")
+            for evaluation in technical_data.get(time_frame, [])
+        }
+        parsed: dict[str, float] = {}
+        for evaluator_name in evaluator_names:
+            try:
+                value = float(available[evaluator_name])
+            except (KeyError, TypeError, ValueError):
+                return None
+            if not math.isfinite(value) or value == 0:
+                return None
+            parsed[evaluator_name] = value
+        return parsed
+
+    trend_names = (
+        "DoubleMovingAverageTrendEvaluator",
+        "ADXMomentumEvaluator",
+    )
+    trend_snapshots: dict[str, tuple[str, float]] = {}
+    for time_frame in ("4h", "1h"):
+        trend_notes = notes(time_frame, trend_names)
+        if trend_notes is None:
+            return _regime_hold(
+                f"Semantic Trend V2=no-trade: incomplete {time_frame} physical trend evidence.",
+                "Double moving average and ADX notes must both be finite and directional.",
+            )
+        signs = {1 if value > 0 else -1 for value in trend_notes.values()}
+        if len(signs) != 1:
+            return _regime_hold(
+                f"Semantic Trend V2=no-trade: {time_frame} physical trend inputs conflict.",
+                "Double moving average and ADX physical directions must agree.",
+            )
+        strength = sum(abs(value) for value in trend_notes.values()) / len(trend_notes)
+        if strength < 0.10:
+            return _regime_hold(
+                f"Semantic Trend V2=no-trade: {time_frame} trend strength {strength:.3f} is below 0.100.",
+                "Wait for a measurable higher-timeframe trend.",
+            )
+        physical_direction = "BULLISH" if next(iter(signs)) > 0 else "BEARISH"
+        trend_snapshots[time_frame] = (physical_direction, strength)
+
+    direction = trend_snapshots["4h"][0]
+    if trend_snapshots["1h"][0] != direction:
+        return _regime_hold(
+            "Semantic Trend V2=no-trade: 4h and 1h physical trends conflict.",
+            "Both higher timeframes must agree before entry.",
+        )
+
+    timing_names = (
+        "MACDMomentumEvaluator",
+        "RSIMomentumEvaluator",
+        "BBMomentumEvaluator",
+    )
+    timing_notes = notes("15m", timing_names)
+    if timing_notes is None:
+        return _regime_hold(
+            "Semantic Trend V2=no-trade: incomplete 15m timing evidence.",
+            "MACD, RSI and Bollinger notes must be finite and directional.",
+        )
+    macd = timing_notes["MACDMomentumEvaluator"]
+    macd_direction = "BULLISH" if macd < 0 else "BEARISH"
+    if abs(macd) < 0.15 or macd_direction != direction:
+        return _regime_hold(
+            "Semantic Trend V2=no-trade: 15m MACD has not confirmed the physical trend.",
+            "MACD must align with the 4h/1h regime with magnitude at least 0.15.",
+        )
+
+    aligned_timing = 1
+    rsi = timing_notes["RSIMomentumEvaluator"]
+    bb = timing_notes["BBMomentumEvaluator"]
+    if abs(rsi) >= 0.20 and ("BULLISH" if rsi < 0 else "BEARISH") == direction:
+        aligned_timing += 1
+    if abs(bb) >= 0.10 and ("BULLISH" if bb < 0 else "BEARISH") == direction:
+        aligned_timing += 1
+    if aligned_timing < 2:
+        return _regime_hold(
+            "Semantic Trend V2=no-trade: fewer than two 15m timing signals confirm the trend.",
+            "MACD and at least one of RSI or Bollinger Bands must align.",
+        )
+
+    trend_strength = min(
+        1.0,
+        min(trend_snapshots["4h"][1], trend_snapshots["1h"][1]),
+    )
+    action = "BUY" if direction == "BULLISH" else "SELL"
+    return LLMTradingDecision(
+        action=action,
+        confidence=0.78 + 0.10 * trend_strength,
+        signal_strength=0.38 + 0.10 * trend_strength,
+        stop_loss_pct=1.0,
+        take_profit_pct=2.0,
+        horizon_minutes=1440,
+        rationale=(
+            f"Semantic Trend V2={direction.lower()}: physical DoubleMA+ADX regime "
+            f"agrees on 4h/1h; {aligned_timing}/3 timing signals confirm on 15m."
+        ),
+        invalidation=(
+            "Exit or reject when the 4h/1h physical trend diverges, trend strength "
+            "falls below 0.10, or 15m MACD timing loses confirmation."
+        ),
     )
 
 

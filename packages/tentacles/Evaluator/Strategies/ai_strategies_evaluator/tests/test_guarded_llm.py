@@ -20,6 +20,7 @@ from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
     regime_adaptive_decision,
     regime_adaptive_v2_decision,
     regime_adaptive_v3_decision,
+    semantic_trend_v2_decision,
 )
 from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm_strategy import (
     GuardedLLMStrategyEvaluator,
@@ -92,6 +93,54 @@ class DeterministicRiskGuardTest(unittest.TestCase):
         self.assertAlmostEqual(decision.confidence, 0.82)
         self.assertAlmostEqual(decision.signal_strength, 0.42)
         self.assertIn("trend-pullback-bullish", decision.rationale)
+
+    @staticmethod
+    def _semantic_v2_data(direction="BULLISH"):
+        physical_sign = 1 if direction == "BULLISH" else -1
+        timing_sign = -1 if direction == "BULLISH" else 1
+        return {
+            "4h": [
+                {"evaluator": "DoubleMovingAverageTrendEvaluator", "eval_note": physical_sign * 0.6},
+                {"evaluator": "ADXMomentumEvaluator", "eval_note": physical_sign * 0.4},
+            ],
+            "1h": [
+                {"evaluator": "DoubleMovingAverageTrendEvaluator", "eval_note": physical_sign * 0.5},
+                {"evaluator": "ADXMomentumEvaluator", "eval_note": physical_sign * 0.3},
+            ],
+            "15m": [
+                {"evaluator": "MACDMomentumEvaluator", "eval_note": timing_sign * 0.5},
+                {"evaluator": "RSIMomentumEvaluator", "eval_note": timing_sign * 0.4},
+                {"evaluator": "BBMomentumEvaluator", "eval_note": timing_sign * 0.2},
+            ],
+        }
+
+    def test_semantic_v2_uses_positive_physical_trend_as_bullish(self):
+        decision = semantic_trend_v2_decision(
+            self._semantic_v2_data(), ["15m", "1h", "4h"]
+        )
+
+        self.assertEqual(decision.action, "BUY")
+        self.assertIn("physical DoubleMA+ADX", decision.rationale)
+
+    def test_semantic_v2_can_short_a_physical_downtrend(self):
+        decision = semantic_trend_v2_decision(
+            self._semantic_v2_data("BEARISH"), ["15m", "1h", "4h"]
+        )
+
+        self.assertEqual(decision.action, "SELL")
+
+    def test_semantic_v2_rejects_a_contrarian_short_during_breakout(self):
+        data = self._semantic_v2_data()
+        data["15m"] = [
+            {"evaluator": "MACDMomentumEvaluator", "eval_note": 0.7},
+            {"evaluator": "RSIMomentumEvaluator", "eval_note": 1.0},
+            {"evaluator": "BBMomentumEvaluator", "eval_note": 1.0},
+        ]
+
+        decision = semantic_trend_v2_decision(data, ["15m", "1h", "4h"])
+
+        self.assertEqual(decision.action, "HOLD")
+        self.assertIn("MACD", decision.rationale)
 
     def test_regime_adaptive_supports_bearish_short_entries(self):
         decision = regime_adaptive_decision(
@@ -240,6 +289,20 @@ class DeterministicRiskGuardTest(unittest.TestCase):
 
         self.assertEqual(decision.action, "HOLD")
         self.assertEqual(decision.signal_strength, 0)
+
+    def test_deterministic_alignment_reports_supporting_bearish_votes(self):
+        decision = deterministic_alignment_decision(
+            {
+                "15m": [{"bias": "BEARISH"}, {"bias": "BEARISH"}, {"bias": "BULLISH"}],
+                "1h": [{"bias": "BEARISH"}, {"bias": "BEARISH"}],
+                "4h": [{"bias": "BEARISH"}, {"bias": "BEARISH"}],
+            },
+            ["15m", "1h", "4h"],
+        )
+
+        self.assertEqual(decision.action, "SELL")
+        self.assertIn("15m=BEARISH (2/3)", decision.rationale)
+        self.assertIn("1h=BEARISH (2/2)", decision.rationale)
 
     def test_deterministic_alignment_applies_minimum_agreement_filter(self):
         decision = deterministic_alignment_decision(

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import math
 import os
 import pathlib
 import sqlite3
@@ -51,10 +52,22 @@ DEFAULT_DIVERSIFIED_FORWARD_GATE_LOCK_PATH = (
 DEFAULT_DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH = (
     "/diversified-forward/gate-runtime/health.json"
 )
+DEFAULT_DIVERSIFIED_FORWARD_DECISIONS_PATH = (
+    "/diversified-forward/decisions.jsonl"
+)
+DEFAULT_DIVERSIFIED_PAPER_HEALTH_PATH = "/diversified-paper/health.json"
+DEFAULT_DIVERSIFIED_PAPER_DB_PATH = "/diversified-paper/paper.sqlite"
 DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH = (
     "/octobot/backtesting/research/diversified-trend-cointegration-v1/"
     "forward-protocol-v1.json"
 )
+DEFAULT_BREADTH_FORWARD_HEALTH_PATH = "/breadth-forward/health.json"
+DEFAULT_BREADTH_FORWARD_LOCK_PATH = (
+    "/breadth-forward/implementation-lock.json"
+)
+DEFAULT_CROSS_VENUE_HEALTH_PATH = "/cross-venue/health.json"
+DEFAULT_PROJECT_HISTORY_PATH = "/workspace/HISTORY.md"
+DEFAULT_MIGRATION_AUDIT_PATH = "/workspace/MIGRATION_AUDIT_2026-09-02.md"
 V5_EV_SERIES_LIMIT = 2_880
 SCALPING_RESEARCH_DAYS = 30.0
 
@@ -92,6 +105,201 @@ def _read_last_jsonl(path: pathlib.Path) -> dict:
         return {}
     value = json.loads(last_line)
     return value if isinstance(value, dict) else {}
+
+
+def _read_jsonl(path: pathlib.Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    records = []
+    with path.open(encoding="utf-8") as input_file:
+        for line in input_file:
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, dict):
+                raise ValueError("JSONL record is not an object")
+            records.append(value)
+    return records
+
+
+def _read_diversified_paper_chart_rows(
+    database_path: str,
+) -> list[dict]:
+    path = pathlib.Path(database_path)
+    if not path.is_file():
+        return []
+
+    def read_rows(uri: str) -> list[sqlite3.Row]:
+        with sqlite3.connect(uri, uri=True, timeout=2) as connection:
+            connection.row_factory = sqlite3.Row
+            return connection.execute(
+                """
+                SELECT bar_date, paper_equity, turnover, estimated_cost,
+                       order_count
+                FROM decisions
+                ORDER BY id
+                """
+            ).fetchall()
+
+    try:
+        rows = read_rows(f"file:{path}?mode=ro")
+    except sqlite3.OperationalError:
+        wal_path = pathlib.Path(f"{path}-wal")
+        if wal_path.is_file() and wal_path.stat().st_size:
+            raise
+        # A read-only WAL mount cannot create its first -shm file. When no
+        # WAL payload exists, immutable mode safely reads the checkpointed DB.
+        rows = read_rows(f"file:{path}?mode=ro&immutable=1")
+    return [dict(row) for row in rows]
+
+
+def _diversified_equity_chart(
+    records: list[dict],
+    protocol_sha256: str | None,
+    implementation_lock_sha256: str | None,
+    paper: dict,
+    paper_database_path: str,
+) -> dict:
+    """Build read-only forward and paper series for the Operations chart."""
+
+    if not records:
+        return {"available": False}
+    dates = []
+    trend_equity = []
+    cointegration_equity = []
+    portfolio_equity = []
+    previous_date = None
+    for record in records:
+        payload = record.get("decision_payload")
+        if not isinstance(payload, dict):
+            raise ValueError(
+                "diversified chart record has no decision payload"
+            )
+        for field in (
+            "orders_authorized",
+            "paper_orders_authorized",
+            "automatic_promotion",
+            "credentials_used",
+        ):
+            if payload.get(field) is not False:
+                raise ValueError(
+                    f"diversified chart safety invariant differs: {field}"
+                )
+        lineage = payload.get("lineage", {})
+        if (
+            not isinstance(lineage, dict)
+            or lineage.get("forward_protocol_sha256") != protocol_sha256
+            or lineage.get("implementation_lock_sha256")
+            != implementation_lock_sha256
+        ):
+            raise ValueError("diversified chart lineage differs")
+        try:
+            bar_date = datetime.date.fromisoformat(str(payload["bar_date"]))
+            base = payload["base"]
+            values = (
+                float(base["trend_equity"]),
+                float(base["cointegration_equity"]),
+                float(base["portfolio_equity"]),
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("diversified chart record is invalid") from error
+        if previous_date is not None and bar_date <= previous_date:
+            raise ValueError(
+                "diversified chart dates are not strictly ordered"
+            )
+        if not all(math.isfinite(value) and value > 0 for value in values):
+            raise ValueError("diversified chart equity is invalid")
+        dates.append(bar_date.isoformat())
+        trend_equity.append(10_000.0 * values[0])
+        cointegration_equity.append(10_000.0 * values[1])
+        portfolio_equity.append(10_000.0 * values[2])
+        previous_date = bar_date
+
+    baseline_date = (
+        datetime.date.fromisoformat(dates[0]) - datetime.timedelta(days=1)
+    ).isoformat()
+    dates.insert(0, baseline_date)
+    trend_equity.insert(0, 10_000.0)
+    cointegration_equity.insert(0, 10_000.0)
+    portfolio_equity.insert(0, 10_000.0)
+
+    paper_dates = []
+    paper_equity = []
+    paper_hover = []
+    paper_marker_sizes = []
+    paper_marker_symbols = []
+    if paper.get("available"):
+        try:
+            boundary = datetime.date.fromisoformat(
+                str(paper["activation_boundary_bar"])
+            )
+            initial_equity = float(paper["initial_equity"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(
+                "diversified paper chart boundary is invalid"
+            ) from error
+        if not math.isfinite(initial_equity) or initial_equity <= 0:
+            raise ValueError(
+                "diversified paper chart initial equity is invalid"
+            )
+        paper_dates.append(boundary.isoformat())
+        paper_equity.append(initial_equity)
+        paper_hover.append("Attivazione causale; nessun rendimento precedente")
+        paper_marker_sizes.append(11)
+        paper_marker_symbols.append("diamond-open")
+        previous_paper_date = boundary
+        for row in _read_diversified_paper_chart_rows(paper_database_path):
+            try:
+                bar_date = datetime.date.fromisoformat(str(row["bar_date"]))
+                equity = float(row["paper_equity"])
+                turnover = float(row["turnover"])
+                estimated_cost = float(row["estimated_cost"])
+                order_count = int(row["order_count"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError(
+                    "diversified paper chart row is invalid"
+                ) from error
+            if bar_date <= previous_paper_date:
+                raise ValueError(
+                    "diversified paper chart dates are not strictly ordered"
+                )
+            if (
+                not math.isfinite(equity)
+                or equity <= 0
+                or not math.isfinite(turnover)
+                or turnover < 0
+                or not math.isfinite(estimated_cost)
+                or estimated_cost < 0
+                or order_count < 0
+            ):
+                raise ValueError("diversified paper chart row is invalid")
+            paper_dates.append(bar_date.isoformat())
+            paper_equity.append(equity)
+            paper_hover.append(
+                f"Ribilanciamento: {order_count} fill virtuali; "
+                f"turnover {100 * turnover:.2f}%; "
+                f"costo stimato {estimated_cost:.2f} USDT"
+            )
+            paper_marker_sizes.append(12 if order_count else 8)
+            paper_marker = "diamond" if order_count else "circle"
+            paper_marker_symbols.append(paper_marker)
+            previous_paper_date = bar_date
+
+    return {
+        "available": True,
+        "forward_point_count": len(records),
+        "dates": dates,
+        "trend_equity": trend_equity,
+        "cointegration_equity": cointegration_equity,
+        "portfolio_equity": portfolio_equity,
+        "paper_available": bool(paper_dates),
+        "paper_dates": paper_dates,
+        "paper_equity": paper_equity,
+        "paper_hover": paper_hover,
+        "paper_marker_sizes": paper_marker_sizes,
+        "paper_marker_symbols": paper_marker_symbols,
+        "orders_authorized": False,
+    }
 
 
 def _read_latest_decision(database_path: str) -> dict:
@@ -229,6 +437,120 @@ def _scalping_summary(health: dict) -> dict:
     return summary
 
 
+def _cross_venue_summary(health: dict) -> dict:
+    if not health:
+        return {"available": False}
+    for field in (
+        "orders_authorized",
+        "paper_orders_authorized",
+        "automatic_promotion",
+        "credentials_used",
+    ):
+        if health.get(field) is not False:
+            raise ValueError(f"cross-venue safety invariant differs: {field}")
+    if (
+        health.get("observer_type")
+        != "binance_kucoin_cross_venue_books_v1"
+        or health.get("mode") != "observation_only"
+        or health.get("public_data_only") is not True
+        or health.get("archive_consistent") is not True
+        or health.get("full_payload_duplicate_journal") is not False
+    ):
+        raise ValueError("cross-venue observer mode differs")
+    return {
+        "available": True,
+        "healthy": health.get("status") == "healthy",
+        "status": str(health.get("status", "unknown")),
+        "symbol_count": int(health.get("symbol_count", 0) or 0),
+        "archived_records": int(health.get("archived_records", 0) or 0),
+        "forward_observed_days": int(
+            health.get("forward_observed_days", 0) or 0
+        ),
+        "last_success_at": health.get("last_success_at"),
+        "compressed_archive_megabytes": float(
+            health.get("compressed_archive_bytes", 0) or 0
+        )
+        / (1024 * 1024),
+    }
+
+
+def _breadth_forward_summary(health: dict, implementation_lock: dict) -> dict:
+    if not health or not implementation_lock:
+        return {"available": False}
+    for name, value in (
+        ("health", health),
+        ("implementation lock", implementation_lock),
+    ):
+        for field in (
+            "orders_authorized",
+            "paper_orders_authorized",
+            "automatic_promotion",
+        ):
+            if value.get(field) is not False:
+                raise ValueError(
+                    f"breadth forward {name} safety invariant differs: {field}"
+                )
+    if (
+        health.get("observer_type")
+        != "liquid_market_breadth_forward_observer_v2"
+        or implementation_lock.get("observer_type")
+        != "liquid_market_breadth_forward_observer_v2"
+        or health.get("mode") != "forward_observation_only"
+        or health.get("research_only") is not True
+        or implementation_lock.get("research_only") is not True
+        or health.get("public_data_only") is not True
+        or health.get("network_required") is not False
+        or implementation_lock.get("network_capability_required") is not False
+        or health.get("credentials_used") is not False
+        or health.get("gate_evaluation_authorized") is not False
+        or health.get("pre_cutoff_aggregate_metrics_calculated") is not False
+    ):
+        raise ValueError("breadth forward observer mode differs")
+    if (
+        health.get("protocol_sha256")
+        != implementation_lock.get("protocol_sha256")
+        or health.get("implementation_lock_sha256")
+        != implementation_lock.get("implementation_lock_sha256")
+    ):
+        raise ValueError("breadth forward lineage hash differs")
+    phase = str(health.get("phase", "unknown"))
+    if phase not in {"warmup", "forward", "waiting_for_gate_cutoff"}:
+        raise ValueError("breadth forward phase differs")
+    official_records = int(health.get("official_market_records", 0) or 0)
+    decision_records = int(health.get("decision_records", 0) or 0)
+    mature_outcomes = int(health.get("mature_outcomes", 0) or 0)
+    blockers = health.get("current_blockers", [])
+    if not isinstance(blockers, list):
+        blockers = []
+    healthy = health.get("status") == "healthy"
+    return {
+        "available": True,
+        "healthy": healthy,
+        "color": "info" if healthy else "danger",
+        "status": str(health.get("status", "unknown")),
+        "phase": phase,
+        "phase_label": phase.replace("_", " ").upper(),
+        "warmup_records": int(health.get("warmup_records", 0) or 0),
+        "official_records": official_records,
+        "minimum_days": 180,
+        "decision_records": decision_records,
+        "mature_outcomes": mature_outcomes,
+        "required_mature_outcomes": 179,
+        "progress_pct": min(100.0, 100.0 * official_records / 180),
+        "last_decision_bar": health.get("last_decision_bar"),
+        "last_success_at": health.get("last_success_at"),
+        "earliest_gate": health.get(
+            "earliest_gate_evaluation_not_before_utc"
+        ),
+        "blockers": [str(value) for value in blockers],
+        "protocol_sha256": health.get("protocol_sha256"),
+        "implementation_lock_sha256": health.get(
+            "implementation_lock_sha256"
+        ),
+        "orders_authorized": False,
+    }
+
+
 def _execution_shadow_summary(health: dict) -> dict:
     if not health:
         return {"available": False}
@@ -346,6 +668,7 @@ def _diversified_forward_summary(
     implementation_lock: dict,
     gate_lock: dict | None = None,
     gatekeeper_health: dict | None = None,
+    latest_record: dict | None = None,
 ) -> dict:
     if not health or not protocol or not implementation_lock:
         return {"available": False}
@@ -511,6 +834,11 @@ def _diversified_forward_summary(
     storage = health.get("storage_bytes", {})
     if not isinstance(storage, dict):
         storage = {}
+    latest = _diversified_latest_metrics(
+        latest_record or {},
+        protocol.get("protocol_sha256"),
+        implementation_lock.get("implementation_lock_sha256"),
+    )
     return {
         "available": True,
         "healthy": healthy,
@@ -548,8 +876,170 @@ def _diversified_forward_summary(
         )
         / (1024 * 1024),
         "blockers": blockers,
+        "latest": latest,
         "gate_evaluation_authorized": False,
         "orders_authorized": False,
+    }
+
+
+def _diversified_latest_metrics(
+    record: dict,
+    protocol_sha256: str | None,
+    implementation_lock_sha256: str | None,
+) -> dict:
+    if not record:
+        return {"available": False, "allocations": []}
+    payload = record.get("decision_payload")
+    if not isinstance(payload, dict):
+        raise ValueError("diversified latest record has no decision payload")
+    for field in (
+        "orders_authorized",
+        "paper_orders_authorized",
+        "automatic_promotion",
+        "credentials_used",
+    ):
+        if payload.get(field) is not False:
+            raise ValueError(
+                f"diversified latest decision safety invariant differs: {field}"
+            )
+    lineage = payload.get("lineage", {})
+    if (
+        not isinstance(lineage, dict)
+        or lineage.get("forward_protocol_sha256") != protocol_sha256
+        or lineage.get("implementation_lock_sha256")
+        != implementation_lock_sha256
+    ):
+        raise ValueError("diversified latest decision lineage differs")
+    base = payload.get("base", {})
+    stress = payload.get("stress_3x_cost", {})
+    targets = payload.get("research_targets", {})
+    if not all(isinstance(value, dict) for value in (base, stress, targets)):
+        raise ValueError("diversified latest decision metrics are incomplete")
+    try:
+        base_equity = float(base["portfolio_equity"])
+        base_daily_return = float(base["portfolio_daily_return"])
+        stress_equity = float(stress["portfolio_equity"])
+        stress_daily_return = float(stress["portfolio_daily_return"])
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError("diversified latest numeric metrics are invalid") from error
+    if not all(
+        math.isfinite(value)
+        for value in (
+            base_equity,
+            base_daily_return,
+            stress_equity,
+            stress_daily_return,
+        )
+    ):
+        raise ValueError("diversified latest metrics are not finite")
+
+    combined_weights: dict[str, float] = {}
+    for field in (
+        "trend_effective_portfolio_weights",
+        "cointegration_effective_portfolio_weights",
+    ):
+        weights = targets.get(field, {})
+        if not isinstance(weights, dict):
+            raise ValueError("diversified latest weights are invalid")
+        for symbol, raw_weight in weights.items():
+            try:
+                weight = float(raw_weight)
+            except (TypeError, ValueError) as error:
+                raise ValueError("diversified latest weight is invalid") from error
+            if not math.isfinite(weight):
+                raise ValueError("diversified latest weight is not finite")
+            combined_weights[str(symbol)] = (
+                combined_weights.get(str(symbol), 0.0) + weight
+            )
+    allocations = [
+        {
+            "symbol": symbol,
+            "side": "LONG" if weight > 0 else "SHORT",
+            "weight_pct": 100.0 * weight,
+        }
+        for symbol, weight in combined_weights.items()
+        if abs(weight) > 1e-12
+    ]
+    allocations.sort(key=lambda value: abs(value["weight_pct"]), reverse=True)
+    return {
+        "available": True,
+        "bar_date": payload.get("bar_date"),
+        "target_bar": payload.get("target_return_bearing_bar"),
+        "base_equity": base_equity,
+        "base_return_pct": 100.0 * (base_equity - 1.0),
+        "base_daily_return_pct": 100.0 * base_daily_return,
+        "stress_equity": stress_equity,
+        "stress_return_pct": 100.0 * (stress_equity - 1.0),
+        "stress_daily_return_pct": 100.0 * stress_daily_return,
+        "allocations": allocations,
+        "gross_weight_pct": sum(
+            abs(value["weight_pct"]) for value in allocations
+        ),
+    }
+
+
+def _diversified_paper_summary(health: dict) -> dict:
+    if not health:
+        return {"available": False}
+    if (
+        health.get("status") != "healthy"
+        or health.get("mode")
+        != "diversified_trend_cointegration_manual_paper_v1"
+        or health.get("paper_only") is not True
+        or health.get("public_data_only") is not True
+        or health.get("network_required") is not False
+        or health.get("credentials_used") is not False
+        or health.get("orders_authorized") is not False
+        or health.get("paper_orders_authorized") is not True
+        or health.get("automatic_promotion") is not False
+        or health.get("upstream_observer_remains_orderless") is not True
+        or health.get("prior_forward_return_credited") is not False
+        or health.get("database_integrity") != "ok"
+    ):
+        raise ValueError("diversified manual paper invariant differs")
+    phase = str(health.get("phase", "unknown"))
+    if phase not in {"armed_waiting_next_decision", "active"}:
+        raise ValueError("diversified manual paper phase differs")
+    numeric_fields = (
+        "initial_equity",
+        "paper_equity",
+        "paper_return_pct",
+        "paper_pnl",
+        "gross_weight_pct",
+        "net_weight_pct",
+    )
+    numbers = {}
+    for field in numeric_fields:
+        try:
+            numbers[field] = float(health[field])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError(
+                f"diversified manual paper {field} is invalid"
+            ) from error
+        if not math.isfinite(numbers[field]):
+            raise ValueError(
+                f"diversified manual paper {field} is not finite"
+            )
+    positions = health.get("positions", [])
+    if not isinstance(positions, list):
+        raise ValueError("diversified manual paper positions are invalid")
+    return {
+        "available": True,
+        "healthy": True,
+        "phase": phase,
+        "phase_label": (
+            "ARMATO" if phase == "armed_waiting_next_decision" else "ATTIVO"
+        ),
+        **numbers,
+        "position_count": int(health.get("position_count", 0) or 0),
+        "decision_count": int(health.get("decision_count", 0) or 0),
+        "order_event_count": int(health.get("order_event_count", 0) or 0),
+        "activation_boundary_bar": health.get("activation_boundary_bar"),
+        "last_processed_bar": health.get("last_processed_bar"),
+        "positions": positions,
+        "last_success_at": health.get("last_success_at"),
+        "orders_authorized": False,
+        "paper_orders_authorized": True,
     }
 
 
@@ -1042,7 +1532,8 @@ def _v5_forward_summary(
     }
 
 
-def register(blueprint):
+def _register_legacy_dashboard(blueprint):
+    """Kept as an implementation archive; the compact dashboard is below."""
     @blueprint.route("/strategy_status")
     @login.login_required_when_activated
     def strategy_status():
@@ -1294,4 +1785,319 @@ def register(blueprint):
                 if name != "shadow_journal"
             ),
             errors=errors,
+        )
+
+
+def register(blueprint):
+    @blueprint.route("/strategy_status")
+    @login.login_required_when_activated
+    def strategy_status():
+        errors = []
+
+        def load_json(path: pathlib.Path, label: str) -> dict:
+            try:
+                return _read_json(path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"{label}: {error}")
+                return {}
+
+        def load_last_jsonl(path: pathlib.Path, label: str) -> dict:
+            try:
+                return _read_last_jsonl(path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"{label}: {error}")
+                return {}
+
+        def load_jsonl(path: pathlib.Path, label: str) -> list[dict]:
+            try:
+                return _read_jsonl(path)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"{label}: {error}")
+                return []
+
+        database_path = os.getenv(
+            "AI_DECISIONS_DB_PATH", DEFAULT_AI_DECISIONS_DB_PATH
+        )
+        shadow_root = pathlib.Path(
+            os.getenv("SHADOW_STATUS_ROOT", DEFAULT_SHADOW_ROOT)
+        )
+        try:
+            latest_decision = _read_latest_decision(database_path)
+        except (OSError, sqlite3.Error) as error:
+            latest_decision = {}
+            errors.append(f"Decision journal: {error}")
+        try:
+            orders = _clean_rows(models.get_all_orders_data())
+            positions = _clean_rows(models.get_all_positions_data())
+        except (RuntimeError, ValueError) as error:
+            orders, positions = [], []
+            errors.append(f"Paper runtime: {error}")
+
+        market_health = load_json(
+            shadow_root / "market" / "health.json", "market collector"
+        )
+        market_evidence = load_json(
+            shadow_root / "market" / "evidence.json", "market evidence"
+        )
+        data_quality = load_json(
+            shadow_root / "operations" / "current.json",
+            "operations report",
+        )
+        scalping_health = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "SCALPING_HEALTH_PATH", DEFAULT_SCALPING_HEALTH_PATH
+                )
+            ),
+            "Level-5 collector",
+        )
+
+        try:
+            execution_shadow = _execution_shadow_summary(
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "EXECUTION_SHADOW_HEALTH_PATH",
+                            DEFAULT_EXECUTION_SHADOW_HEALTH_PATH,
+                        )
+                    ),
+                    "execution shadow",
+                )
+            )
+        except (TypeError, ValueError) as error:
+            execution_shadow = {"available": False}
+            errors.append(f"execution shadow: {error}")
+
+        try:
+            cross_venue = _cross_venue_summary(
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "CROSS_VENUE_HEALTH_PATH",
+                            DEFAULT_CROSS_VENUE_HEALTH_PATH,
+                        )
+                    ),
+                    "cross-venue collector",
+                )
+            )
+        except (TypeError, ValueError) as error:
+            cross_venue = {"available": False}
+            errors.append(f"cross-venue collector: {error}")
+
+        carry_protocol = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "CARRY_PROTOCOL_PATH", DEFAULT_CARRY_PROTOCOL_PATH
+                )
+            ),
+            "Carry protocol",
+        )
+        try:
+            carry_gatekeeper = _carry_gatekeeper_summary(
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "CARRY_GATEKEEPER_STATUS_PATH",
+                            DEFAULT_CARRY_GATEKEEPER_STATUS_PATH,
+                        )
+                    ),
+                    "Carry gatekeeper",
+                )
+            )
+        except (TypeError, ValueError) as error:
+            carry_gatekeeper = {"available": False}
+            errors.append(f"Carry gatekeeper: {error}")
+        carry_protocol_status = forward_carry_dashboard.protocol_status(
+            carry_protocol
+        )
+        carry = forward_carry_dashboard.readiness_summary(
+            market_evidence,
+            market_health,
+            carry_protocol_status,
+        )
+
+        diversified_protocol = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "DIVERSIFIED_FORWARD_PROTOCOL_PATH",
+                    DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH,
+                )
+            ),
+            "diversified protocol",
+        )
+        diversified_lock = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "DIVERSIFIED_FORWARD_LOCK_PATH",
+                    DEFAULT_DIVERSIFIED_FORWARD_LOCK_PATH,
+                )
+            ),
+            "diversified lock",
+        )
+        diversified_decisions = load_jsonl(
+            pathlib.Path(
+                os.getenv(
+                    "DIVERSIFIED_FORWARD_DECISIONS_PATH",
+                    DEFAULT_DIVERSIFIED_FORWARD_DECISIONS_PATH,
+                )
+            ),
+            "diversified decisions",
+        )
+        try:
+            diversified_forward = _diversified_forward_summary(
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "DIVERSIFIED_FORWARD_HEALTH_PATH",
+                            DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH,
+                        )
+                    ),
+                    "diversified observer",
+                ),
+                diversified_protocol,
+                diversified_lock,
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "DIVERSIFIED_FORWARD_GATE_LOCK_PATH",
+                            DEFAULT_DIVERSIFIED_FORWARD_GATE_LOCK_PATH,
+                        )
+                    ),
+                    "diversified gate lock",
+                ),
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH",
+                            DEFAULT_DIVERSIFIED_FORWARD_GATEKEEPER_HEALTH_PATH,
+                        )
+                    ),
+                    "diversified gatekeeper",
+                ),
+                diversified_decisions[-1] if diversified_decisions else {},
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            diversified_forward = {"available": False}
+            errors.append(f"diversified observer: {error}")
+
+        diversified_paper_health = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "DIVERSIFIED_PAPER_HEALTH_PATH",
+                    DEFAULT_DIVERSIFIED_PAPER_HEALTH_PATH,
+                )
+            ),
+            "diversified manual paper",
+        )
+        try:
+            diversified_paper = _diversified_paper_summary(
+                diversified_paper_health
+            )
+        except (KeyError, TypeError, ValueError) as error:
+            diversified_paper = {"available": False}
+            errors.append(f"diversified manual paper: {error}")
+
+        try:
+            diversified_chart = _diversified_equity_chart(
+                diversified_decisions,
+                diversified_protocol.get("protocol_sha256"),
+                diversified_lock.get("implementation_lock_sha256"),
+                diversified_paper,
+                os.getenv(
+                    "DIVERSIFIED_PAPER_DB_PATH",
+                    DEFAULT_DIVERSIFIED_PAPER_DB_PATH,
+                ),
+            )
+        except (
+            KeyError,
+            OSError,
+            TypeError,
+            ValueError,
+            sqlite3.Error,
+        ) as error:
+            diversified_chart = {"available": False}
+            errors.append(f"diversified chart: {error}")
+
+        try:
+            breadth_forward = _breadth_forward_summary(
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "BREADTH_FORWARD_HEALTH_PATH",
+                            DEFAULT_BREADTH_FORWARD_HEALTH_PATH,
+                        )
+                    ),
+                    "breadth observer",
+                ),
+                load_json(
+                    pathlib.Path(
+                        os.getenv(
+                            "BREADTH_FORWARD_LOCK_PATH",
+                            DEFAULT_BREADTH_FORWARD_LOCK_PATH,
+                        )
+                    ),
+                    "breadth lock",
+                ),
+            )
+        except (TypeError, ValueError) as error:
+            breadth_forward = {"available": False}
+            errors.append(f"breadth observer: {error}")
+
+        return flask.render_template(
+            "strategy_status.html",
+            latest_decision=latest_decision,
+            orders=orders,
+            positions=positions,
+            operational=_operational_summary(
+                latest_decision, orders, positions
+            ),
+            market_health=market_health,
+            evidence=market_evidence,
+            cross_venue=cross_venue,
+            scalping_health=scalping_health,
+            scalping_summary=_scalping_summary(scalping_health),
+            execution_shadow=execution_shadow,
+            carry=carry,
+            carry_gatekeeper=carry_gatekeeper,
+            diversified_forward=diversified_forward,
+            diversified_paper=diversified_paper,
+            diversified_chart=diversified_chart,
+            breadth_forward=breadth_forward,
+            data_quality=data_quality,
+            errors=errors,
+        )
+
+    @blueprint.route("/research_archive")
+    @login.login_required_when_activated
+    def research_archive():
+        return flask.render_template("research_archive.html")
+
+    @blueprint.route("/research_archive/history")
+    @login.login_required_when_activated
+    def project_history():
+        path = pathlib.Path(
+            os.getenv("PROJECT_HISTORY_PATH", DEFAULT_PROJECT_HISTORY_PATH)
+        )
+        if not path.is_file():
+            flask.abort(404)
+        return flask.send_file(
+            path,
+            mimetype="text/markdown",
+            as_attachment=False,
+            download_name="HISTORY.md",
+        )
+
+    @blueprint.route("/research_archive/migration_audit")
+    @login.login_required_when_activated
+    def migration_audit():
+        path = pathlib.Path(
+            os.getenv("MIGRATION_AUDIT_PATH", DEFAULT_MIGRATION_AUDIT_PATH)
+        )
+        if not path.is_file():
+            flask.abort(404)
+        return flask.send_file(
+            path,
+            mimetype="text/markdown",
+            as_attachment=False,
+            download_name="MIGRATION_AUDIT_2026-09-02.md",
         )

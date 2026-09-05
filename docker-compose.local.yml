@@ -29,6 +29,9 @@ services:
       - ../octobot-local/execution-shadow:/execution-shadow:ro
       - ../octobot-local/v5-paper:/v5-paper:ro
       - ../octobot-local/diversified-forward:/diversified-forward:ro
+      - ../octobot-local/diversified-paper:/diversified-paper:ro
+      - ../octobot-local/breadth-forward:/breadth-forward:ro
+      - ../octobot-local/cross-venue:/cross-venue:ro
 
   trend-shadow:
     image: octobot-local:dev
@@ -289,6 +292,69 @@ services:
           and (now-last).total_seconds() < 172800 else 1)"
       interval: 15m
       timeout: 30s
+      retries: 3
+
+  diversified-paper:
+    image: octobot-local:dev
+    container_name: octobot-diversified-paper
+    restart: unless-stopped
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - diversified-forward-observer
+    entrypoint:
+      - python3
+      - -m
+      - octobot.ai_strategy_lab.diversified_manual_paper_v1
+      - --journal
+      - /diversified-forward/decisions.jsonl
+      - --protocol
+      - /octobot/backtesting/research/diversified-trend-cointegration-v1/forward-protocol-v1.json
+      - --implementation-lock
+      - /diversified-forward/implementation-lock.json
+      - --database
+      - /diversified-paper/paper.sqlite
+      - --health
+      - /diversified-paper/health.json
+      - --runner-lock
+      - /diversified-paper/runner.lock
+      - --poll-seconds
+      - "60"
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/backtesting:/octobot/backtesting:ro
+      - ../octobot-local/diversified-forward:/diversified-forward:ro
+      - ../octobot-local/diversified-paper:/diversified-paper
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          value=json.load(open('/diversified-paper/health.json'));
+          last=datetime.datetime.fromisoformat(value['last_success_at']);
+          now=datetime.datetime.now(datetime.timezone.utc);
+          raise SystemExit(0 if value.get('status') == 'healthy'
+          and value.get('mode') == 'diversified_trend_cointegration_manual_paper_v1'
+          and value.get('paper_only') is True
+          and value.get('network_required') is False
+          and value.get('credentials_used') is False
+          and value.get('orders_authorized') is False
+          and value.get('paper_orders_authorized') is True
+          and value.get('automatic_promotion') is False
+          and value.get('database_integrity') == 'ok'
+          and (now-last).total_seconds() < 180 else 1)"
+      interval: 30s
+      timeout: 10s
       retries: 3
 
   breadth-forward-observer:

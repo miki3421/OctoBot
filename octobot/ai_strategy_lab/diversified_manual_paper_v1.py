@@ -41,6 +41,10 @@ class PaperMirrorError(ValueError):
     """Raised when paper or upstream fail-closed invariants differ."""
 
 
+class PaperMarketDataError(PaperMirrorError):
+    """Raised when market data required for mark-to-market is unavailable."""
+
+
 def _utc_now() -> datetime.datetime:
     return datetime.datetime.now(UTC)
 
@@ -62,6 +66,13 @@ def _json_hash(value: typing.Any) -> str:
 def _normalize_symbol(symbol: typing.Any) -> str:
     if not isinstance(symbol, str):
         raise PaperMirrorError("upstream research symbol is not text")
+    stripped = symbol
+    if "/" in symbol and ":" in symbol:
+        left, right = symbol.split(":", 1)
+        if "/" in left:
+            base, quote = left.split("/", 1)
+            if right == quote:
+                return f"{base}{quote}"
     return symbol.replace("/", "").replace(":", "")
 
 
@@ -78,12 +89,12 @@ def _load_daily_snapshot(
         return cache[bar_date]
     path = _daily_snapshot_path(journal_root, bar_date)
     if not path.exists():
-        raise PaperMirrorError(f"daily market snapshot missing: {bar_date}")
+        raise PaperMarketDataError(f"daily market snapshot missing: {bar_date}")
     with gzip.open(path, "rt", encoding="utf-8") as stream:
         payload = json.load(stream)
     symbols_payload = payload.get("symbols")
     if not isinstance(symbols_payload, dict):
-        raise PaperMirrorError(f"invalid daily snapshot for {bar_date}")
+        raise PaperMarketDataError(f"invalid daily snapshot for {bar_date}")
 
     normalized: dict[str, dict[str, float]] = {}
     for raw_symbol, content in symbols_payload.items():
@@ -92,15 +103,17 @@ def _load_daily_snapshot(
         close = content.get("close")
         funding_sum = content.get("funding_rate_sum", 0.0)
         if not isinstance(close, (float, int)):
-            continue
+            raise PaperMarketDataError(f"invalid close for {raw_symbol} on {bar_date}")
         if not isinstance(funding_sum, (float, int)):
-            funding_sum = 0.0
+            raise PaperMarketDataError(
+                f"invalid funding for {raw_symbol} on {bar_date}"
+            )
         normalized[_normalize_symbol(raw_symbol)] = {
             "close": float(close),
             "funding_rate_sum": float(funding_sum),
         }
     if not normalized:
-        raise PaperMirrorError(f"daily snapshot empty: {bar_date}")
+        raise PaperMarketDataError(f"daily snapshot empty: {bar_date}")
     cache[bar_date] = normalized
     return normalized
 
@@ -125,13 +138,13 @@ def _mark_to_market_pnl(
         previous_symbol = previous_snapshot.get(symbol)
         current_symbol = current_snapshot.get(symbol)
         if previous_symbol is None or current_symbol is None:
-            raise PaperMirrorError(
+            raise PaperMarketDataError(
                 f"missing market data for {symbol} on period {previous_bar}->{current_bar}"
             )
         previous_close = previous_symbol["close"]
         current_close = current_symbol["close"]
         if previous_close <= 0.0 or current_close <= 0.0:
-            raise PaperMirrorError(
+            raise PaperMarketDataError(
                 f"invalid close for {symbol} on {previous_bar} or {current_bar}"
             )
         price_return += weight * (current_close / previous_close - 1.0)
@@ -373,6 +386,8 @@ class PaperStore:
             "positions": {},
             "processed_decisions": 0,
             "order_events": 0,
+            "market_data_available": True,
+            "market_data_warning": None,
         }
         with self.connection:
             self.connection.execute(
@@ -420,15 +435,24 @@ class PaperStore:
         if not math.isfinite(upstream_multiplier) or not 0.5 < upstream_multiplier < 1.5:
             raise PaperMirrorError("upstream daily equity multiplier is invalid")
 
+        market_data_available = True
+        market_data_warning = None
         if state["phase"] == "active":
-            price_return, funding_return, total_return = _mark_to_market_pnl(
-                previous_positions,
-                journal_root,
-                previous_bar,
-                payload["bar_date"],
-                market_cache,
-            )
-            paper_equity = previous_paper_equity * (1.0 + total_return)
+            try:
+                price_return, funding_return, total_return = _mark_to_market_pnl(
+                    previous_positions,
+                    journal_root,
+                    previous_bar,
+                    payload["bar_date"],
+                    market_cache,
+                )
+                paper_equity = previous_paper_equity * (1.0 + total_return)
+            except PaperMarketDataError as error:
+                market_data_available = False
+                market_data_warning = str(error)
+                price_return = 0.0
+                funding_return = 0.0
+                paper_equity = previous_paper_equity
         else:
             price_return = 0.0
             funding_return = 0.0
@@ -447,6 +471,25 @@ class PaperStore:
         paper_pnl = paper_equity - previous_paper_equity
         paper_daily_return = paper_equity / previous_paper_equity - 1.0
         now = _utc_now().isoformat()
+        if not market_data_available:
+            self.connection.execute(
+                """
+                INSERT INTO events(created_at, event_type, payload_json)
+                VALUES(?, ?, ?)
+                """,
+                (
+                    now,
+                    "mark_to_market_skipped",
+                    _canonical_bytes(
+                        {
+                            "upstream_journal_hash": record["journal_record_hash"],
+                            "previous_bar": previous_bar,
+                            "current_bar": payload["bar_date"],
+                            "reason": market_data_warning,
+                        }
+                    ).decode(),
+                ),
+            )
         decision_payload = {
             "upstream_journal_hash": record["journal_record_hash"],
             "upstream_decision_payload_sha256": payload[
@@ -461,6 +504,8 @@ class PaperStore:
             "upstream_multiplier_validated": upstream_multiplier,
             "turnover": turnover,
             "estimated_cost": estimated_cost,
+            "mark_to_market_applied": market_data_available,
+            "mark_to_market_warning": market_data_warning,
             "cost_is_already_in_upstream_return": False,
             "orders_authorized": False,
             "paper_orders_authorized": True,
@@ -524,6 +569,8 @@ class PaperStore:
                 "positions": positions,
                 "processed_decisions": int(state["processed_decisions"]) + 1,
                 "order_events": int(state["order_events"]) + len(deltas),
+                "market_data_available": market_data_available,
+                "market_data_warning": market_data_warning,
             }
             self.connection.execute(
                 "UPDATE state SET payload_json = ?, updated_at = ? WHERE id = 1",
@@ -560,6 +607,8 @@ def _health(state: dict, store: PaperStore, latest_record: dict) -> dict:
         "real_income_authorized": False,
         "upstream_observer_remains_orderless": True,
         "prior_forward_return_credited": False,
+        "market_data_available": state.get("market_data_available", True),
+        "market_data_warning": state.get("market_data_warning"),
         "initial_equity": initial,
         "paper_equity": equity,
         "paper_return_pct": 100.0 * (equity / initial - 1.0),

@@ -1,0 +1,36 @@
+{% extends "layout.html" %}
+{% set active_page = "strategy_status" %}
+{% set page_title = "Archivio ricerca" %}
+
+{% block body %}
+<br>
+<div class="card">
+    <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-archive mr-2"></i>Archivio ricerca</h2>
+            <div class="text-muted">Risultati storici separati dallo stato operativo corrente</div>
+        </div>
+        <a class="btn btn-outline-primary" href="{{ url_for('strategy_status') }}"><i class="fas fa-arrow-left mr-1"></i> Operations</a>
+    </div>
+    <div class="card-body">
+        <div class="alert alert-secondary">
+            Nessuna voce di questo archivio autorizza ordini, promozione automatica o fondi reali.
+            I dati persistenti restano disponibili per audit.
+        </div>
+        <div class="table-responsive mb-4">
+            <table class="table table-striped">
+                <thead><tr><th>Famiglia</th><th>Stato</th><th>Esito sintetico</th></tr></thead>
+                <tbody>
+                    <tr><td>Baseline legacy / Guarded AI</td><td><span class="badge badge-secondary">SOLO AUDIT</span></td><td>Journal preservato; profilo operativo limitato al simulatore paper.</td></tr>
+                    <tr><td>Trend V3 / V14 shadow</td><td><span class="badge badge-secondary">RITIRATA</span></td><td>Runtime fermato; evidence storica sostituita dai forward correnti.</td></tr>
+                    <tr><td>V5 path-surface Binance</td><td><span class="badge badge-danger">RESPINTA</span></td><td>Paper runtime fermato; cinque trade storici e P/L preservati per audit.</td></tr>
+                    <tr><td>Microstruttura direzionale V1 / V2</td><td><span class="badge badge-danger">RESPINTA</span></td><td>Il book non ha aggiunto valore direzionale stabile; continua solo l'uso execution.</td></tr>
+                    <tr><td>Famiglie quantitative V1–V12 e challenger successivi</td><td><span class="badge badge-secondary">CHIUSE</span></td><td>Dettagli, gate, hash e motivi di rifiuto sono nel documento storico.</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <a class="btn btn-primary mr-2" href="{{ url_for('project_history') }}" target="_blank">Apri HISTORY.md</a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('migration_audit') }}" target="_blank">Audit migrazione 2026-09-02</a>
+    </div>
+</div>
+{% endblock %}

@@ -164,7 +164,9 @@
         ></span>
 
         <!-- Modals -->
+        {% if get_current_profile().profile_id not in ["local_ai_trading", "local_v5_binance_paper"] %}
         {{ m_trading_state_modal.create_trading_state_modal(is_real_trading(get_current_profile()), get_enabled_trader(get_current_profile())) }}
+        {% endif %}
         {{ m_generic_modal.create_generic_modal() }}
 
         <!-- Artificial padding to separate footer from the rest of the page -->

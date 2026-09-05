@@ -34,6 +34,19 @@ import octobot_trading.api as trading_api
 import octobot_services.interfaces.util as interfaces_util
 
 
+PAPER_ONLY_PROFILE_IDS = frozenset({"local_ai_trading", "local_v5_binance_paper"})
+
+
+def _requests_real_trader(request_data):
+    global_config = request_data.get(constants.GLOBAL_CONFIG_KEY, {})
+    if not isinstance(global_config, dict):
+        return False
+    value = global_config.get("trader_enabled")
+    return value is True or value == 1 or (
+        isinstance(value, str) and value.lower() == "true"
+    )
+
+
 def register(blueprint):
     @blueprint.route('/profile')
     @login.login_required_when_activated
@@ -222,6 +235,18 @@ def register(blueprint):
         err_message = ""
 
         if request_data:
+            if (
+                models.get_current_profile().profile_id
+                in PAPER_ONLY_PROFILE_IDS
+                and _requests_real_trader(request_data)
+            ):
+                return util.get_rest_reply(
+                    flask.jsonify(
+                        "Il profilo locale è paper-only: il trader reale "
+                        "non può essere abilitato."
+                    ),
+                    403,
+                )
 
             # update trading config if required
             if constants.TRADING_CONFIG_KEY in request_data and request_data[constants.TRADING_CONFIG_KEY]:

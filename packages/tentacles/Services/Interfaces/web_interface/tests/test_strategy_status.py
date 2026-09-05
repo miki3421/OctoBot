@@ -95,11 +95,187 @@ class TestV5ForwardSummary(unittest.TestCase):
         self.assertTrue(summary["gatekeeper_healthy"])
         self.assertEqual(summary["gatekeeper_phase"], "waiting_for_cutoff")
         self.assertEqual(summary["gate_lock_sha256"], "gate-lock")
+        self.assertFalse(summary["latest"]["available"])
         self.assertEqual(
             [value["id"] for value in summary["blockers"]],
             ["official_start", "observed_days", "calendar_cutoff"],
         )
         self.assertFalse(summary["orders_authorized"])
+
+    def test_diversified_latest_metrics_exposes_net_forward_and_allocations(self):
+        record = {
+            "decision_payload": {
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "automatic_promotion": False,
+                "credentials_used": False,
+                "bar_date": "2026-09-03",
+                "target_return_bearing_bar": "2026-09-04",
+                "lineage": {
+                    "forward_protocol_sha256": "protocol",
+                    "implementation_lock_sha256": "lock",
+                },
+                "base": {
+                    "portfolio_equity": 1.006,
+                    "portfolio_daily_return": 0.007,
+                },
+                "stress_3x_cost": {
+                    "portfolio_equity": 1.005,
+                    "portfolio_daily_return": 0.006,
+                },
+                "research_targets": {
+                    "trend_effective_portfolio_weights": {"SOL": 0.02},
+                    "cointegration_effective_portfolio_weights": {
+                        "SOL": -0.005,
+                        "BMT": 0.075,
+                    },
+                },
+            }
+        }
+
+        metrics = status._diversified_latest_metrics(
+            record, "protocol", "lock"
+        )
+
+        self.assertTrue(metrics["available"])
+        self.assertAlmostEqual(metrics["base_return_pct"], 0.6)
+        self.assertAlmostEqual(metrics["stress_return_pct"], 0.5)
+        self.assertAlmostEqual(metrics["gross_weight_pct"], 9.0)
+        self.assertEqual(metrics["allocations"][0]["symbol"], "BMT")
+        self.assertEqual(metrics["allocations"][1]["symbol"], "SOL")
+
+    def test_diversified_paper_summary_requires_manual_paper_invariants(self):
+        summary = status._diversified_paper_summary(
+            {
+                "status": "healthy",
+                "mode": "diversified_trend_cointegration_manual_paper_v1",
+                "phase": "armed_waiting_next_decision",
+                "paper_only": True,
+                "public_data_only": True,
+                "network_required": False,
+                "credentials_used": False,
+                "orders_authorized": False,
+                "paper_orders_authorized": True,
+                "automatic_promotion": False,
+                "upstream_observer_remains_orderless": True,
+                "prior_forward_return_credited": False,
+                "database_integrity": "ok",
+                "initial_equity": 10_000,
+                "paper_equity": 10_000,
+                "paper_return_pct": 0,
+                "paper_pnl": 0,
+                "gross_weight_pct": 0,
+                "net_weight_pct": 0,
+                "position_count": 0,
+                "decision_count": 0,
+                "order_event_count": 0,
+                "positions": [],
+                "activation_boundary_bar": "2026-09-03",
+            }
+        )
+
+        self.assertTrue(summary["available"])
+        self.assertEqual(summary["phase_label"], "ARMATO")
+        self.assertTrue(summary["paper_orders_authorized"])
+        self.assertFalse(summary["orders_authorized"])
+
+    def test_diversified_equity_chart_separates_forward_from_paper(self):
+        def record(day, trend, cointegration, portfolio):
+            return {
+                "decision_payload": {
+                    "bar_date": day,
+                    "orders_authorized": False,
+                    "paper_orders_authorized": False,
+                    "automatic_promotion": False,
+                    "credentials_used": False,
+                    "lineage": {
+                        "forward_protocol_sha256": "protocol",
+                        "implementation_lock_sha256": "lock",
+                    },
+                    "base": {
+                        "trend_equity": trend,
+                        "cointegration_equity": cointegration,
+                        "portfolio_equity": portfolio,
+                    },
+                }
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database_path = pathlib.Path(directory) / "paper.sqlite"
+            with sqlite3.connect(database_path) as connection:
+                connection.executescript(
+                    """
+                    CREATE TABLE decisions (
+                        id INTEGER PRIMARY KEY,
+                        bar_date TEXT NOT NULL,
+                        paper_equity REAL NOT NULL,
+                        turnover REAL NOT NULL,
+                        estimated_cost REAL NOT NULL,
+                        order_count INTEGER NOT NULL
+                    );
+                    INSERT INTO decisions VALUES
+                        (1, '2026-09-03', 9998.0, 0.25, 2.0, 4);
+                    """
+                )
+            chart = status._diversified_equity_chart(
+                [
+                    record("2026-09-01", 1.01, 0.99, 1.0),
+                    record("2026-09-02", 1.02, 1.0, 1.01),
+                ],
+                "protocol",
+                "lock",
+                {
+                    "available": True,
+                    "activation_boundary_bar": "2026-09-02",
+                    "initial_equity": 10_000,
+                },
+                str(database_path),
+            )
+
+        self.assertTrue(chart["available"])
+        self.assertEqual(chart["dates"][0], "2026-08-31")
+        self.assertEqual(chart["trend_equity"], [10_000, 10_100, 10_200])
+        self.assertEqual(
+            chart["portfolio_equity"], [10_000, 10_000, 10_100]
+        )
+        self.assertEqual(
+            chart["paper_dates"], ["2026-09-02", "2026-09-03"]
+        )
+        self.assertEqual(chart["paper_equity"], [10_000, 9998.0])
+        self.assertEqual(
+            chart["paper_marker_symbols"], ["diamond-open", "diamond"]
+        )
+        self.assertIn("4 fill virtuali", chart["paper_hover"][1])
+        self.assertFalse(chart["orders_authorized"])
+
+    def test_diversified_equity_chart_rejects_wrong_lineage(self):
+        with self.assertRaisesRegex(ValueError, "lineage"):
+            status._diversified_equity_chart(
+                [
+                    {
+                        "decision_payload": {
+                            "bar_date": "2026-09-01",
+                            "orders_authorized": False,
+                            "paper_orders_authorized": False,
+                            "automatic_promotion": False,
+                            "credentials_used": False,
+                            "lineage": {
+                                "forward_protocol_sha256": "wrong",
+                                "implementation_lock_sha256": "lock",
+                            },
+                            "base": {
+                                "trend_equity": 1,
+                                "cointegration_equity": 1,
+                                "portfolio_equity": 1,
+                            },
+                        }
+                    }
+                ],
+                "protocol",
+                "lock",
+                {"available": False},
+                "/missing/paper.sqlite",
+            )
 
     def test_diversified_forward_summary_rejects_gate_order_authorization(self):
         base = {
@@ -566,6 +742,87 @@ class TestV5ForwardSummary(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "opened locked data"):
                 status._microstructure_v2_summary(root)
+
+    def test_breadth_forward_summary_exposes_only_forward_progress(self):
+        safety = {
+            "orders_authorized": False,
+            "paper_orders_authorized": False,
+            "automatic_promotion": False,
+        }
+        health = {
+            **safety,
+            "status": "healthy",
+            "phase": "forward",
+            "observer_type": "liquid_market_breadth_forward_observer_v2",
+            "mode": "forward_observation_only",
+            "research_only": True,
+            "public_data_only": True,
+            "network_required": False,
+            "credentials_used": False,
+            "gate_evaluation_authorized": False,
+            "pre_cutoff_aggregate_metrics_calculated": False,
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+            "official_market_records": 1,
+            "decision_records": 1,
+            "mature_outcomes": 0,
+            "warmup_records": 61,
+            "current_blockers": ["mature_outcomes", "calendar_cutoff"],
+        }
+        lock = {
+            **safety,
+            "observer_type": "liquid_market_breadth_forward_observer_v2",
+            "research_only": True,
+            "network_capability_required": False,
+            "protocol_sha256": "protocol",
+            "implementation_lock_sha256": "lock",
+        }
+
+        summary = status._breadth_forward_summary(health, lock)
+
+        self.assertTrue(summary["available"])
+        self.assertTrue(summary["healthy"])
+        self.assertEqual(summary["official_records"], 1)
+        self.assertEqual(summary["required_mature_outcomes"], 179)
+        self.assertEqual(summary["blockers"], ["mature_outcomes", "calendar_cutoff"])
+        self.assertFalse(summary["orders_authorized"])
+
+    def test_breadth_forward_summary_rejects_paper_authorization(self):
+        with self.assertRaisesRegex(ValueError, "safety invariant"):
+            status._breadth_forward_summary(
+                {
+                    "orders_authorized": False,
+                    "paper_orders_authorized": True,
+                    "automatic_promotion": False,
+                },
+                {
+                    "orders_authorized": False,
+                    "paper_orders_authorized": False,
+                    "automatic_promotion": False,
+                },
+            )
+
+    def test_cross_venue_summary_is_orderless(self):
+        summary = status._cross_venue_summary(
+            {
+                "orders_authorized": False,
+                "paper_orders_authorized": False,
+                "automatic_promotion": False,
+                "credentials_used": False,
+                "observer_type": "binance_kucoin_cross_venue_books_v1",
+                "mode": "observation_only",
+                "public_data_only": True,
+                "archive_consistent": True,
+                "full_payload_duplicate_journal": False,
+                "status": "healthy",
+                "symbol_count": 18,
+                "archived_records": 42,
+            }
+        )
+
+        self.assertTrue(summary["healthy"])
+        self.assertEqual(summary["symbol_count"], 18)
+        self.assertEqual(summary["archived_records"], 42)
 
 
 if __name__ == "__main__":

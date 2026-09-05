@@ -1,0 +1,34 @@
+version: "3.3"
+
+services:
+  timesfm3-evaluation:
+    image: octobot-timesfm3-research:3.0.1-cpu
+    restart: "no"
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    read_only: true
+    network_mode: none
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /workspace
+    entrypoint:
+      - python
+      - -m
+      - octobot.ai_strategy_lab.timesfm3_evaluator_v1
+    environment:
+      PYTHONPATH: /workspace
+      HF_HUB_OFFLINE: "1"
+      OMP_NUM_THREADS: "12"
+      MKL_NUM_THREADS: "12"
+      TOKENIZERS_PARALLELISM: "false"
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/backtesting/research:/research:ro
+      - ../octobot-local/timesfm3:/output
+      - ../octobot-local/timesfm3/model:/model:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=2g
+    mem_limit: 24g
+    cpus: 12
+    pids_limit: 256

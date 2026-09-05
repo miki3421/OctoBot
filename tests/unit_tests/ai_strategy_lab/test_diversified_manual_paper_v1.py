@@ -1,11 +1,19 @@
 import datetime
+import importlib
 import gzip
 import json
 import pathlib
 import tempfile
 import unittest
 
-from octobot.ai_strategy_lab import diversified_manual_paper_v1 as paper
+MODULE_PATH = pathlib.Path(__file__).resolve().parents[3] / "octobot" / "ai_strategy_lab" / "diversified_manual_paper_v1.py"
+spec = importlib.util.spec_from_file_location(
+    "diversified_manual_paper_v1_testable",
+    MODULE_PATH,
+)
+paper = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(paper)
 
 
 class TestDiversifiedManualPaperV1(unittest.TestCase):
@@ -201,6 +209,146 @@ class TestDiversifiedManualPaperV1(unittest.TestCase):
         expected_after_active = expected_after_activation * (1.0 + 0.1 - 0.002)
         self.assertAlmostEqual(updated["paper_equity"], expected_after_active)
 
+    def test_partial_close_and_inversion_use_rebalance_turnover_only(self):
+        first = self._record("2026-09-03", 1.0064, None)
+        self._write_records([first])
+        paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+        second = self._record(
+            "2026-09-04",
+            1.01,
+            first["journal_record_hash"],
+            {"BTC/USDT:USDT": 0.60},
+            {},
+        )
+        self._write_daily("2026-09-03", {"BTCUSDT": (80.0, 0.0)})
+        self._write_records([first, second])
+        paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        third = self._record(
+            "2026-09-05",
+            1.02,
+            second["journal_record_hash"],
+            {"BTC/USDT:USDT": 0.50},
+            {},
+        )
+        self._write_daily(
+            "2026-09-04",
+            {"BTCUSDT": (80.0, 0.0)},
+        )
+        self._write_daily(
+            "2026-09-05",
+            {"BTCUSDT": (80.0, 0.0)},
+        )
+        self._write_records([first, second, third])
+
+        after_partial = paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        fourth = self._record(
+            "2026-09-06",
+            1.03,
+            third["journal_record_hash"],
+            {"BTC/USDT:USDT": -0.40},
+            {},
+        )
+        self._write_daily(
+            "2026-09-06",
+            {"BTCUSDT": (80.0, 0.0)},
+        )
+        self._write_records([first, second, third, fourth])
+
+        final_health = paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        expected_after_activation = 10_000.0 - 10_000.0 * 0.60 * 0.0008
+        expected_after_partial = expected_after_activation * (1.0 - 0.10 * 0.0008)
+        expected_after_inversion = expected_after_partial * (1.0 - 0.9 * 0.0008)
+
+        self.assertAlmostEqual(after_partial["paper_equity"], expected_after_partial)
+        self.assertAlmostEqual(final_health["paper_equity"], expected_after_inversion)
+        self.assertEqual(final_health["order_event_count"], 3)
+
+    def test_active_mark_to_market_skipped_when_snapshot_missing(self):
+        first = self._record("2026-09-03", 1.0064, None)
+        self._write_records([first])
+        paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+        second = self._record(
+            "2026-09-04",
+            1.01,
+            first["journal_record_hash"],
+            {"BTC": 0.40},
+            {},
+        )
+        self._write_daily("2026-09-03", {"BTC": (100.0, 0.0)})
+        self._write_records([first, second])
+        paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        third = self._record(
+            "2026-09-05",
+            1.02,
+            second["journal_record_hash"],
+            {"BTC": 0.40},
+            {},
+        )
+        self._write_daily("2026-09-04", {"BTC": (100.0, 0.0)})
+        # Intentionally omit 2026-09-05 snapshot: mark-to-market should be deferred.
+        self._write_records([first, second, third])
+
+        missing = paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        expected_after_activation = 10_000.0 - 10_000.0 * 0.40 * 0.0008
+        self.assertFalse(missing["market_data_available"])
+        self.assertIn("daily market snapshot missing: 2026-09-05", missing["market_data_warning"])
+        self.assertAlmostEqual(missing["paper_equity"], expected_after_activation)
+
+    def test_reprocess_does_not_duplicate_orders_on_restart(self):
+        first = self._record("2026-09-03", 1.0064, None, {"BTC": 1.0}, {})
+        self._write_records([first])
+        paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+        second = self._record(
+            "2026-09-04",
+            1.01,
+            first["journal_record_hash"],
+            {"BTC": 1.0},
+            {},
+        )
+        self._write_daily("2026-09-03", {"BTC": (100.0, 0.0)})
+        third = self._record(
+            "2026-09-05",
+            1.02,
+            second["journal_record_hash"],
+            {"BTC": 1.0},
+            {},
+        )
+        self._write_daily("2026-09-04", {"BTC": (100.0, 0.0)})
+        self._write_daily("2026-09-05", {"BTC": (100.0, 0.0)})
+        self._write_records([first, second, third])
+
+        initial = paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+        repeat = paper.run_once(
+            self.journal, self.protocol, self.lock, self.database, self.health
+        )
+
+        self.assertEqual(initial["decision_count"], repeat["decision_count"])
+        self.assertEqual(initial["order_event_count"], repeat["order_event_count"])
+        self.assertEqual(initial["paper_equity"], repeat["paper_equity"])
+
     def test_upstream_paper_authorization_fails_closed(self):
         first = self._record("2026-09-03", 1.0, None)
         first["decision_payload"]["paper_orders_authorized"] = True
@@ -232,3 +380,4 @@ class TestDiversifiedManualPaperV1(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+import importlib
