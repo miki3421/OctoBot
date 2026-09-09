@@ -19,6 +19,28 @@
 $(document).ready(function() {
     const createHistoricalPortfolioChart = (element_id, reference_market, update) => {
         const element = $(`#${element_id}`);
+        if (element.data("v13-paper") === true) {
+            const source = document.getElementById("v13-paper-history");
+            let history = source ? JSON.parse(source.textContent).map((point) => ({
+                time: typeof point.time === "string" ? Date.parse(`${point.time}T00:00:00Z`) / 1000 : point.time,
+                value: point.value
+            })) : [];
+            if (history.length === 1) {
+                history = [
+                    {time: history[0].time - 86400, value: 10000},
+                    history[0]
+                ];
+            }
+            const height = isMobileDisplay()? 250 : isMediumDisplay() ? 450 : undefined;
+            if (history.length) {
+                const currentValue = history[history.length - 1].value;
+                create_line_chart(document.getElementById(element_id), history,
+                    `V13 paper · ${currentValue.toFixed(2)} ${reference_market}`, 'white', update, height);
+                $(`#profitability_graph`).removeClass(hidden_class);
+                $(`#no_profitability_graph`).addClass(hidden_class);
+            }
+            return;
+        }
         const selectedTimeFrame = "1d"; // todo add timeframe selector
         const url = `${element.data("url")}${selectedTimeFrame}`;
         const success = (updated_data, update_url, dom_root_element, msg, status) => {

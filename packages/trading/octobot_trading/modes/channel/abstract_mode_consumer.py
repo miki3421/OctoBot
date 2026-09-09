@@ -76,7 +76,7 @@ class AbstractTradingModeConsumer(modes_channel.ModeChannelConsumer):
             self.previous_call_error_per_symbol[symbol] = None
         except errors.MissingMinimalExchangeTradeVolume as err:
             self.previous_call_error_per_symbol[symbol] = err
-            self.logger.info(self.get_minimal_funds_error(symbol, final_note))
+            self.logger.info(self.get_minimal_funds_error(symbol, final_note, err))
         except errors.UnhandledContractError as err:
             self.previous_call_error_per_symbol[symbol] = err
             self.logger.error(f"Unhandled contract error on {self.exchange_manager.exchange_name}: {err}. "
@@ -100,8 +100,14 @@ class AbstractTradingModeConsumer(modes_channel.ModeChannelConsumer):
             self.previous_call_error_per_symbol[symbol] = err
             self.logger.error(f"Impossible to execution action on a disabled trader: {err}.")
 
-    def get_minimal_funds_error(self, symbol, final_note):
+    def get_minimal_funds_error(self, symbol, final_note, error=None):
         if symbol is None:
+            if error is not None:
+                return (
+                    f"Not enough funds to create new orders after {final_note} evaluation: "
+                    f"{self.exchange_manager.exchange_name} exchange minimal order "
+                    f"volume has not been reached. Details: {error}"
+                )
             return (
                 f"Not enough funds to create new orders after {final_note} evaluation: "
                 f"{self.exchange_manager.exchange_name} exchange minimal order "
@@ -119,10 +125,12 @@ class AbstractTradingModeConsumer(modes_channel.ModeChannelConsumer):
             except Exception as err:
                 self.logger.error(f"Error when getting funds for {symbol}: {err}")
                 funds = {}
+        details = f" Details: {error}" if error is not None else ""
         return (
             f"Not enough funds to create a new {symbol} order after {final_note} evaluation: "
-            f"{self.exchange_manager.exchange_name} exchange minimal order "
-            f"volume has not been reached. Funds: {funds} "
+            f"{self.exchange_manager.exchange_name} exchange minimal order volume has not been reached." +
+            f"{details}"
+            f" Funds: {funds} "
             f"Exchanges requirements: {market_status.get(Ecmsc.LIMITS.value)}."
         )
 

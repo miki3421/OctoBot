@@ -489,6 +489,62 @@ async def test_invalid_create_new_orders(tools):
         orders = await consumer.create_new_orders(symbol, decimal.Decimal(str(-0.6)), trading_enums.EvaluatorStates.LONG.value)
 
 
+async def test_create_new_orders_rejects_minimal_quantity_below_exchange_limits(tools):
+    exchange_manager, trader, symbol, consumer, last_btc_price = tools
+
+    tiny_volume = decimal.Decimal("0.0000000000000001")
+
+    with pytest.raises(trading_errors.MissingMinimalExchangeTradeVolume) as err:
+        await consumer.create_new_orders(
+            symbol,
+            decimal.Decimal(str(-0.6)),
+            trading_enums.EvaluatorStates.LONG.value,
+            data={consumer.VOLUME_KEY: tiny_volume},
+        )
+    assert "minimum" in str(err.value).lower() or "min_amount" in str(err.value).lower() or "min_cost" in str(err.value).lower()
+
+
+async def test_computed_quantity_is_raised_above_strict_exchange_minimum(tools):
+    exchange_manager, _, symbol, consumer, _ = tools
+    symbol_market = exchange_manager.exchange.get_market_status(symbol, with_fixer=False)
+    min_amount = decimal.Decimal(str(symbol_market["limits"]["amount"]["min"]))
+    funded_maximum = min_amount * 10
+
+    adjusted = consumer._raise_to_exchange_minimum_when_funded(
+        symbol, symbol_market, min_amount * decimal.Decimal("1.5"), funded_maximum
+    )
+    adapted_orders = list(
+        trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
+            adjusted, decimal.Decimal("7009.19"), symbol_market
+        )
+    )
+
+    assert adjusted == min_amount * 2
+    assert adjusted > min_amount
+    assert adapted_orders
+    assert adapted_orders[0][0] > min_amount
+
+
+async def test_futures_long_creates_order_when_risk_quantity_rounds_to_minimum(future_tools):
+    exchange_manager, _, symbol, consumer, _ = future_tools
+    symbol_market = exchange_manager.exchange.get_market_status(symbol, with_fixer=False)
+    min_amount = decimal.Decimal(str(symbol_market["limits"]["amount"]["min"]))
+
+    with mock.patch.object(
+        consumer,
+        "_get_limit_quantity_from_risk",
+        mock.AsyncMock(return_value=min_amount * decimal.Decimal("1.5")),
+    ):
+        orders = await consumer.create_new_orders(
+            symbol,
+            decimal.Decimal("-0.55"),
+            trading_enums.EvaluatorStates.LONG.value,
+        )
+
+    assert len(orders) == 1
+    assert orders[0].origin_quantity == min_amount * 2
+
+
 async def test_create_new_orders_with_dusts_included(tools):
     exchange_manager, trader, symbol, consumer, last_btc_price = tools
 

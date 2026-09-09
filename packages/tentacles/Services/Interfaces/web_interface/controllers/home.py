@@ -15,6 +15,10 @@
 #  License along with this library.
 import time
 import flask
+import json
+import gzip
+import pathlib
+import sqlite3
 
 import octobot_commons.authentication as authentication
 import octobot_services.interfaces.util as interfaces_util
@@ -72,6 +76,47 @@ def register(blueprint):
             display_ph_launch = (
                 models.get_display_announcement(web_constants.PRODUCT_HUNT_ANNOUNCEMENT) or is_launching
             ) and not time.time() > past_launch_time
+            v13_paper = None
+            v13_symbol_charts = []
+            if models.get_current_profile().profile_id == "local_ai_trading":
+                try:
+                    health = json.loads(pathlib.Path("/v13-paper/health.json").read_text())
+                    with sqlite3.connect("/v13-paper/v13.sqlite") as connection:
+                        history = [
+                            {"time": row[0], "value": row[1]}
+                            for row in connection.execute(
+                                "SELECT bar, equity FROM equity_history ORDER BY bar"
+                            )
+                        ]
+                        fill_rows = list(connection.execute(
+                            "SELECT bar, symbol, action, notional, fee FROM orders ORDER BY bar, id"
+                        ))
+                    fills_by_symbol = {}
+                    for fill in fill_rows:
+                        fill_symbol = str(fill[1]).split(":", 1)[0].replace("/", "")
+                        fills_by_symbol.setdefault(fill_symbol, []).append({
+                            "time": fill[0], "action": fill[2],
+                            "notional": fill[3], "fee": fill[4],
+                        })
+                    v13_paper = {**health, "history": history}
+                    daily_files = sorted(pathlib.Path("/diversified-forward/daily").glob("*.json.gz"))[-30:]
+                    for position in health.get("positions", []):
+                        symbol = position["symbol"]
+                        points = []
+                        for daily_file in daily_files:
+                            with gzip.open(daily_file, "rt", encoding="utf-8") as stream:
+                                symbols = json.load(stream).get("symbols", {})
+                            market = symbols.get(symbol)
+                            if market and isinstance(market.get("close"), (int, float)):
+                                points.append({"time": daily_file.stem.replace(".json", ""), "value": market["close"]})
+                        v13_symbol_charts.append({
+                            "symbol": symbol, "points": points,
+                            "pnl": position.get("unrealized_pnl", 0),
+                            "entry_price": position.get("entry_price"),
+                            "fills": fills_by_symbol.get(symbol, []),
+                        })
+                except (OSError, ValueError, sqlite3.Error):
+                    v13_paper = None
             return flask.render_template(
                 'index.html',
                 has_pnl_history=bool(pnl_symbols),
@@ -88,6 +133,8 @@ def register(blueprint):
                 form_to_display=form_to_display,
                 display_feedback_form=display_feedback_form,
                 sandbox_exchanges=sandbox_exchanges,
+                v13_paper=v13_paper,
+                v13_symbol_charts=v13_symbol_charts,
                 display_ph_launch=display_ph_launch,
                 is_launching=is_launching,
                 latest_release_url=f"{octobot_commons.constants.GITHUB_BASE_URL}/"

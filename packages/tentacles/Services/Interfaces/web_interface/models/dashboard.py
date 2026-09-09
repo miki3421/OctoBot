@@ -43,6 +43,19 @@ import octobot.ai_strategy_lab.perfect_map_forecaster_v2 as perfect_map_forecast
 import octobot.ai_strategy_lab.price_path_forecaster_v1 as price_path_forecaster_v1
 
 GET_SYMBOL_SEPARATOR = "|"
+
+
+def _v13_paper_events():
+    try:
+        with sqlite3.connect("/v13-paper/v13.sqlite") as connection:
+            return [
+                {"time": row[0], "symbol": row[1], "action": row[2], "notional": row[3], "fee": row[4]}
+                for row in connection.execute(
+                    "SELECT bar, symbol, action, notional, fee FROM orders ORDER BY bar, id"
+                )
+            ]
+    except (OSError, sqlite3.Error):
+        return []
 DISPLAY_CANCELLED_TRADES = False
 PERCENTAGE_RESEARCH_5M_COLLECTOR = pathlib.Path(
     os.environ.get(
@@ -256,6 +269,7 @@ def _create_candles_data(exchange_manager, symbol, time_frame, historical_candle
         simulated_key: trading_api.is_trader_simulated(exchange_manager),
         symbol_key: symbol,
         exchange_id_key: trading_api.get_exchange_manager_id(exchange_manager),
+        "v13_paper_events": _v13_paper_events(),
     }
     try:
         data = historical_candles

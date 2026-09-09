@@ -42,6 +42,7 @@ import octobot_trading.modes.script_keywords as script_keywords
 import octobot_trading.enums as trading_enums
 import octobot_trading.personal_data as trading_personal_data
 import octobot_trading.personal_data.orders.orders_storage_operations as orders_storage_operations
+from octobot_trading.enums import ExchangeConstantsMarketStatusColumns as Ecmsc
 from tentacles.Evaluator.Strategies.ai_strategies_evaluator.guarded_llm import (
     SQLiteDecisionJournal,
 )
@@ -1303,6 +1304,67 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
             for quantity, price in zip(quantities, prices)
         ]
 
+    def _validate_minimal_order_constraints(self, symbol, symbol_market, quantity, order_price, state):
+        """
+        Fail fast when computed quantity/cost is below exchange minimum requirements.
+        """
+        if quantity is None:
+            raise trading_errors.MissingMinimalExchangeTradeVolume(
+                f"{symbol} {state} order rejected: quantity was not computed."
+            )
+        if quantity <= trading_constants.ZERO:
+            raise trading_errors.MissingMinimalExchangeTradeVolume(
+                f"{symbol} {state} order rejected for computed quantity {quantity} "
+                f"and price {order_price}: quantity must be greater than 0."
+            )
+        symbol_limits = symbol_market.get(Ecmsc.LIMITS.value)
+        if symbol_limits is None:
+            return
+        limit_amount = symbol_limits.get(Ecmsc.LIMITS_AMOUNT.value, {})
+        if trading_personal_data.is_valid(limit_amount, Ecmsc.LIMITS_AMOUNT_MIN.value, zero_valid=True):
+            min_amount = decimal.Decimal(str(limit_amount[Ecmsc.LIMITS_AMOUNT_MIN.value]))
+            if quantity < min_amount:
+                raise trading_errors.MissingMinimalExchangeTradeVolume(
+                    f"{symbol} {state} order rejected: quantity {quantity} < min_amount {min_amount}."
+                )
+        limit_cost = symbol_limits.get(Ecmsc.LIMITS_COST.value, {})
+        if (
+            order_price > trading_constants.ZERO
+            and trading_personal_data.is_valid(limit_cost, Ecmsc.LIMITS_COST_MIN.value, zero_valid=True)
+        ):
+            min_cost = decimal.Decimal(str(limit_cost[Ecmsc.LIMITS_COST_MIN.value]))
+            order_cost = quantity * order_price
+            if order_cost < min_cost:
+                raise trading_errors.MissingMinimalExchangeTradeVolume(
+                    f"{symbol} {state} order rejected: notional {order_cost} < min_cost {min_cost}."
+                )
+
+    def _raise_to_exchange_minimum_when_funded(self, symbol, symbol_market, quantity, max_quantity):
+        """Prevent risk attenuation from producing an untradable paper order."""
+        if quantity is None or max_quantity is None:
+            return quantity
+        min_amount = (symbol_market.get(Ecmsc.LIMITS.value, {})
+                      .get(Ecmsc.LIMITS_AMOUNT.value, {})
+                      .get(Ecmsc.LIMITS_AMOUNT_MIN.value))
+        if min_amount is None:
+            return quantity
+        min_amount = decimal.Decimal(str(min_amount))
+        # OctoBot's order adapter treats the amount limit as a strict lower
+        # bound.  One exact minimum can therefore disappear after precision or
+        # fee adaptation.  Use a two-minimum safety target when funds permit.
+        safe_minimum = min_amount * decimal.Decimal("2")
+        target = safe_minimum if safe_minimum <= max_quantity else min_amount
+        # Values between one and two minimum units can be rounded back to the
+        # strict exchange minimum by the market precision adapter.  Lift the
+        # whole unsafe interval, not only values already <= the reported min.
+        if quantity < safe_minimum and target <= max_quantity:
+            self.logger.info(
+                f"{symbol}: raising computed quantity {quantity} to safe exchange minimum {target} "
+                f"(reported minimum {min_amount}, maximum funded {max_quantity})"
+            )
+            return target
+        return quantity
+
     async def _create_order(
         self, current_order,
         use_take_profit_orders, take_profits_details: list[OrderDetails],
@@ -1563,6 +1625,9 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                 quantity = trading_personal_data.decimal_add_dusts_to_quantity_if_necessary(quantity, price,
                                                                                             symbol_market,
                                                                                             max_sell_size)
+                if user_volume == 0:
+                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_sell_size)
+                self._validate_minimal_order_constraints(symbol, symbol_market, quantity, price, state)
 
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                         quantity,
@@ -1602,6 +1667,9 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                 limit_price = user_stop_price if create_stop_only else trading_personal_data.decimal_adapt_price(
                     symbol_market, user_price or (price * self._get_limit_price_from_risk(final_note))
                 )
+                if user_volume == 0:
+                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_sell_size)
+                self._validate_minimal_order_constraints(symbol, symbol_market, quantity, limit_price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
                     limit_price,
@@ -1690,6 +1758,9 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                     self.exchange_manager, symbol, trading_enums.TraderOrderType.BUY_LIMIT, quantity,
                     limit_price, trading_enums.TradeOrderSide.BUY
                 )
+                if user_volume == 0:
+                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_buy_size)
+                self._validate_minimal_order_constraints(symbol, symbol_market, quantity, limit_price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
                     limit_price,
@@ -1773,6 +1844,9 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                     self.exchange_manager, symbol, trading_enums.TraderOrderType.BUY_MARKET, quantity,
                     price, trading_enums.TradeOrderSide.BUY
                 )
+                if user_volume == 0:
+                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_buy_size)
+                self._validate_minimal_order_constraints(symbol, symbol_market, quantity, price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
                     price,

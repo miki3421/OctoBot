@@ -57,6 +57,7 @@ DEFAULT_DIVERSIFIED_FORWARD_DECISIONS_PATH = (
 )
 DEFAULT_DIVERSIFIED_PAPER_HEALTH_PATH = "/diversified-paper/health.json"
 DEFAULT_DIVERSIFIED_PAPER_DB_PATH = "/diversified-paper/paper.sqlite"
+DEFAULT_V13_PAPER_HEALTH_PATH = "/v13-paper/health.json"
 DEFAULT_DIVERSIFIED_FORWARD_PROTOCOL_PATH = (
     "/octobot/backtesting/research/diversified-trend-cointegration-v1/"
     "forward-protocol-v1.json"
@@ -1043,6 +1044,32 @@ def _diversified_paper_summary(health: dict) -> dict:
     }
 
 
+def _v13_paper_summary(health: dict) -> dict:
+    if not health:
+        return {"available": False}
+    required = {
+        "mode": "trend_v13_paper_v1",
+        "status": "healthy",
+        "paper_only": True,
+        "orders_authorized": False,
+        "paper_orders_authorized": True,
+        "credentials_used": False,
+        "network_required": False,
+    }
+    if any(health.get(key) != value for key, value in required.items()):
+        raise ValueError("V13 paper invariant differs")
+    return {
+        "available": True,
+        "equity": float(health["equity"]),
+        "pnl": float(health["pnl"]),
+        "order_count": int(health.get("order_count", 0)),
+        "position_count": int(health.get("position_count", 0)),
+        "last_bar": health.get("last_bar"),
+        "positions": health.get("positions", []),
+        "last_success_at": health.get("last_success_at"),
+    }
+
+
 def _microstructure_summary(root: pathlib.Path) -> dict:
     protocol = _read_json(root / "protocol.json")
     experiment_root = root / "experiments"
@@ -1998,6 +2025,15 @@ def register(blueprint):
             errors.append(f"diversified manual paper: {error}")
 
         try:
+            v13_paper = _v13_paper_summary(load_json(
+                pathlib.Path(os.getenv("V13_PAPER_HEALTH_PATH", DEFAULT_V13_PAPER_HEALTH_PATH)),
+                "V13 paper",
+            ))
+        except (KeyError, TypeError, ValueError) as error:
+            v13_paper = {"available": False}
+            errors.append(f"V13 paper: {error}")
+
+        try:
             diversified_chart = _diversified_equity_chart(
                 diversified_decisions,
                 diversified_protocol.get("protocol_sha256"),
@@ -2061,6 +2097,7 @@ def register(blueprint):
             carry_gatekeeper=carry_gatekeeper,
             diversified_forward=diversified_forward,
             diversified_paper=diversified_paper,
+            v13_paper=v13_paper,
             diversified_chart=diversified_chart,
             breadth_forward=breadth_forward,
             data_quality=data_quality,

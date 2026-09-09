@@ -68,25 +68,25 @@
         </div>
         {% endif %}
         {{ m_critical_notifications.critical_notifications_alert(critical_notifications) }}
-        <div class="card" id="profitability-display">
+        <div class="card" id="profitability-display" data-v13-paper="{{ 'true' if v13_paper else 'false' }}">
             <div class="card-header">
                 <h4>
                     <div class="row">
                         <div class="d-none d-md-flex col-md-3">
-                            Portfolio value
+                            {{ "V13 paper equity" if v13_paper else "Portfolio value" }}
                         </div>
                         <div class="col-10 col-md-6 text-md-center">
-                            <span class="d-none align-middle"
+                            <span class="{{ '' if v13_paper else 'd-none' }} align-middle"
                                   id="flat-profitability">
                                 <span id="flat-profitability-text">
-                                </span>
+                                {% if v13_paper %}{{ "%+.2f"|format(v13_paper.pnl) }}{% endif %}</span>
                                 {{reference_unit}}
                             </span>
-                            <span class="badge d-none"
+                            <span class="badge {{ 'badge-success' if v13_paper and v13_paper.pnl >= 0 else 'badge-danger' if v13_paper else 'd-none' }}"
                                   id="profitability-badge"
                                   data-toggle="tooltip"
                                   title="Portfolio total value change since the first valuation. You can reset it from the portfolio tab."
-                            ><span id="profitability-value"></span>%</span>
+                            ><span id="profitability-value">{% if v13_paper %}{{ "%+.2f"|format((v13_paper.equity / 10000 - 1) * 100) }}{% endif %}</span>%</span>
                         </div>
                         <div class="col-2 offset-md-1 text-right px-0">
                             <a class="blue-text"
@@ -110,8 +110,10 @@
                     <div id="portfolio_historyChart"
                          data-url="{{url_for('api.historical_portfolio_value', currency=reference_unit, time_frame='')}}"
                          data-reference-market="{{reference_unit}}"
+                         data-v13-paper="{{ 'true' if v13_paper else 'false' }}"
                          class="w-100">
                     </div>
+                    {% if v13_paper %}<script type="application/json" id="v13-paper-history">{{ v13_paper.history | tojson }}</script>{% endif %}
                 </div>
             </div>
             <div class="card-body card-text d-none" id="no_profitability_graph">
@@ -119,6 +121,16 @@
             </div>
         </div>
         <br>
+        {% if v13_symbol_charts %}
+        <div class="card mb-3">
+            <div class="card-header"><h4 class="mb-0">V13 paper · prezzi e fill per mercato</h4></div>
+            <div class="card-body"><div class="row">
+            {% for chart in v13_symbol_charts %}
+                <div class="col-12 col-lg-6 mb-3"><div class="card h-100"><div class="card-header d-flex justify-content-between"><strong>{{ chart.symbol }}</strong><span class="text-{{ 'success' if chart.pnl >= 0 else 'danger' }}">{{ "%+.2f USDT"|format(chart.pnl) }}</span></div><div id="v13-symbol-chart-{{ loop.index }}" style="height:280px"></div></div></div>
+            {% endfor %}
+            </div></div>
+        </div>
+        {% endif %}
         <div class="card">
             <div class="card-header d-flex justify-content-between" id="all-watched-markets">
                 <div>
@@ -242,4 +254,18 @@
     <script src="{{ url_for('static', filename='js/components/dashboard.js', u=LAST_UPDATED_STATIC_FILES) }}"></script>
     <script src="{{ url_for('static', filename='js/components/dashboard_tutorial_starter.js', u=LAST_UPDATED_STATIC_FILES) }}"></script>
     <script src="{{ url_for('static', filename='js/components/tentacles_configuration.js', u=LAST_UPDATED_STATIC_FILES) }}"></script>
+    {% if v13_symbol_charts %}<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const charts = {{ v13_symbol_charts | tojson }};
+        charts.forEach((chart, index) => {
+            const points = chart.points.map((point) => ({time: Date.parse(`${point.time}T00:00:00Z`) / 1000, value: point.value}));
+            const closeByDate = Object.fromEntries(chart.points.map((point) => [point.time, point.value]));
+            const fills = chart.fills.filter((fill) => closeByDate[fill.time] !== undefined);
+            Plotly.newPlot(`v13-symbol-chart-${index + 1}`, [
+                {x: points.map((p) => new Date(p.time * 1000)), y: points.map((p) => p.value), type: "scatter", mode: "lines", name: "Prezzo giornaliero", line: {color: "#29b6f6", width: 2}},
+                {x: fills.map((f) => `${f.time}T00:00:00Z`), y: fills.map((f) => closeByDate[f.time]), type: "scatter", mode: "markers", name: "Fill V13", text: fills.map((f) => `${f.action} · ${Number(f.notional).toFixed(2)} USDT<br>Costo ${Number(f.fee).toFixed(2)} USDT`), hoverinfo: "text", marker: {size: 11, symbol: fills.map((f) => f.action === "BUY" ? "triangle-up" : "triangle-down"), color: fills.map((f) => f.action === "BUY" ? "#00c875" : "#ff5252"), line: {color: "#ffffff", width: 1}}}
+            ], {title: `${chart.symbol} · prezzo giornaliero`, height: 280, margin: {l: 45, r: 12, t: 45, b: 35}, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: {color: "white"}, hoverlabel: {bgcolor: "#172b42", bordercolor: "#4f6b87", font: {color: "#f4f7fb"}}, shapes: chart.entry_price ? [{type: "line", xref: "paper", x0: 0, x1: 1, y0: chart.entry_price, y1: chart.entry_price, line: {color: "#ffb74d", width: 1, dash: "dash"}}] : []}, {responsive: true, displaylogo: false});
+        });
+    });
+    </script>{% endif %}
 {% endblock additional_scripts %}

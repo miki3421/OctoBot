@@ -59,6 +59,9 @@ $(document).ready(function () {
     }
 
     const displayProfitability = (profitabilityValue, flatValue) => {
+        if ($("#profitability-display").data("v13-paper") === true) {
+            return;
+        }
         const displayedValue = parseFloat(profitabilityValue.toFixed(2));
         const badge = $("#profitability-badge");
         const flatValueSpan = $("#flat-profitability");

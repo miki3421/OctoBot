@@ -167,8 +167,8 @@ class RemoteTradingSignalsModeConsumer(trading_modes.AbstractTradingModeConsumer
         """
         try:
             await self.handle_signal(symbol, data)
-        except errors.MissingMinimalExchangeTradeVolume:
-            self.logger.info(self.get_minimal_funds_error(symbol, final_note))
+        except errors.MissingMinimalExchangeTradeVolume as err:
+            self.logger.info(self.get_minimal_funds_error(symbol, final_note, err))
         except errors.TraderDisabledError as err:
             self.logger.error(f"Impossible to execution action on a disabled trader: {err}.")
         except Exception as e:

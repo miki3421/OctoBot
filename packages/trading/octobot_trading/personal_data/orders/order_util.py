@@ -962,4 +962,3 @@ def get_symbols_from_orders(orders: exchange_data_import.OrdersDetails) -> list[
         if order_symbol:
             symbols.append(order_symbol)
     return list_util.deduplicate(symbols)
-
