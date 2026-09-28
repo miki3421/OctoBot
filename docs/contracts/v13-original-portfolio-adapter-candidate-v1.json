@@ -1,0 +1,347 @@
+{
+  "schema_version": 1,
+  "document_kind": "candidate_contract_not_runtime_configuration",
+  "contract_id": "v13-original-portfolio-adapter-candidate-v1",
+  "status": "DRAFT",
+  "active": false,
+  "account": "v13-paper-v2",
+  "portfolio_id": "trend-v13-original-standalone",
+  "scientific_lineage_ref": "8990ff6e4884d56f9872f7fcf4712359da7416cacfbbf3d0af9611a10b9a3235",
+  "source_identity": {
+    "forward_protocol_file_sha256": "4b46004584f352230339afccfc8c2c950d72ddbd5b126a82fe159483830cb616",
+    "forward_protocol_content_sha256": "c2d1abbc716a4775d6cdac15774613f657009adab55984189bf2f2b1dc42e010",
+    "implementation_lock_file_sha256": "81b1a954c106e0ad8011a2686312e340acc0f6dc2f2477bbab786306fa52a0f2",
+    "implementation_lock_content_sha256": "9b3bda6f2771d55aa1d66b1c9148eec3feb222d50f70d7d47678eba7e7279de4",
+    "selected_model_file_sha256": "c191d1122d1c9031354aa55a0b5cb2fbf242efe7484e6265ca11681dbfb5fac2",
+    "selected_model_content_sha256": "f0fd009e4c401a2f907888439209f3513386941e08b9f27b310925aab77fc76b",
+    "trend_configuration": "risk_budgeted_bear_regime_v13",
+    "trend_source_sha256": "ec07dc6c6fb74a9763a3251cb4b9c5753b3625566f8fb2d63fa41361c43a57f9",
+    "frozen_source_files": {
+      "category_protocol": {
+        "bytes": 14794,
+        "repo_relative_path": "octobot/ai_strategy_lab/category_momentum_v1.py",
+        "sha256": "d0fc188e6b82d25d987799466290df8dc88599510cd0b90fd66c1961fb23d6bd"
+      },
+      "cointegration_common": {
+        "bytes": 38741,
+        "repo_relative_path": "octobot/ai_strategy_lab/cointegration_pairs_v1.py",
+        "sha256": "c4475c41c70c0b7adae598dd7e622c7f61928e7de35fd0c817351cd7a6c829dc"
+      },
+      "cointegration_protocol": {
+        "bytes": 11925,
+        "repo_relative_path": "octobot/ai_strategy_lab/cointegration_pairs_v2.py",
+        "sha256": "ee629cec75dc25f7ee0b6ed1ccc76d25c54d323d6e9faf03883dbbad91b49e1c"
+      },
+      "cointegration_research": {
+        "bytes": 40969,
+        "repo_relative_path": "octobot/ai_strategy_lab/cointegration_pairs_v2_research.py",
+        "sha256": "c685456cfe42bd4273ab9daeaab544dc6a3852beaf4fae69f31024f0fd63098d"
+      },
+      "dataset_loader": {
+        "bytes": 28617,
+        "repo_relative_path": "octobot/ai_strategy_lab/dataset.py",
+        "sha256": "86c6ff2e6481c3736e54799e57373b7b0cf572a301d69ad9357ec138ccf14766"
+      },
+      "docker_entrypoint": {
+        "bytes": 2392,
+        "repo_relative_path": "docker/diversified-forward-observer-entrypoint.sh",
+        "sha256": "1109d8cde067b6c544e06503991458c473d9c3993177861eb6d1cd39b8ab20cd"
+      },
+      "forward_protocol": {
+        "bytes": 12521,
+        "repo_relative_path": "octobot/ai_strategy_lab/diversified_trend_cointegration_forward_v1.py",
+        "sha256": "12b0d570da7f0488fa01f7f9659736e3086f7a039e4420a0731e4041fba204be"
+      },
+      "forward_protocol_tests": {
+        "bytes": 2136,
+        "repo_relative_path": "tests/unit_tests/ai_strategy_lab/test_diversified_trend_cointegration_forward_v1.py",
+        "sha256": "6c74501bc9fbd25c4007b0d8c55bb25f90173dab8684226d06a347fa38a27b63"
+      },
+      "forward_runner": {
+        "bytes": 79626,
+        "repo_relative_path": "octobot/ai_strategy_lab/diversified_trend_cointegration_forward_runner.py",
+        "sha256": "63f9f58609a9e227cdd70455d91839634d6aef7d03aac14803bec506178632eb"
+      },
+      "forward_runner_tests": {
+        "bytes": 10215,
+        "repo_relative_path": "tests/unit_tests/ai_strategy_lab/test_diversified_trend_cointegration_forward_runner.py",
+        "sha256": "037b7bcb6cabdb76bd0ec8eab1e2f7df6293a434f2ea11b05d2fae5140026c16"
+      },
+      "funding_loader": {
+        "bytes": 6947,
+        "repo_relative_path": "octobot/ai_strategy_lab/funding.py",
+        "sha256": "8a143910226e1ae8dc3c218e012094eb2acedf84f48a9129d2d2eb77aff94e32"
+      },
+      "parent_protocol": {
+        "bytes": 11074,
+        "repo_relative_path": "octobot/ai_strategy_lab/diversified_trend_cointegration_v1.py",
+        "sha256": "84a7d9af1336735ec17552c3bfe9829997dac24593f9286d1d0312884660b931"
+      },
+      "parent_trainer": {
+        "bytes": 32774,
+        "repo_relative_path": "octobot/ai_strategy_lab/diversified_trend_cointegration_v1_research.py",
+        "sha256": "7d66d3782f08bb9639ed742344fec1ce44411c3ef718acff56f75e330baa8adc"
+      },
+      "public_source": {
+        "bytes": 69655,
+        "repo_relative_path": "octobot/ai_strategy_lab/category_momentum_v1_research.py",
+        "sha256": "4f6190db208b481f9cf240d2e8bf1ac3894a2099eda6e4a42ca54c6f3cbe9279"
+      },
+      "trend_component": {
+        "bytes": 36933,
+        "repo_relative_path": "octobot/ai_strategy_lab/trend.py",
+        "sha256": "ec07dc6c6fb74a9763a3251cb4b9c5753b3625566f8fb2d63fa41361c43a57f9"
+      },
+      "trend_indicators": {
+        "bytes": 8120,
+        "repo_relative_path": "octobot/ai_strategy_lab/indicators.py",
+        "sha256": "c12ca0f4bd8ad65d8fe5dcf93cf816bd25ffaa5baed409f8d123593f16d63745"
+      }
+    },
+    "training_manifest_file_sha256": "379cf96b6b69da12e0cb9e6e10f2197f12f32a96387cafcb464a186d65959b72",
+    "trend_universe_content_sha256": "424fa15f7c7e4d91873e735d13a041e0f27d5ae29f71df9d1e165e6173eaf5ac"
+  },
+  "source_selector": "decision_payload.research_targets.trend_component_weights",
+  "excluded_source_selectors": [
+    "trend_effective_portfolio_weights",
+    "cointegration_component_weights",
+    "base.trend_equity",
+    "base.trend_daily_return"
+  ],
+  "universe": [
+    "AAVEUSDT",
+    "ADAUSDT",
+    "ATOMUSDT",
+    "AVAXUSDT",
+    "BCHUSDT",
+    "BTCUSDT",
+    "DOGEUSDT",
+    "DOTUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "NEARUSDT",
+    "SOLUSDT",
+    "UNIUSDT",
+    "XLMUSDT",
+    "XRPUSDT",
+    "ZECUSDT"
+  ],
+  "universe_hash": "15ef730f7484b7bd0563399015725b8e018f251660e9baef98ce88bb33238108",
+  "symbol_mapping_candidates": [
+    {
+      "symbol": "AAVEUSDT",
+      "research_symbol": "AAVE/USDT:USDT",
+      "exchange_symbol": "AAVEUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ADAUSDT",
+      "research_symbol": "ADA/USDT:USDT",
+      "exchange_symbol": "ADAUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "research_symbol": "ATOM/USDT:USDT",
+      "exchange_symbol": "ATOMUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "research_symbol": "AVAX/USDT:USDT",
+      "exchange_symbol": "AVAXUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "BCHUSDT",
+      "research_symbol": "BCH/USDT:USDT",
+      "exchange_symbol": "BCHUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "BTCUSDT",
+      "research_symbol": "BTC/USDT:USDT",
+      "exchange_symbol": "XBTUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "research_symbol": "DOGE/USDT:USDT",
+      "exchange_symbol": "DOGEUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "DOTUSDT",
+      "research_symbol": "DOT/USDT:USDT",
+      "exchange_symbol": "DOTUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "research_symbol": "ETH/USDT:USDT",
+      "exchange_symbol": "ETHUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "HBARUSDT",
+      "research_symbol": "HBAR/USDT:USDT",
+      "exchange_symbol": "HBARUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "LINKUSDT",
+      "research_symbol": "LINK/USDT:USDT",
+      "exchange_symbol": "LINKUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "LTCUSDT",
+      "research_symbol": "LTC/USDT:USDT",
+      "exchange_symbol": "LTCUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "NEARUSDT",
+      "research_symbol": "NEAR/USDT:USDT",
+      "exchange_symbol": "NEARUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "SOLUSDT",
+      "research_symbol": "SOL/USDT:USDT",
+      "exchange_symbol": "SOLUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "UNIUSDT",
+      "research_symbol": "UNI/USDT:USDT",
+      "exchange_symbol": "UNIUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "XLMUSDT",
+      "research_symbol": "XLM/USDT:USDT",
+      "exchange_symbol": "XLMUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "XRPUSDT",
+      "research_symbol": "XRP/USDT:USDT",
+      "exchange_symbol": "XRPUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ZECUSDT",
+      "research_symbol": "ZEC/USDT:USDT",
+      "exchange_symbol": "ZECUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    }
+  ],
+  "scientific_validity": "NOT_PROMOTED",
+  "operational_binding": {
+    "status": "UNAPPROVED",
+    "binding_version": "v13-original-portfolio-binding-candidate-v1",
+    "binding_hash": null,
+    "effective_not_before": null,
+    "baseline_source_record_hash": null,
+    "baseline_bar_date": null,
+    "approved_owner_decision_ref": null,
+    "admissibility_mode": null,
+    "pinned_adapter_sha256": null,
+    "pinned_verifier_sha256": null,
+    "pinned_issuer_sha256": null,
+    "pinned_executor_sha256": null,
+    "verifier_identity": null,
+    "account_epoch": null
+  },
+  "proposal": {
+    "schema_ref": "v13-original-portfolio-proposal.schema.json",
+    "hash_domain": "v13-original-portfolio-proposal-v1",
+    "target_semantics": "complete absolute target weights; 18 symbols; missing symbol is DENY",
+    "number_encoding": "finite binary64 values as canonical shortest round-trip decimal strings; positive zero encoded as 0",
+    "noop": "exact target vector unchanged: marks/funding only, no new claim/fill",
+    "availability": "max actual source publication, dependency response receipt and verified derivation receipt; no legacy recorded_at shortcut",
+    "account_epoch": "must match explicitly approved migration receipt; unconfigured until migration"
+  },
+  "approval": {
+    "status": "NOT_IMPLEMENTED",
+    "hash_domain": "v13-original-portfolio-approval-v1",
+    "maximum_ttl_seconds_proposed": 1800,
+    "unique_keys": [
+      [
+        "account",
+        "account_epoch",
+        "execution_binding_ref",
+        "source_record_hash"
+      ],
+      [
+        "account",
+        "account_epoch",
+        "execution_binding_ref",
+        "source_bar_date"
+      ],
+      [
+        "approval_id"
+      ]
+    ],
+    "full_vector_required": true,
+    "partial_retry": false,
+    "consumption": "durable executor reservation before any economic transaction, keyed by proposal/source-slot and account epoch; never rearmed on crash"
+  },
+  "ownership": {
+    "approvals": "issuer writer; executor read-only",
+    "execution_claims_and_ledger": "executor sole writer",
+    "proposal_inbox": "strategy writer; issuer/executor read-only",
+    "derivation_receipts": "isolated verifier writer; issuer read-only; strategy no writer",
+    "p004_audit": "executor writer under durable external lease",
+    "filesystem_table_isolation": false,
+    "approvals_sqlite_mode": "DELETE journal, synchronous FULL; avoid WAL reader shared-memory write requirements across issuer/executor"
+  },
+  "operational_risk_policy": {
+    "version": "v13-original-paper-risk-policy-candidate-v1",
+    "status": "UNAPPROVED",
+    "per_asset_exposure": 0.315,
+    "gross_exposure": 0.9,
+    "daily_loss": null,
+    "drawdown": null,
+    "order_frequency": null,
+    "cooldown": null
+  },
+  "contract_minimums": {
+    "min_quantity": null,
+    "min_notional": null,
+    "unknown_encoding": "null means UNKNOWN, never zero",
+    "synthetic_allowed_scope": "architecture/security tests only"
+  },
+  "blocked_reason_codes": [
+    "binding_unapproved",
+    "issuance_boundary_unconfigured",
+    "historical_research_not_issuable",
+    "derivation_receipt_missing",
+    "portfolio_incomplete",
+    "portfolio_mismatch",
+    "unexpected_held_symbol",
+    "source_not_available",
+    "source_replay",
+    "source_slot_conflict",
+    "approval_mismatch",
+    "approval_expired",
+    "approval_consumed",
+    "risk_policy_incomplete",
+    "missing_market_metadata",
+    "account_epoch_mismatch",
+    "authorization_storage_failure"
+  ],
+  "requires": [
+    "approved future issuance boundary",
+    "approved admissibility contract",
+    "approved risk policy",
+    "immutable component identity and dependencies",
+    "independent verification receipt",
+    "candidate multiasset market provenance adapter",
+    "candidate account migration/epoch and funding review",
+    "independent release review and explicit operational batch authorization"
+  ]
+}
