@@ -1,0 +1,8 @@
+[Unit]
+Description=Trading AI Lab notification check every five minutes
+[Timer]
+OnCalendar=*-*-* *:1/5:00
+Persistent=false
+Unit=trading-lab-mail-alerts.service
+[Install]
+WantedBy=timers.target
