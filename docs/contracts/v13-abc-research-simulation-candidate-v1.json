@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "contract_id": "v13-abc-research-simulation-candidate-v1",
+  "status": "DRAFT_NOT_RUNTIME_CONFIGURATION",
+  "active": false,
+  "orders_authorized": false,
+  "paper_orders_authorized": false,
+  "scope": "RESEARCH_SIMULATION_ONLY",
+  "existing_account_unchanged": true,
+  "start_utc": null,
+  "arms": {
+    "A": {
+      "initial_equity_usdt": 10000,
+      "initial_positions": "FLAT",
+      "universe_size": 18
+    },
+    "B": {
+      "initial_equity_usdt": 10000,
+      "initial_positions": "FLAT",
+      "universe_size": 29
+    },
+    "C": {
+      "initial_equity_usdt": 10000,
+      "initial_positions": "FLAT",
+      "universe_size": 18
+    }
+  },
+  "selection": {
+    "candidate_id": "v13-dynamic-universe-weekly-research-v1",
+    "C_universe_pool": 29,
+    "C_max_selected": 18,
+    "minimum_replacement_score_ratio_exclusive": 1.2,
+    "max_new_admissions_after_initial": 2
+  },
+  "calendar": {
+    "slot_utc": "00:15:00",
+    "rebalance_days": 7,
+    "common_start_required": true,
+    "late_slot_recovery": false
+  },
+  "simulation": {
+    "min_quantity": "one declared quantity increment",
+    "min_notional_usdt": 1,
+    "quantity_increment": "public lotSize * multiplier for precision only",
+    "fill": "observed depth VWAP plus adverse 2bps and adverse price tick rounding",
+    "depth": "cap at observed side depth",
+    "fee": "max(public takerFeeRate, 0.0006)",
+    "funding_mark": "last midpoint observed and received strictly before settlement",
+    "funding_proxy_max_age_seconds": 900,
+    "funding_status": "ESTIMATED"
+  },
+  "risk": {
+    "daily_loss": 0.02,
+    "drawdown": 0.1,
+    "rebalance_increases_per_utc_day": 1,
+    "cooldown_seconds": 79200,
+    "per_asset": 0.315,
+    "gross": 0.9,
+    "missing_data": "deny increases; retain protected reduction path"
+  },
+  "funding": {
+    "missing_amount": null,
+    "coverage_unknown_does_not_mean_zero": true,
+    "net_equity_incomplete_until_reconciled": true,
+    "economic_deduplication": [
+      "symbol",
+      "settlement_utc"
+    ],
+    "late_recognition": "apply once against historical quantities, retain prior snapshots",
+    "settlement_schedule_evidence": "UNRESOLVED",
+    "new_risk_when_coverage_unknown": false
+  },
+  "kucoin": {
+    "min_quantity": null,
+    "min_notional": null,
+    "exchange_faithful": false
+  },
+  "activation_requirements": [
+    "explicit acceptance of this candidate contract",
+    "final qualification PASS after cutoff",
+    "real-data runner admission and end-to-end tests",
+    "verified funding coverage method",
+    "separate account identities and custody",
+    "immutable approved bundle and common future start"
+  ],
+  "code_sha256": {
+    "octobot/ai_strategy_lab/v13_dynamic_universe.py": "eaf52aff18f275dc09414a2e6ff9c65c6d58abf6b6c54094f440af70d39e20ac",
+    "octobot/ai_strategy_lab/v13_dynamic_runner.py": "516f4633d0bb6ed2fba7b54639af8ee30753df7343e472ee6115a24d6b4ffbd1",
+    "octobot/ai_strategy_lab/v13_dynamic_linked.py": "c68e349dbac27c5fa45aca876b0e6ad28fd2cb399c1d08deb9731d21e3c88bba",
+    "octobot/ai_strategy_lab/v13_dynamic_cash.py": "4d5c0a09f5ec5f70d1803b2f681d89f876d6c0764daed0cc30d13e044c29dd79",
+    "octobot/ai_strategy_lab/v13_dynamic_funding.py": "04db3adc08d689224c0c987ee98d8e49c2e635456b62c77865f05575779bbbb4"
+  }
+}

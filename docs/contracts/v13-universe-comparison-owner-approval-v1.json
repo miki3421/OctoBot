@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "decision_id": "v13-universe-comparison-owner-confirmation-20260930",
+  "decision": "PROTOCOL_APPROVED",
+  "recorded_at_utc": "2026-09-30T18:52:52.633120+00:00",
+  "owner_decision_reference": "Explicit owner confirmation in project conversation on 2026-09-30",
+  "proposal_sha256": "09f855a5af1b3945bf6bb9e9bca4a1676599d6c0c633da66387af650c460e49d",
+  "proposal_file_sha256": "6f3cbbac2407940f53a5502d634b08e0b3cbcdbc82c4bb56846216f17f68f608",
+  "protocol_approved": true,
+  "approved_scope": [
+    "comparison design A18 B29",
+    "PEPE suspended without replacement",
+    "14-day qualification design and numeric thresholds",
+    "180-day paired forward design and proposed risk controls"
+  ],
+  "periodic_downloads_authorized": false,
+  "service_activation_authorized": false,
+  "execution_authorized": false,
+  "real_orders_authorized": false,
+  "effective_start_utc": null,
+  "meaning": "Scientific and research protocol approval only; separate implementation, testing, periodic-download permission and activation remain required."
+}

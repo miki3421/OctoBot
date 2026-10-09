@@ -31,10 +31,14 @@ services:
       - ../octobot-local/diversified-forward:/diversified-forward:ro
       - ../octobot-local/diversified-paper:/diversified-paper:ro
       - ../octobot-local/v13-paper:/v13-paper:ro
+      - ../octobot-local/btc-30-120-prepared/monitor:/btc-research-status:ro
+      - ../octobot-local/qwen-observer:/qwen-observer:ro
+      - ../octobot-local/qwen-btc-shadow/published:/qwen-shadow-status:ro
       - ../octobot-local/breadth-forward:/breadth-forward:ro
       - ../octobot-local/cross-venue:/cross-venue:ro
 
   trend-shadow:
+    profiles: ["archived"]
     image: octobot-local:dev
     container_name: octobot-trend-shadow
     restart: "no"
@@ -147,6 +151,9 @@ services:
       retries: 3
 
   cross-venue-observer:
+    # No active frozen experiment consumes this general-purpose archive.
+    # Explicit opt-in only; preserve all existing snapshots.
+    profiles: ["archived"]
     image: octobot-local:dev
     container_name: octobot-cross-venue-observer
     restart: unless-stopped
@@ -364,16 +371,75 @@ services:
     restart: unless-stopped
     network_mode: none
     read_only: true
-    entrypoint: ["python3", "-m", "octobot.ai_strategy_lab.v13_paper"]
-    command: ["--journal", "/diversified-forward/decisions.jsonl", "--database", "/v13-paper/v13.sqlite", "--health", "/v13-paper/health.json", "--lock", "/v13-paper/runner.lock", "--poll", "60"]
+    entrypoint: ["python3", "-m", "octobot.ai_strategy_lab.v13_paper_v2"]
+    command:
+      - --journal
+      - /diversified-forward/decisions.jsonl
+      - --protocol
+      - /octobot/backtesting/research/diversified-trend-cointegration-v1/forward-protocol-v1.json
+      - --implementation-lock
+      - /diversified-forward/implementation-lock.json
+      - --market-journal
+      - /market/microstructure.jsonl
+      - --database
+      - /v13-paper/v13-v2.sqlite
+      - --health
+      - /v13-paper/health-v2.json
+      - --lock
+      - /v13-paper/runner-v2.lock
+      - --poll
+      - "60"
     environment:
       PYTHONPATH: /workspace:/workspace/packages
     volumes:
       - .:/workspace:ro
       - ../octobot-local/diversified-forward:/diversified-forward:ro
+      - ../octobot-local/backtesting:/octobot/backtesting:ro
+      - ../octobot-local/shadow/market:/market:ro
       - ../octobot-local/v13-paper:/v13-paper
     healthcheck:
-      test: ["CMD-SHELL", "python3 -c \"import json; v=json.load(open('/v13-paper/health.json')); raise SystemExit(0 if v.get('status') == 'healthy' and v.get('mode') == 'trend_v13_paper_v1' and v.get('paper_only') is True and v.get('orders_authorized') is False else 1)\""]
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import datetime,json;
+          v=json.load(open('/v13-paper/health-v2.json'));
+          age=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(v['last_success_at'])).total_seconds();
+          raise SystemExit(0 if v.get('status') == 'healthy'
+          and v.get('mode') == 'trend_v13_paper_v2'
+          and v.get('paper_only') is True and v.get('orders_authorized') is False
+          and v.get('paper_orders_authorized') is True
+          and v.get('network_required') is False and v.get('credentials_used') is False
+          and v.get('automatic_promotion') is False
+          and v.get('database_integrity') == 'ok' and 0 <= age < 180 else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  v13-rebuild-forward:
+    image: octobot-local:dev
+    container_name: octobot-v13-rebuild-forward
+    restart: unless-stopped
+    network_mode: none
+    read_only: true
+    entrypoint: ["/bin/bash", "/workspace/docker/v13-rebuild-forward-entrypoint.sh"]
+    environment:
+      PYTHONPATH: /workspace:/workspace/packages
+      PYTHONDONTWRITEBYTECODE: "1"
+      V13_REBUILD_POLL_SECONDS: ${V13_REBUILD_POLL_SECONDS:-900}
+    volumes:
+      - .:/workspace:ro
+      - ../octobot-local/v13-rebuild-v1:/v13-rebuild-v1
+      - ../octobot-local/shadow/market:/market:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python3 -c "import json; v=json.load(open('/v13-rebuild-v1/health.json'));
+          raise SystemExit(0 if v.get('mode') == 'v13_standalone_rebuild_forward_v1'
+          and v.get('orders_authorized') is False and v.get('paper_orders_authorized') is False
+          and v.get('automatic_promotion') is False else 1)"
       interval: 30s
       timeout: 10s
       retries: 3
@@ -637,6 +703,7 @@ services:
       retries: 3
 
   v5-broker:
+    profiles: ["archived"]
     image: octobot-local:dev
     container_name: octobot-v5-binance-paper
     restart: "no"
@@ -679,6 +746,7 @@ services:
       retries: 5
 
   v5-paper:
+    profiles: ["archived"]
     image: octobot-local:dev
     container_name: octobot-v5-paper
     restart: "no"

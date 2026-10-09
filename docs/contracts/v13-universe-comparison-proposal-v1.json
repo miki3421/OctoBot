@@ -1,0 +1,127 @@
+{
+  "proposal": {
+    "schema_version": 1,
+    "document_kind": "research_proposal_not_runtime_configuration",
+    "proposal_id": "v13-universe-comparison-proposal-v1",
+    "experiment_candidate_id": "v13-universe-expansion-research-v1",
+    "status": "DRAFT_REQUIRES_OWNER_DECISION",
+    "active": false,
+    "owner_approved": false,
+    "start_utc": null,
+    "execution_authorized": false,
+    "periodic_downloads_authorized": false,
+    "real_orders_authorized": false,
+    "source_hashes": {
+      "docs/V13_UNIVERSE_COMPARISON_PROPOSAL_V1.md": "7d4b4d6c9b65d07d82dc2252524bb28622e56d8d8b850cac8d101bd260389f5e",
+      "reports/V13_PEPE_MAPPING_LOCAL_REVIEW_2026-09-30.md": "60077bf2595a9e7d34c6270ad17bc5e4cbfec7b6eb32fb5df9556ab4fcbf3cc0",
+      "docs/contracts/v13-research-paper-v1.json": "f917bf3f3a11c774d6c01053f265d9d5bad552bfc257cd53478362d7252dc581",
+      "octobot/ai_strategy_lab/trend.py": "ec07dc6c6fb74a9763a3251cb4b9c5753b3625566f8fb2d63fa41361c43a57f9"
+    },
+    "shortlist_sha256": "aa7a0995fd0f809c9cf8aed671ea3f45f56beb5e862435428cbf7b883c15efd2",
+    "measurement_sha256": "6a31b61bba077315b9e86784a27b2f5aee72efed36c8a251324d81b71abfd5e7",
+    "arms": {
+      "A": {
+        "initial_equity_usdt": 10000,
+        "initial_positions": "FLAT",
+        "universe": [
+          "AAVEUSDT",
+          "ADAUSDT",
+          "ATOMUSDT",
+          "AVAXUSDT",
+          "BCHUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ETHUSDT",
+          "HBARUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "NEARUSDT",
+          "SOLUSDT",
+          "UNIUSDT",
+          "XLMUSDT",
+          "XRPUSDT",
+          "ZECUSDT"
+        ]
+      },
+      "B": {
+        "initial_equity_usdt": 10000,
+        "initial_positions": "FLAT",
+        "universe": [
+          "AAVEUSDT",
+          "ADAUSDT",
+          "ARBUSDT",
+          "ASTERUSDT",
+          "ATOMUSDT",
+          "AVAXUSDT",
+          "BCHUSDT",
+          "BTCUSDT",
+          "DOGEUSDT",
+          "DOTUSDT",
+          "ENAUSDT",
+          "ETHUSDT",
+          "HBARUSDT",
+          "HYPEUSDT",
+          "INJUSDT",
+          "LINKUSDT",
+          "LTCUSDT",
+          "NEARUSDT",
+          "ONDOUSDT",
+          "PUMPUSDT",
+          "QNTUSDT",
+          "SOLUSDT",
+          "SUIUSDT",
+          "TAOUSDT",
+          "UNIUSDT",
+          "XLMUSDT",
+          "XMRUSDT",
+          "XRPUSDT",
+          "ZECUSDT"
+        ]
+      }
+    },
+    "suspended_candidates": [
+      {
+        "symbol": "PEPEUSDTM",
+        "reason": "CROSS_VENUE_IDENTITY_AND_UNIT_MAPPING_UNRESOLVED",
+        "replacement": null
+      }
+    ],
+    "qualification_proposed": {
+      "days": 14,
+      "book_every_minutes": 15,
+      "symbols": 29,
+      "nominal_requests": 39816,
+      "attempt_cap": 42000,
+      "compressed_raw_mib_cap": 512,
+      "minimum_coverage": 0.95,
+      "maximum_common_gap_hours": 2,
+      "maximum_p95_spread_bps": 20,
+      "minimum_visible_depth_each_side_usdt": 3150,
+      "minimum_depth_pass_fraction": 0.95,
+      "automatic_extension": false
+    },
+    "forward_proposed": {
+      "days": 180,
+      "minimum_common_slot_coverage": 0.95,
+      "minimum_common_rebalance_decisions": 20,
+      "daily_loss": 0.02,
+      "drawdown": 0.1,
+      "max_gross_exposure": 0.9,
+      "max_asset_exposure": 0.315,
+      "increase_frequency_per_day": 1,
+      "cooldown_hours": 22,
+      "primary": "NET_RETURN_B_MINUS_A",
+      "maximum_extra_drawdown_percentage_points": 2,
+      "bootstrap_block_days": 7,
+      "bootstrap_replicates": 10000,
+      "bootstrap_seed": 13029,
+      "automatic_promotion": false
+    },
+    "kucoin_contract_minimums": {
+      "min_quantity": null,
+      "min_notional": null
+    }
+  },
+  "proposal_sha256": "09f855a5af1b3945bf6bb9e9bca4a1676599d6c0c633da66387af650c460e49d"
+}

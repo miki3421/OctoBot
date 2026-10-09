@@ -72,6 +72,10 @@ def _empty_outcome_summary() -> dict:
         "losses": 0,
         "net_pnl_excluding_funding": 0.0,
         "win_rate": 0.0,
+        "gross_price_pnl": 0.0,
+        "known_fees": 0.0,
+        "profit_factor": None,
+        "same_exit_inverse": 0.0,
     }
 
 
@@ -79,6 +83,8 @@ def _paper_execution_summary(
     decision: dict,
     latest_event: dict | None = None,
     outcome: dict | None = None,
+    attempt: dict | None = None,
+    covering_position: dict | None = None,
 ) -> dict:
     """Describe actual paper execution separately from signal approval."""
 
@@ -99,9 +105,9 @@ def _paper_execution_summary(
         if status == "interrupted":
             label, color = "ORDINE INTERROTTO", "warning"
         elif status == "open":
-            label, color = "ORDINE APERTO", "warning"
+            label, color = ("USCITA PROTETTIVA" if reduce_only else "ORDINE APERTO"), "warning"
         elif status == "filled" and not reduce_only:
-            label, color = "POSIZIONE APERTA", "warning"
+            label, color = "INGRESSO ESEGUITO", "success"
         else:
             label, color = f"ORDINE {status.upper()}", "info"
         return {
@@ -114,12 +120,35 @@ def _paper_execution_summary(
                 f"qty {float(latest_event.get('quantity', 0.0) or 0.0):.8g}"
             ),
         }
+    if attempt:
+        descriptions = {
+            "strategy_quarantined": ("STRATEGIA SOSPESA", "Nuovi ingressi in quarantena; le uscite protettive restano abilitate."),
+            "side_disabled": ("LATO DISABILITATO", "BUY/SELL disabilitato nel profilo, non un errore di volume."),
+            "position_already_open": ("POSIZIONE GIÀ APERTA", "Non si aumenta una posizione esistente."),
+            "managed_exit_only": ("USCITA GIÀ GESTITA", "Il segnale opposto non chiude la posizione: uscita affidata a stop e timeout."),
+            "state_unchanged": ("SEGNALE RIPETUTO", "Il motore opera sui cambi di stato: attende un nuovo stato, anche dopo una chiusura."),
+            "execution_error": ("ERRORE DI ESECUZIONE", attempt.get("detail") or "Consultare i dettagli."),
+            "submitted": ("INVIATO AL MOTORE", "Richiesta inoltrata, nessun evento ordine ancora registrato."),
+            "orders_created": ("IN ATTESA DI RISCONTRO", "Il motore ha restituito ordini; manca il relativo evento nel journal."),
+        }
+        reason = attempt["reason"]
+        label, detail = descriptions.get(reason, ("ESITO DA VERIFICARE", reason))
+        return {"kind": "execution_attempt", "label": label,
+                "color": "danger" if reason == "execution_error" else "warning",
+                "detail": detail}
     if decision.get("approved") and decision.get("action") in {"BUY", "SELL"}:
+        if covering_position:
+            return {
+                "kind": "position_context", "label": "DURANTE UN TRADE",
+                "color": "info",
+                "detail": f"Era aperto il trade #{covering_position['decision_id']}. "
+                          "Nessun nuovo ordine; il motivo specifico non fu registrato.",
+            }
         return {
             "kind": "signal_only",
-            "label": "NESSUN ORDINE",
-            "color": "info",
-            "detail": "segnale approvato, non eseguito",
+            "label": "ESITO NON TRACCIATO",
+            "color": "warning",
+            "detail": "Nessun ordine nel journal. Il vecchio motore non registrava il motivo: non è dimostrato un errore di fondi.",
         }
     return {
         "kind": "not_executed",
@@ -237,6 +266,7 @@ def _read_decisions(database_path: str) -> tuple[list[dict], dict]:
         }
         decision_ids = [int(row["id"]) for row in rows]
         latest_events = {}
+        attempts, covering_positions = _execution_context(connection, decision_ids, tables)
         outcomes = {}
         if decision_ids:
             placeholders = ",".join("?" for _ in decision_ids)
@@ -247,18 +277,14 @@ def _read_decisions(database_path: str) -> tuple[list[dict], dict]:
                            side, order_type, quantity, filled_quantity, price,
                            average_price, reduce_only
                     FROM ai_order_events
-                    WHERE id IN (
-                        SELECT MAX(id)
-                        FROM ai_order_events
-                        WHERE decision_id IN ({placeholders})
-                        GROUP BY decision_id
-                    )
+                    WHERE decision_id IN ({placeholders})
+                    ORDER BY reduce_only ASC, id DESC
                     """,
                     decision_ids,
                 ).fetchall()
-                latest_events = {
-                    int(row["decision_id"]): dict(row) for row in event_rows
-                }
+                # A protective SELL must never masquerade as the BUY entry.
+                for row in event_rows:
+                    latest_events.setdefault(int(row["decision_id"]), dict(row))
             if "ai_position_outcomes" in tables:
                 outcome_rows = connection.execute(
                     f"""
@@ -285,9 +311,50 @@ def _read_decisions(database_path: str) -> tuple[list[dict], dict]:
             decision,
             latest_events.get(decision_id),
             outcomes.get(decision_id),
+            attempts.get(decision_id),
+            covering_positions.get(decision_id),
         )
         decisions.append(decision)
     return decisions, summary
+
+
+def _execution_context(connection, decision_ids, tables):
+    attempts, covering = {}, {}
+    if not decision_ids:
+        return attempts, covering
+    placeholders = ",".join("?" for _ in decision_ids)
+    if "ai_execution_attempts" in tables:
+        for row in connection.execute(
+            f"SELECT * FROM ai_execution_attempts WHERE decision_id IN ({placeholders}) ORDER BY id DESC",
+            decision_ids,
+        ):
+            attempts.setdefault(int(row["decision_id"]), dict(row))
+    if "ai_position_outcomes" in tables:
+        for row in connection.execute(
+            f"""SELECT d.id, p.decision_id FROM ai_decisions d
+            JOIN ai_position_outcomes p ON p.exchange_name=d.exchange_name AND p.symbol=d.symbol
+            AND julianday(p.entry_at)<=julianday(d.created_at)
+            AND julianday(d.created_at)<julianday(p.exit_at)
+            WHERE d.id IN ({placeholders}) ORDER BY p.entry_at DESC""", decision_ids,
+        ):
+            covering.setdefault(int(row["id"]), dict(row))
+    return attempts, covering
+
+
+def _read_execution_policy(database_path):
+    if not pathlib.Path(database_path).is_file():
+        return None
+    with sqlite3.connect(f"file:{database_path}?mode=ro", uri=True, timeout=2) as connection:
+        connection.row_factory = sqlite3.Row
+        if not connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE name='ai_execution_policy_events'"
+        ).fetchone():
+            return None
+        row = connection.execute(
+            "SELECT * FROM ai_execution_policy_events WHERE exchange_name='kucoin' "
+            "AND symbol='BTC/USDT:USDT' ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+        return dict(row) if row else None
 
 
 def _read_decision_detail(database_path: str, decision_id: int) -> dict | None:
@@ -321,6 +388,7 @@ def _read_decision_detail(database_path: str, decision_id: int) -> dict | None:
         }
         order_events = []
         outcome = None
+        attempts, covering_positions = _execution_context(connection, [decision_id], tables)
         if "ai_order_events" in tables:
             order_events = [
                 dict(event_row)
@@ -357,8 +425,11 @@ def _read_decision_detail(database_path: str, decision_id: int) -> dict | None:
     decision["paper_outcome"] = outcome
     decision["paper_execution"] = _paper_execution_summary(
         decision,
-        order_events[-1] if order_events else None,
+        next((event for event in reversed(order_events) if not event["reduce_only"]),
+             order_events[-1] if order_events else None),
         outcome,
+        attempts.get(decision_id),
+        covering_positions.get(decision_id),
     )
     return decision
 
@@ -403,6 +474,10 @@ def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
                 COALESCE(SUM(
                     CASE WHEN net_pnl_excluding_funding < 0 THEN 1 ELSE 0 END
                 ), 0) AS losses,
+                COALESCE(SUM(gross_price_pnl), 0) AS gross_price_pnl,
+                COALESCE(SUM(known_fees), 0) AS known_fees,
+                COALESCE(SUM(CASE WHEN net_pnl_excluding_funding>0 THEN net_pnl_excluding_funding ELSE 0 END), 0) AS positive_pnl,
+                COALESCE(SUM(CASE WHEN net_pnl_excluding_funding<0 THEN -net_pnl_excluding_funding ELSE 0 END), 0) AS negative_pnl,
                 COALESCE(SUM(net_pnl_excluding_funding), 0)
                     AS net_pnl_excluding_funding
             FROM ai_position_outcomes
@@ -410,6 +485,10 @@ def _read_outcomes(database_path: str) -> tuple[list[dict], dict]:
         ).fetchone()
         summary = dict(summary_row)
         summary["order_events"] = event_count
+        summary["profit_factor"] = (
+            summary["positive_pnl"] / summary["negative_pnl"] if summary["negative_pnl"] else None
+        )
+        summary["same_exit_inverse"] = -summary["gross_price_pnl"] - summary["known_fees"]
         summary["interrupted_orders"] = interrupted_count
         summary["win_rate"] = (
             round(
@@ -453,6 +532,10 @@ def register(blueprint):
             decisions, summary = [], _empty_summary()
             error = f"Unable to read the AI decision journal: {database_error}"
         try:
+            execution_policy = _read_execution_policy(database_path)
+        except (OSError, sqlite3.Error):
+            execution_policy = None
+        try:
             outcomes, outcome_summary = _read_outcomes(database_path)
         except (OSError, sqlite3.Error) as database_error:
             outcomes, outcome_summary = [], _empty_outcome_summary()
@@ -469,6 +552,7 @@ def register(blueprint):
         return flask.render_template(
             "ai_decisions.html",
             decisions=decisions,
+            execution_policy=execution_policy,
             summary=summary,
             database_ready=pathlib.Path(database_path).is_file(),
             error=error,

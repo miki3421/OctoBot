@@ -23,5 +23,7 @@
   "disable_sell_orders": false,
   "max_currency_percent": 10,
   "record_ai_trade_events": true,
+  "entry_quarantine": true,
+  "entry_quarantine_reason": "Audit 2026-09-10: baseline BTC non validata al netto dei costi. Nuovi ingressi sospesi; uscite protettive attive. V13 esclusa.",
   "emit_trading_signals": false
 }

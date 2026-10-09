@@ -16,6 +16,7 @@ import math
 import pathlib
 import sqlite3
 import typing
+import uuid
 
 import pydantic
 
@@ -707,14 +708,17 @@ class DeterministicRiskGuard:
 class SQLiteDecisionJournal:
     """Append-only local audit trail for every LLM decision and rejection."""
 
-    SCHEMA_VERSION = 4
+    SCHEMA_VERSION = 5
+    ENTRY_AUTHORIZATION_KEY = "guarded_entry_authorization"
+    ENTRY_MAX_AGE_SECONDS = 60
 
-    def __init__(self, database_path: str):
+    def __init__(self, database_path: str, *, timeout_seconds: float = 5):
         self.database_path = pathlib.Path(database_path)
+        self.timeout_seconds = timeout_seconds
 
     def initialize(self) -> None:
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.database_path, timeout=5) as connection:
+        with sqlite3.connect(self.database_path, timeout=self.timeout_seconds) as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS ai_decisions (
@@ -847,6 +851,179 @@ class SQLiteDecisionJournal:
                 "ON ai_protected_exit_events("
                 "exchange_name, symbol, entry_order_id, id)"
             )
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS ai_execution_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    decision_id INTEGER NOT NULL REFERENCES ai_decisions(id),
+                    reason TEXT NOT NULL,
+                    detail TEXT NOT NULL,
+                    UNIQUE(decision_id, reason)
+                );
+                CREATE TABLE IF NOT EXISTS ai_execution_policy_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    exchange_name TEXT NOT NULL,
+                    symbol TEXT NOT NULL,
+                    entries_quarantined INTEGER NOT NULL,
+                    reason TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ai_entry_authorizations (
+                    authorization_id TEXT PRIMARY KEY,
+                    decision_id INTEGER NOT NULL UNIQUE REFERENCES ai_decisions(id),
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ai_entry_claims (
+                    authorization_id TEXT PRIMARY KEY REFERENCES ai_entry_authorizations(authorization_id),
+                    claimed_at TEXT NOT NULL
+                );
+            """)
+
+    def _entry_connection(self):
+        # A missing journal is an error, not an invitation to create a new one.
+        connection = sqlite3.connect(
+            self.database_path.resolve().as_uri() + "?mode=rw", uri=True,
+            timeout=self.timeout_seconds,
+        )
+        try:
+            connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute("PRAGMA synchronous=FULL")
+        except Exception:
+            connection.close()
+            raise
+        return connection
+
+    @classmethod
+    def _check_entry_decision(cls, connection, decision_id, now):
+        row = connection.execute(
+            "SELECT created_at, approved, action, exchange_name, symbol, eval_note "
+            "FROM ai_decisions WHERE id=?", (decision_id,),
+        ).fetchone()
+        if not row or row[1] != 1 or row[2] not in ("BUY", "SELL"):
+            raise ValueError("entry_decision_missing_or_rejected")
+        created_at = datetime.datetime.fromisoformat(row[0])
+        if created_at.tzinfo is None or not 0 <= (now-created_at).total_seconds() <= cls.ENTRY_MAX_AGE_SECONDS:
+            raise ValueError("entry_decision_stale_or_future")
+        latest = connection.execute(
+            "SELECT id FROM ai_decisions WHERE exchange_name=? AND symbol=? ORDER BY id DESC LIMIT 1",
+            (row[3], row[4]),
+        ).fetchone()
+        if latest != (decision_id,):
+            raise ValueError("entry_decision_superseded")
+        return row
+
+    def authorize_entry(self, decision_id: int) -> dict:
+        """Persist the guard's one-use approval, NOT an account activation grant.
+
+        Quarantine and paper/account permissions still apply independently.
+        A committed decision without this row cannot authorize an entry.
+        """
+        if type(decision_id) is not int or decision_id <= 0:
+            raise ValueError("entry_decision_identity_invalid")
+        now = datetime.datetime.now(datetime.timezone.utc)
+        authorization_id = uuid.uuid4().hex
+        connection = self._entry_connection()
+        try:
+            with connection:
+                connection.execute("BEGIN IMMEDIATE")
+                self._check_entry_decision(connection, decision_id, now)
+                connection.execute(
+                    "INSERT INTO ai_entry_authorizations VALUES (?, ?, ?)",
+                    (authorization_id, decision_id, now.isoformat()),
+                )
+        finally:
+            connection.close()
+        return {"decision_id": decision_id, "authorization_id": authorization_id}
+
+    def validate_entry_authorization(self, authorization, exchange_name, symbol, eval_note, *, consume=False):
+        """Check exact identity; atomically claim before any new-risk effect.
+
+        Claim is append-only. A crash after claim has an uncertain outcome and
+        must never automatically retry the same authorization after restart.
+        """
+        if (
+            not isinstance(authorization, dict)
+            or set(authorization) != {"decision_id", "authorization_id"}
+            or type(authorization.get("decision_id")) is not int
+            or authorization["decision_id"] <= 0
+            or not isinstance(authorization.get("authorization_id"), str)
+            or len(authorization["authorization_id"]) != 32
+        ):
+            raise ValueError("entry_authorization_missing_or_invalid")
+        note = float(eval_note)
+        if not math.isfinite(note):
+            raise ValueError("entry_note_invalid")
+        connection = self._entry_connection()
+        try:
+            with connection:
+                connection.execute("BEGIN IMMEDIATE" if consume else "BEGIN")
+                row = connection.execute(
+                    "SELECT decision_id FROM ai_entry_authorizations WHERE authorization_id=?",
+                    (authorization["authorization_id"],),
+                ).fetchone()
+                if row != (authorization["decision_id"],):
+                    raise ValueError("entry_authorization_identity_mismatch")
+                now = datetime.datetime.now(datetime.timezone.utc)
+                decision = self._check_entry_decision(connection, row[0], now)
+                if (
+                    decision[3:5] != (exchange_name, symbol)
+                    or not math.isfinite(decision[5])
+                    or abs(note-decision[5]) > 1e-9
+                    or (decision[2] == "BUY" and note >= 0)
+                    or (decision[2] == "SELL" and note <= 0)
+                ):
+                    raise ValueError("entry_authorization_context_mismatch")
+                if connection.execute(
+                    "SELECT 1 FROM ai_entry_claims WHERE authorization_id=?",
+                    (authorization["authorization_id"],),
+                ).fetchone():
+                    raise ValueError("entry_authorization_already_consumed")
+                if consume:
+                    connection.execute(
+                        "INSERT INTO ai_entry_claims VALUES (?, ?)",
+                        (authorization["authorization_id"], now.isoformat()),
+                    )
+        finally:
+            connection.close()
+        return authorization["decision_id"]
+
+    def execution_decision_id(self, exchange_name, symbol, eval_note):
+        """Legacy audit lookup only; NEVER permission to enter a position."""
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            row = connection.execute(
+                "SELECT id, created_at, approved, action, eval_note FROM ai_decisions "
+                "WHERE exchange_name = ? AND symbol = ? ORDER BY id DESC LIMIT 1",
+                (exchange_name, symbol),
+            ).fetchone()
+        if not row or not row[2] or row[3] not in ("BUY", "SELL"):
+            return None
+        age = (datetime.datetime.now(datetime.timezone.utc)
+               - datetime.datetime.fromisoformat(row[1])).total_seconds()
+        if 0 <= age <= 60 and abs(float(eval_note) - float(row[4])) < 1e-9:
+            return int(row[0])
+        return None
+
+    def record_execution_attempt(self, decision_id, reason, detail=""):
+        if decision_id is None:
+            return
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            connection.execute("PRAGMA foreign_keys=ON")
+            connection.execute(
+                "INSERT OR IGNORE INTO ai_execution_attempts "
+                "(created_at, decision_id, reason, detail) VALUES (?, ?, ?, ?)",
+                (datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                 decision_id, reason, str(detail)[:1000]),
+            )
+
+    def record_execution_policy(self, exchange_name, symbol, quarantined, reason):
+        with sqlite3.connect(self.database_path, timeout=5) as connection:
+            connection.execute(
+                "INSERT INTO ai_execution_policy_events "
+                "(created_at, exchange_name, symbol, entries_quarantined, reason) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                 exchange_name, symbol, int(quarantined), reason),
+            )
 
     def record(
         self,
@@ -860,7 +1037,7 @@ class SQLiteDecisionJournal:
     ) -> int:
         self.initialize()
         decision = guarded.decision
-        with sqlite3.connect(self.database_path, timeout=5) as connection:
+        with sqlite3.connect(self.database_path, timeout=self.timeout_seconds) as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO ai_decisions (

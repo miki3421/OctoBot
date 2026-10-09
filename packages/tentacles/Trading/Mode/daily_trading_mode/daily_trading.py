@@ -22,6 +22,8 @@ import os
 import sqlite3
 import typing
 
+from octobot.ai_strategy_lab import paper_authorization, paper_runtime_authorization
+
 import octobot_commons.constants as commons_constants
 import octobot_commons.enums as commons_enums
 import octobot_commons.evaluators_util as evaluators_util
@@ -55,6 +57,8 @@ class OrderDetails:
 
 
 class DailyTradingMode(trading_modes.AbstractTradingMode):
+    ENTRY_QUARANTINE = "entry_quarantine"
+    ENTRY_QUARANTINE_REASON = "entry_quarantine_reason"
     RECORD_AI_TRADE_EVENTS = "record_ai_trade_events"
     PROTECTED_PROFIT_MODE = "protected_profit_mode"
     PROTECTED_PROFIT_INITIAL_STOP = "protected_profit_initial_stop"
@@ -71,6 +75,14 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
         Called right before starting the tentacle, should define all the tentacle's user inputs unless
         those are defined somewhere else.
         """
+        self.UI.user_input(
+            self.ENTRY_QUARANTINE, commons_enums.UserInputTypes.BOOLEAN, False, inputs,
+            title="Quarantine new entries; existing protective exits remain enabled.",
+        )
+        self.UI.user_input(
+            self.ENTRY_QUARANTINE_REASON, commons_enums.UserInputTypes.TEXT, "", inputs,
+            title="Reason for quarantining this strategy's new entries.",
+        )
         self.UI.user_input(
             "target_profits_mode", commons_enums.UserInputTypes.BOOLEAN, False, inputs,
             title="Target profits mode: Enable target profits mode. In this mode, only entry "
@@ -333,6 +345,11 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             )
         )
         self._ai_decision_journal.initialize()
+        self._ai_decision_journal.record_execution_policy(
+            self.exchange_manager.exchange_name, self.symbol,
+            self.trading_config.get(self.ENTRY_QUARANTINE, False),
+            self.trading_config.get(self.ENTRY_QUARANTINE_REASON, ""),
+        )
         order_consumer = await exchanges_channel.get_chan(
             trading_personal_data.OrdersChannel.get_name(),
             self.exchange_manager.id,
@@ -362,6 +379,59 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
             self._restore_and_reconcile_after_startup(mode_consumer)
         )
         return consumers + additional_consumers
+
+    def execution_decision_id(self, symbol, eval_note):
+        journal = getattr(self, "_ai_decision_journal", None)
+        if journal is None:
+            return None
+        return journal.execution_decision_id(
+            self.exchange_manager.exchange_name, symbol, eval_note
+        )
+
+    def requires_persisted_entry_authorization(self):
+        # Isolated historical backtests keep their existing no-live-journal path.
+        # Missing journal/consumer initialization must never disable this guard.
+        return (
+            getattr(getattr(self, "exchange_manager", None), "is_backtesting", False) is not True
+            and (
+                "GuardedLLMStrategyEvaluator" in self.trading_config.get("required_strategies", [])
+                or self.trading_config.get("record_ai_trade_events", False)
+            )
+        )
+
+    def entry_decision_id(self, symbol, eval_note, authorization, *, consume=False):
+        """Fail closed at producer and consumer, without a numeric-note fallback."""
+        try:
+            if self.exchange_manager.is_trader_simulated is not True:
+                raise ValueError("guarded_entry_requires_paper_trader")
+            if not isinstance(authorization, dict):
+                raise ValueError("entry_authorization_missing")
+            journal = getattr(self, "_ai_decision_journal", None)
+            if journal is None:
+                raise ValueError("entry_journal_missing")
+            return journal.validate_entry_authorization(
+                authorization, self.exchange_manager.exchange_name, symbol, eval_note,
+                consume=consume,
+            )
+        except Exception as error:
+            self.logger.error(f"entry_authorization_rejected: {type(error).__name__}: {error}")
+            return None
+
+    def record_execution_attempt(self, decision_id, reason, detail=""):
+        journal = getattr(self, "_ai_decision_journal", None)
+        if journal is not None:
+            try:
+                journal.record_execution_attempt(decision_id, reason, detail)
+            except Exception as error:
+                # Entry permission is the mandatory durable claim, not this
+                # supplementary log. Exits must survive an audit write failure.
+                self.logger.error(f"execution_audit_unavailable: {type(error).__name__}: {error}")
+
+    def _record_protected_exit_event(self, **kwargs):
+        try:
+            self._ai_decision_journal.record_protected_exit_event(**kwargs)
+        except Exception as error:
+            self.logger.error(f"protective_exit_audit_unavailable: {type(error).__name__}: {error}")
 
     async def stop(self):
         restore_task = getattr(self, "_paper_restore_task", None)
@@ -915,7 +985,7 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
                     f"Unable to protect profit for {self.symbol}."
                 )
                 return
-            self._ai_decision_journal.record_protected_exit_event(
+            self._record_protected_exit_event(
                 exchange_name=self.exchange_manager.exchange_name,
                 symbol=self.symbol,
                 entry_order_id=entry["entry_order_id"],
@@ -947,7 +1017,7 @@ class DailyTradingMode(trading_modes.AbstractTradingMode):
         if entry_at.tzinfo is None:
             entry_at = entry_at.replace(tzinfo=datetime.timezone.utc)
         horizon_at = entry_at + datetime.timedelta(hours=float(max_hours))
-        self._ai_decision_journal.record_protected_exit_event(
+        self._record_protected_exit_event(
             exchange_name=self.exchange_manager.exchange_name,
             symbol=self.symbol,
             entry_order_id=entry["entry_order_id"],
@@ -1339,32 +1409,6 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                     f"{symbol} {state} order rejected: notional {order_cost} < min_cost {min_cost}."
                 )
 
-    def _raise_to_exchange_minimum_when_funded(self, symbol, symbol_market, quantity, max_quantity):
-        """Prevent risk attenuation from producing an untradable paper order."""
-        if quantity is None or max_quantity is None:
-            return quantity
-        min_amount = (symbol_market.get(Ecmsc.LIMITS.value, {})
-                      .get(Ecmsc.LIMITS_AMOUNT.value, {})
-                      .get(Ecmsc.LIMITS_AMOUNT_MIN.value))
-        if min_amount is None:
-            return quantity
-        min_amount = decimal.Decimal(str(min_amount))
-        # OctoBot's order adapter treats the amount limit as a strict lower
-        # bound.  One exact minimum can therefore disappear after precision or
-        # fee adaptation.  Use a two-minimum safety target when funds permit.
-        safe_minimum = min_amount * decimal.Decimal("2")
-        target = safe_minimum if safe_minimum <= max_quantity else min_amount
-        # Values between one and two minimum units can be rounded back to the
-        # strict exchange minimum by the market precision adapter.  Lift the
-        # whole unsafe interval, not only values already <= the reported min.
-        if quantity < safe_minimum and target <= max_quantity:
-            self.logger.info(
-                f"{symbol}: raising computed quantity {quantity} to safe exchange minimum {target} "
-                f"(reported minimum {min_amount}, maximum funded {max_quantity})"
-            )
-            return target
-        return quantity
-
     async def _create_order(
         self, current_order,
         use_take_profit_orders, take_profits_details: list[OrderDetails],
@@ -1453,6 +1497,87 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
         )
 
     async def create_new_orders(self, symbol, final_note, state, **kwargs):
+        manager = getattr(self.trading_mode, "exchange_manager", None)
+        paper_runtime = (getattr(manager, "is_trader_simulated", False) is True
+                         and getattr(manager, "is_backtesting", False) is not True)
+        data = kwargs.get(self.CREATE_ORDER_DATA_PARAM, {})
+        protective = (data.get(self.REDUCE_ONLY_KEY) is True or data.get(self.STOP_ONLY) is True)
+        if paper_runtime and protective:
+            if getattr(manager, "is_future", False) is not True:
+                return []
+            kwargs[self.CREATE_ORDER_DATA_PARAM] = dict(data, **{self.REDUCE_ONLY_KEY: True})
+        if paper_runtime and not protective:
+            token = data.get(SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY, {})
+            entry_id = token.get("authorization_id", "decision-missing") if isinstance(token, dict) else "decision-missing"
+            try:
+                with paper_runtime_authorization.entry_scope("local-guarded-paper", entry_id, context_paths=(__file__,)):
+                    return await self._create_authorized_new_orders(symbol, final_note, state, **kwargs)
+            except paper_authorization.Denied as exc:
+                self.trading_mode.logger.error(f"paper_authorization_denied: {exc.code}; audit_persisted={exc.persisted}")
+                return []
+        return await self._create_authorized_new_orders(symbol, final_note, state, **kwargs)
+
+    async def _create_authorized_new_orders(self, symbol, final_note, state, **kwargs):
+        data = kwargs.get(self.CREATE_ORDER_DATA_PARAM, {})
+        protective = data.get(self.REDUCE_ONLY_KEY, False) or data.get(self.STOP_ONLY, False)
+        guarded_entry = DailyTradingMode.requires_persisted_entry_authorization(self.trading_mode)
+        if guarded_entry and protective:
+            # STOP_ONLY alone is not permission to increase a futures position.
+            # Force exchange-level reduce-only, independent of predictive audit.
+            if (
+                self.trading_mode.exchange_manager.is_trader_simulated is not True
+                or self.trading_mode.exchange_manager.is_future is not True
+                or not (data.get(self.REDUCE_ONLY_KEY) is True or data.get(self.STOP_ONLY) is True)
+            ):
+                return []
+            kwargs[self.CREATE_ORDER_DATA_PARAM] = dict(data, **{self.REDUCE_ONLY_KEY: True})
+            return await self._create_new_orders(symbol, final_note, state, **kwargs)
+        authorization = data.get(SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY)
+        decision_id = (
+            self.trading_mode.entry_decision_id(symbol, final_note, authorization)
+            if guarded_entry else self.trading_mode.execution_decision_id(symbol, final_note)
+        )
+        if guarded_entry and decision_id is None:
+            return []
+        record = lambda reason, detail="": self.trading_mode.record_execution_attempt(
+            decision_id, reason, detail
+        )
+        if self.trading_mode.trading_config.get(DailyTradingMode.ENTRY_QUARANTINE, False) and not protective:
+            record("strategy_quarantined", self.trading_mode.trading_config.get(
+                DailyTradingMode.ENTRY_QUARANTINE_REASON, ""
+            ))
+            return []
+        if ((state in (trading_enums.EvaluatorStates.LONG.value, trading_enums.EvaluatorStates.VERY_LONG.value)
+             and self.DISABLE_BUY_ORDERS)
+            or (state in (trading_enums.EvaluatorStates.SHORT.value, trading_enums.EvaluatorStates.VERY_SHORT.value)
+                and self.DISABLE_SELL_ORDERS)):
+            record("side_disabled")
+            return []
+        if guarded_entry:
+            # The state is also untrusted: a valid long note cannot open short.
+            expected_states = (
+                (trading_enums.EvaluatorStates.LONG.value, trading_enums.EvaluatorStates.VERY_LONG.value)
+                if float(final_note) < 0 else
+                (trading_enums.EvaluatorStates.SHORT.value, trading_enums.EvaluatorStates.VERY_SHORT.value)
+            )
+            if state not in expected_states:
+                record("entry_state_mismatch")
+                return []
+            if self.trading_mode.entry_decision_id(symbol, final_note, authorization, consume=True) is None:
+                return []
+        record("submitted")
+        try:
+            orders = await self._create_new_orders(symbol, final_note, state, **kwargs)
+        except Exception as error:
+            record("execution_error", f"{type(error).__name__}: {error}")
+            raise
+        # These are acknowledgements, NOT fills; ai_order_events remains the
+        # only source of truth for an order or a position on the audit page.
+        if orders:
+            record("orders_created", f"{len(orders)} order(s)")
+        return orders
+
+    async def _create_new_orders(self, symbol, final_note, state, **kwargs):
         try:
             if final_note.is_nan():
                 return []
@@ -1559,6 +1684,10 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
             is_reducing_position = not increasing_position
             if self.USE_TARGET_PROFIT_MODE:
                 if is_reducing_position:
+                    self.trading_mode.record_execution_attempt(
+                        self.trading_mode.execution_decision_id(symbol, final_note),
+                        "managed_exit_only",
+                    )
                     self.logger.debug("Ignored reducing position signal as Target Profit Mode is enabled. "
                                       "Positions are reduced from chained orders that are created at entry time.")
                     return []
@@ -1570,6 +1699,10 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                                 trading_enums.PositionSide.BOTH
                             )
                         if not current_position.is_idle():
+                            self.trading_mode.record_execution_attempt(
+                                self.trading_mode.execution_decision_id(symbol, final_note),
+                                "position_already_open",
+                            )
                             self.logger.debug(
                                 f"Ignored increasing position signal on {symbol} as Mode 'Enable futures "
                                 f"position increase' is disabled."
@@ -1625,8 +1758,6 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                 quantity = trading_personal_data.decimal_add_dusts_to_quantity_if_necessary(quantity, price,
                                                                                             symbol_market,
                                                                                             max_sell_size)
-                if user_volume == 0:
-                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_sell_size)
                 self._validate_minimal_order_constraints(symbol, symbol_market, quantity, price, state)
 
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
@@ -1667,8 +1798,6 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                 limit_price = user_stop_price if create_stop_only else trading_personal_data.decimal_adapt_price(
                     symbol_market, user_price or (price * self._get_limit_price_from_risk(final_note))
                 )
-                if user_volume == 0:
-                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_sell_size)
                 self._validate_minimal_order_constraints(symbol, symbol_market, quantity, limit_price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
@@ -1758,8 +1887,6 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                     self.exchange_manager, symbol, trading_enums.TraderOrderType.BUY_LIMIT, quantity,
                     limit_price, trading_enums.TradeOrderSide.BUY
                 )
-                if user_volume == 0:
-                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_buy_size)
                 self._validate_minimal_order_constraints(symbol, symbol_market, quantity, limit_price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
@@ -1844,8 +1971,6 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
                     self.exchange_manager, symbol, trading_enums.TraderOrderType.BUY_MARKET, quantity,
                     price, trading_enums.TradeOrderSide.BUY
                 )
-                if user_volume == 0:
-                    quantity = self._raise_to_exchange_minimum_when_funded(symbol, symbol_market, quantity, max_buy_size)
                 self._validate_minimal_order_constraints(symbol, symbol_market, quantity, price, state)
                 for order_quantity, order_price in trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
                     quantity,
@@ -1892,10 +2017,18 @@ class DailyTradingModeConsumer(trading_modes.AbstractTradingModeConsumer):
         ):
             raise
         except asyncio.TimeoutError as e:
+            self.trading_mode.record_execution_attempt(
+                self.trading_mode.execution_decision_id(symbol, final_note),
+                "execution_error", "Market data timeout",
+            )
             self.logger.error(f"Impossible to create order for {symbol} on {self.exchange_manager.exchange_name}: {e} "
                               f"and is necessary to compute the order details.")
             return []
         except Exception as e:
+            self.trading_mode.record_execution_attempt(
+                self.trading_mode.execution_decision_id(symbol, final_note),
+                "execution_error", f"{type(e).__name__}: {e}",
+            )
             self.logger.exception(e, True, f"Failed to create order : {e}.")
             return []
 
@@ -1922,7 +2055,11 @@ class DailyTradingModeProducer(trading_modes.AbstractTradingModeProducer):
     async def set_final_eval(
         self, matrix_id: str, cryptocurrency: str, symbol: str, time_frame, trigger_source: str,
     ):
+        if self._neutralize_quarantined_entry():
+            return
         strategies_analysis_note_counter = 0
+        self._entry_authorization = None
+        entry_authorizations = []
         evaluation = commons_constants.INIT_EVAL_NOTE
         # Strategies analysis
         for evaluated_strategy_node in matrix.get_tentacles_value_nodes(
@@ -1940,13 +2077,38 @@ class DailyTradingModeProducer(trading_modes.AbstractTradingModeProducer):
                     evaluated_strategy_node
                 )
                 strategies_analysis_note_counter += 1
+                metadata = evaluators_api.get_metadata(evaluated_strategy_node)
+                entry_authorizations.append(
+                    metadata.get(SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY)
+                    if isinstance(metadata, dict) else None
+                )
 
         if strategies_analysis_note_counter > 0:
+            # Averaging several strategies cannot inherit one strategy's grant.
+            if strategies_analysis_note_counter == 1 and isinstance(entry_authorizations[0], dict):
+                self._entry_authorization = dict(entry_authorizations[0])
             self.final_eval = decimal.Decimal(str(evaluation / strategies_analysis_note_counter))
             await self.create_state(cryptocurrency=cryptocurrency, symbol=symbol)
 
     def _get_delta_risk(self):
         return self.RISK_THRESHOLD * self.exchange_manager.trader.risk
+
+    def _neutralize_quarantined_entry(self):
+        """Stop inactive entry production before token lookup or order handling."""
+        if not self.trading_mode.trading_config.get(DailyTradingMode.ENTRY_QUARANTINE, False):
+            self._quarantine_reported = False
+            return False
+        self._entry_authorization = None
+        self.final_eval = decimal.Decimal("0")
+        self.state = trading_enums.EvaluatorStates.NEUTRAL
+        if not getattr(self, "_quarantine_reported", False):
+            self._quarantine_reported = True
+            self.trading_mode.record_execution_attempt(
+                None, "strategy_quarantined",
+                self.trading_mode.trading_config.get(DailyTradingMode.ENTRY_QUARANTINE_REASON, ""),
+            )
+            self.logger.info("Entry producer quarantined: neutral; existing-order management retained.")
+        return True
 
     async def create_state(self, cryptocurrency: str, symbol: str):
         if self.final_eval.is_nan():
@@ -1982,15 +2144,35 @@ class DailyTradingModeProducer(trading_modes.AbstractTradingModeProducer):
         return True
 
     async def _set_state(self, cryptocurrency: str, symbol: str, new_state):
+        if self._neutralize_quarantined_entry():
+            # Mark-price consumers manage positions/stops independently.
+            return
+        guarded_entry = DailyTradingMode.requires_persisted_entry_authorization(self.trading_mode)
+        decision_id = (
+            self.trading_mode.entry_decision_id(symbol, self.final_eval, getattr(self, "_entry_authorization", None))
+            if guarded_entry else self.trading_mode.execution_decision_id(symbol, self.final_eval)
+        )
+        if guarded_entry and decision_id is None:
+            self.state = trading_enums.EvaluatorStates.NEUTRAL
+            return
         if new_state != self.state:
             self.state = new_state
             self.logger.info(f"[{symbol}] new state: {self.state.name}")
             await self._on_new_state(cryptocurrency, symbol, new_state)
+        elif new_state is not trading_enums.EvaluatorStates.NEUTRAL:
+            self.trading_mode.record_execution_attempt(decision_id, "state_unchanged")
     
     @trading_modes.enabled_trader_only()
     async def _on_new_state(self, cryptocurrency: str, symbol: str, new_state):
+        if self._neutralize_quarantined_entry():
+            return
         # if new state is not neutral --> cancel orders and create new else keep orders
         if new_state is not trading_enums.EvaluatorStates.NEUTRAL:
+            final_note = self.final_eval
+            authorization = getattr(self, "_entry_authorization", None)
+            guarded_entry = DailyTradingMode.requires_persisted_entry_authorization(self.trading_mode)
+            if guarded_entry and self.trading_mode.entry_decision_id(symbol, final_note, authorization) is None:
+                return
             _, dependencies = await self.apply_cancel_policies()
             if self.trading_mode.consumers:
                 if self.trading_mode.consumers[0].USE_TARGET_PROFIT_MODE:
@@ -2008,8 +2190,10 @@ class DailyTradingModeProducer(trading_modes.AbstractTradingModeProducer):
             await self.submit_trading_evaluation(cryptocurrency=cryptocurrency,
                                                     symbol=symbol,
                                                     time_frame=None,
-                                                    final_note=self.final_eval,
-                                                    state=self.state,
+                                                    final_note=final_note,
+                                                    state=new_state,
+                                                    data=({SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY: authorization}
+                                                          if guarded_entry else None),
                                                     dependencies=dependencies)
 
             # send_notification

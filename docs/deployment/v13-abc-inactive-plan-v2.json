@@ -1,0 +1,51 @@
+{
+  "scope": "ABC_INACTIVE_RELEASE_PLAN_V1",
+  "active": false,
+  "orders_authorized": false,
+  "qualification_cutoff": "2026-10-16T00:00:00Z",
+  "start_utc": null,
+  "lineage": "e1e5ccf9c061fc2c493255160a91a7bc7f20e34910daf416d14295036e8664c6",
+  "uids": {
+    "collector": 30931,
+    "producer": 30932,
+    "executor": 30933
+  },
+  "paths": {
+    "forward": "/var/lib/libvirt/trading-ai-lab/v13-abc/collector/forward.sqlite",
+    "intents": "/var/lib/libvirt/trading-ai-lab/v13-abc/producer/intents.sqlite",
+    "execution": "/var/lib/libvirt/trading-ai-lab/v13-abc/executor/execution.sqlite",
+    "status": "/var/lib/libvirt/trading-ai-lab/v13-abc/executor/status.json"
+  },
+  "candidate_timing": {
+    "poll_seconds": 5,
+    "intent_validity_seconds": 60
+  },
+  "warmup_report_sha256": "505b136854fcc48256e71919e128c5d44701039ebfe70695d4d2bc859fb512ef",
+  "funding_calendar_sha256": null,
+  "approved_release_reference": null,
+  "gate_evidence": {
+    "qualification_pass": null,
+    "funding_coverage_review": null,
+    "uid_and_filesystem_review": null,
+    "activation_receipt": null
+  },
+  "inputs": {
+    "repo": "/var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8",
+    "qualification_archive": "/srv/v13-universe-qualification-v1/qualification.sqlite",
+    "qualification_uid": 30930,
+    "qualification_start": "2026-10-02T00:00:00Z",
+    "qualification_binding": "7c88f4303e0ab2895b11f9d8bc16f0a310f188d06f52f47c9136b7bd5b8de2e6",
+    "qualification_activation": "/etc/v13-universe-qualification/activation.json",
+    "warmup_path": "/var/lib/libvirt/trading-ai-lab/v13-abc/inputs/warmup-20261008",
+    "approval_path": "/var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8/docs/contracts/v13-abc-research-simulation-approval-2026-10-08.json",
+    "approval_sha256": "b31821491f76f0820b3970da1efbf01b84d573d340abf60cc5114577e7068528",
+    "calendar_path": "/var/lib/libvirt/trading-ai-lab/v13-abc/inputs/reviewed-funding-calendar.json"
+  },
+  "read_groups": {
+    "forward": 30934,
+    "intents": 30935
+  },
+  "pre_cutoff_note": "Calendar target bound, file intentionally absent pending actual settlement coverage. No ABC activation. Qualification read access remains closed before cutoff.",
+  "qualification_snapshot_host": "/var/lib/libvirt/trading-ai-lab/v13-abc/inputs/qualification-after-cutoff",
+  "container_image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575"
+}

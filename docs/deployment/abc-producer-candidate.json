@@ -1,0 +1,31 @@
+{
+  "scope": "DRAFT_NOT_RUNTIME_CONFIGURATION",
+  "active": false,
+  "orders_authorized": false,
+  "start_utc": null,
+  "lineage": null,
+  "poll_seconds": 5,
+  "intent_validity_seconds": 60,
+  "role": "producer",
+  "uid": null,
+  "writable_paths": [
+    "/var/lib/libvirt/trading-ai-lab/v13-abc/producer/intents.sqlite"
+  ],
+  "read_only_paths": [
+    "/var/lib/libvirt/trading-ai-lab/v13-abc/collector/forward.sqlite"
+  ],
+  "intended_runtime_scope": "ABC_PRODUCER_CONFIGURATION_V1",
+  "repo": "/opt/v13-abc-candidate",
+  "intents": "/var/lib/libvirt/trading-ai-lab/v13-abc/producer/intents.sqlite",
+  "producer_uid": null,
+  "executor_uid": null,
+  "forward_uid": null,
+  "forward_path": "/var/lib/libvirt/trading-ai-lab/v13-abc/collector/forward.sqlite",
+  "qualification_archive": "/var/lib/libvirt/trading-ai-lab/srv/v13-universe-qualification-v1/qualification.sqlite",
+  "qualification_uid": 30930,
+  "qualification_start": "2026-10-02T00:00:00Z",
+  "qualification_binding": "7c88f4303e0ab2895b11f9d8bc16f0a310f188d06f52f47c9136b7bd5b8de2e6",
+  "warmup_path": null,
+  "warmup_report_sha256": null,
+  "start": null
+}

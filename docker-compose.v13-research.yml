@@ -1,0 +1,217 @@
+{
+  "version": "3.3",
+  "services": {
+    "capture": {
+      "image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575",
+      "container_name": "octobot-v13-research-capture",
+      "restart": "unless-stopped",
+      "user": "30911:30910",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "network_mode": "bridge",
+      "entrypoint": [
+        "python3",
+        "-m",
+        "octobot.ai_strategy_lab.v13_research_paper",
+        "capture",
+        "--config",
+        "/runtime-config.json",
+        "--poll",
+        "60"
+      ],
+      "environment": {
+        "PYTHONPATH": "/workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "volumes": [
+        ".:/workspace:ro",
+        "../octobot-local/v13-paper/research/runtime-config.json:/runtime-config.json:ro",
+        "../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/research:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro",
+        "../octobot-local/v13-paper/research/source:/source"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "import json,datetime;v=json.load(open('/source/runtime-health.json'));t=datetime.datetime.fromisoformat(v.get('last_success_at','2000-01-01T00:00:00+00:00'));raise SystemExit(0 if v['status']=='healthy' and (datetime.datetime.now(datetime.timezone.utc)-t).total_seconds()<180 else 1)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "300s"
+      }
+    },
+    "producer": {
+      "image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575",
+      "container_name": "octobot-v13-research-producer",
+      "restart": "unless-stopped",
+      "user": "30912:30910",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "network_mode": "none",
+      "entrypoint": [
+        "python3",
+        "-m",
+        "octobot.ai_strategy_lab.v13_research_paper",
+        "producer",
+        "--config",
+        "/runtime-config.json",
+        "--poll",
+        "20"
+      ],
+      "environment": {
+        "PYTHONPATH": "/workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "volumes": [
+        ".:/workspace:ro",
+        "../octobot-local/v13-paper/research/runtime-config.json:/runtime-config.json:ro",
+        "../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/research:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro",
+        "../octobot-local/v13-paper/research/source:/source:ro",
+        "../octobot-local/v13-paper/research/proposals:/proposals"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "import json,datetime;v=json.load(open('/proposals/runtime-health.json'));t=datetime.datetime.fromisoformat(v.get('last_success_at','2000-01-01T00:00:00+00:00'));raise SystemExit(0 if v['status']=='healthy' and (datetime.datetime.now(datetime.timezone.utc)-t).total_seconds()<180 else 1)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "300s"
+      }
+    },
+    "issuer": {
+      "image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575",
+      "container_name": "octobot-v13-research-issuer",
+      "restart": "unless-stopped",
+      "user": "30913:30910",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "network_mode": "none",
+      "entrypoint": [
+        "python3",
+        "-m",
+        "octobot.ai_strategy_lab.v13_research_paper",
+        "issuer",
+        "--config",
+        "/runtime-config.json",
+        "--poll",
+        "20"
+      ],
+      "environment": {
+        "PYTHONPATH": "/workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "volumes": [
+        ".:/workspace:ro",
+        "../octobot-local/v13-paper/research/runtime-config.json:/runtime-config.json:ro",
+        "../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/research:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro",
+        "../octobot-local/v13-paper/research/source:/source:ro",
+        "../octobot-local/v13-paper/research/proposals:/proposals:ro",
+        "../octobot-local/v13-paper/research/approvals:/approvals"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "import json,datetime;v=json.load(open('/approvals/runtime-health.json'));t=datetime.datetime.fromisoformat(v.get('last_success_at','2000-01-01T00:00:00+00:00'));raise SystemExit(0 if v['status']=='healthy' and (datetime.datetime.now(datetime.timezone.utc)-t).total_seconds()<180 else 1)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "300s"
+      }
+    },
+    "executor": {
+      "image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575",
+      "container_name": "octobot-v13-research-executor",
+      "restart": "unless-stopped",
+      "user": "30914:30910",
+      "read_only": true,
+      "cap_drop": [
+        "ALL"
+      ],
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "network_mode": "none",
+      "entrypoint": [
+        "python3",
+        "-m",
+        "octobot.ai_strategy_lab.v13_research_paper",
+        "executor",
+        "--config",
+        "/runtime-config.json",
+        "--poll",
+        "20"
+      ],
+      "environment": {
+        "PYTHONPATH": "/workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "volumes": [
+        ".:/workspace:ro",
+        "../octobot-local/v13-paper/research/runtime-config.json:/runtime-config.json:ro",
+        "../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/research:ro",
+        "../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro",
+        "../octobot-local/v13-paper/research/source:/source:ro",
+        "../octobot-local/v13-paper/research/approvals:/approvals:ro",
+        "../octobot-local/v13-paper/research/execution:/execution",
+        "../octobot-local/v13-paper/research/control:/control:ro",
+        "../octobot-local/v13-paper/research/baseline/legacy.sqlite:/baseline/legacy.sqlite:ro",
+        "../octobot-local/v13-research-admin:/admin"
+      ],
+      "tmpfs": [
+        "/tmp:rw,noexec,nosuid,size=256m"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "python3",
+          "-c",
+          "import json,datetime;v=json.load(open('/execution/runtime-health.json'));t=datetime.datetime.fromisoformat(v.get('last_success_at','2000-01-01T00:00:00+00:00'));raise SystemExit(0 if v['status']=='healthy' and (datetime.datetime.now(datetime.timezone.utc)-t).total_seconds()<180 else 1)"
+        ],
+        "interval": "30s",
+        "timeout": "5s",
+        "retries": 3,
+        "start_period": "300s"
+      }
+    }
+  }
+}

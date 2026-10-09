@@ -1,0 +1,15 @@
+{
+  "lineage_sha256": "e1e5ccf9c061fc2c493255160a91a7bc7f20e34910daf416d14295036e8664c6",
+  "identity": {
+    "experiment": "v13-dynamic-universe-weekly-research-v1",
+    "contract_sha256": "df3a43768708da1f7b2bf2d94e218838119b787a2e7fb148e4eeb276cb630fa4",
+    "arms": [
+      "A",
+      "B",
+      "C"
+    ],
+    "owner_contract_approval_sha256": "b31821491f76f0820b3970da1efbf01b84d573d340abf60cc5114577e7068528",
+    "purpose": "NEW_COMMON_START_RESEARCH_PAPER_NO_INHERITED_PERFORMANCE"
+  },
+  "activation_authorized": false
+}

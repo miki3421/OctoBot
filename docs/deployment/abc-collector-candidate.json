@@ -1,0 +1,20 @@
+{
+  "scope": "DRAFT_NOT_RUNTIME_CONFIGURATION",
+  "active": false,
+  "orders_authorized": false,
+  "start_utc": null,
+  "lineage": null,
+  "poll_seconds": 5,
+  "intent_validity_seconds": 60,
+  "role": "collector",
+  "uid": null,
+  "writable_paths": [
+    "/var/lib/libvirt/trading-ai-lab/v13-abc/collector/forward.sqlite"
+  ],
+  "read_only_paths": [],
+  "intended_runtime_scope": "ABC_FORWARD_COLLECTOR_CONFIGURATION_V1",
+  "repo": "/opt/v13-abc-candidate",
+  "archive": "/var/lib/libvirt/trading-ai-lab/v13-abc/collector/forward.sqlite",
+  "collector_uid": null,
+  "public_downloads_authorized": true
+}

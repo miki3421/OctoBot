@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "document_kind": "OWNER_AUTHORIZED_QUALIFICATION_CAPTURE",
+  "plan_sha256": "028dc0690359c8f41e1fcaad7a2e2705ae3fb1d1a876ded1e7cb2139d67be5ec",
+  "collector_sha256": "fb907a5e675f443ddcd3fa5b083b8029b801f221a925489fa88c7fd3d9e17e3b",
+  "collector_uid": 30930,
+  "storage_root": "/srv/v13-universe-qualification-v1",
+  "start_utc": "2026-10-02T00:00:00Z",
+  "end_utc": "2026-10-16T00:00:00Z",
+  "attempt_cap": 42000,
+  "compressed_raw_bytes_cap": 536870912,
+  "owner_decision_reference": "Owner confirmation on 2026-09-30 in direct response to the specific installation and public capture request for 2-16 October",
+  "periodic_downloads_authorized": true,
+  "service_activation_authorized": true,
+  "orders_authorized": false,
+  "recorded_at_utc": "2026-09-30T19:45:57.899956+00:00",
+  "release_bundle_sha256": "34b8345bef3b4740525b2f278e419499f9e32c339423cd4ae27c45cf7a283fdf"
+}

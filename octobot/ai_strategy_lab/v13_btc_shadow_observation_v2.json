@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "status": "CANDIDATE_SCHEMA_ONLY_NOT_ACTIVE",
+  "experiment_id": "v13-btc-paper-new-v1",
+  "symbol": "BTC/USDT:USDT",
+  "exchange_symbol": "XBTUSDTM",
+  "observation_fields": [
+    "experiment_id",
+    "lineage",
+    "symbol",
+    "exchange_symbol",
+    "slot_utc",
+    "input_cutoff_utc",
+    "causal_input_sha256",
+    "observation_id",
+    "causal_bars"
+  ],
+  "provenance_fields_separate_from_decision_identity": [
+    "raw_sha256",
+    "receipt_id",
+    "received_at",
+    "request_url"
+  ],
+  "arm_decision_fields": [
+    "observation_id",
+    "arm_id",
+    "artifact_version",
+    "artifact_sha256",
+    "quantization_or_null",
+    "prompt_version_or_null",
+    "prompt_sha256_or_null",
+    "system_prompt_sha256_or_null",
+    "sampling_config_or_null",
+    "decision",
+    "target_weight_or_null",
+    "score_or_null",
+    "score_semantics",
+    "reason_codes",
+    "decided_at",
+    "mature_outcome_ref_or_null"
+  ],
+  "decision_enum": ["LONG", "SHORT", "NO_PROPOSAL", "MISSING"],
+  "qwen_constraints": {
+    "shadow_only": true,
+    "issuer": false,
+    "executor": false,
+    "grant": false,
+    "ledger_access": false,
+    "exchange_credentials": false,
+    "model_artifact_and_quantization_frozen_before_day_1": true,
+    "prompt_and_sampling_frozen_before_day_1": true
+  }
+}

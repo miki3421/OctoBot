@@ -1,6 +1,7 @@
 """Standalone paper mirror for the frozen Trend V13 sleeve."""
 import argparse, datetime, fcntl, json, math, pathlib, sqlite3, time
 from octobot.ai_strategy_lab import diversified_manual_paper_v1 as market_data
+from octobot.ai_strategy_lab import paper_runtime_authorization
 
 MODE = "trend_v13_paper_v1"
 INITIAL_EQUITY = 10000.0
@@ -35,6 +36,12 @@ def run_once(journal, database, health):
         db.commit()
         db.close(); return json.loads(health.read_text()) if health.exists() else {}
     new=targets(payload); old={market_data._normalize_symbol(k): v for k, v in state["positions"].items()}; deltas={k:new.get(k,0)-old.get(k,0) for k in set(old)|set(new)}
+    if any(abs(value)>1e-12 for value in deltas.values()):
+        try:
+            paper_runtime_authorization.unsupported_execution("v13-paper-legacy")
+        except Exception:
+            db.close()
+            raise
     position_pnl = dict(state.get("position_pnl", {})); entry_prices = dict(state.get("entry_prices", {})); current_prices = {}
     snapshot = market_data._load_daily_snapshot(journal.parent, bar, {})
     for symbol in new:
@@ -61,7 +68,7 @@ def run_once(journal, database, health):
     state={"equity":equity,"positions":new,"last_bar":bar,"orders":state["orders"]+sum(abs(v)>1e-12 for v in deltas.values()),"position_pnl":position_pnl,"entry_prices":entry_prices}
     db.execute("INSERT OR REPLACE INTO state(id,payload) VALUES(1,?)",(json.dumps(state,sort_keys=True),)); db.commit(); db.close()
     db=init_db(database); db.execute("INSERT OR REPLACE INTO equity_history(bar,equity,pnl) VALUES(?,?,?)",(bar,equity,equity-INITIAL_EQUITY)); db.commit(); db.close()
-    result={"mode":MODE,"status":"healthy","paper_only":True,"orders_authorized":False,"paper_orders_authorized":True,"credentials_used":False,"network_required":False,"equity":equity,"pnl":equity-INITIAL_EQUITY,"order_count":state["orders"],"position_count":len(new),"last_bar":bar,"positions":[{"symbol":k,"weight_pct":v*100,"notional":equity*v,"entry_price":entry_prices[k],"current_price":current_prices[k],"unrealized_pnl":position_pnl[k]} for k,v in sorted(new.items())],"last_success_at":now()}
+    result={"mode":MODE,"status":"healthy","paper_only":True,"orders_authorized":False,"paper_orders_authorized":False,"credentials_used":False,"network_required":False,"equity":equity,"pnl":equity-INITIAL_EQUITY,"order_count":state["orders"],"position_count":len(new),"last_bar":bar,"positions":[{"symbol":k,"weight_pct":v*100,"notional":equity*v,"entry_price":entry_prices[k],"current_price":current_prices[k],"unrealized_pnl":position_pnl[k]} for k,v in sorted(new.items())],"last_success_at":now()}
     health.parent.mkdir(parents=True,exist_ok=True); health.write_text(json.dumps(result,indent=2,sort_keys=True)+"\n"); return result
 def main():
     p=argparse.ArgumentParser(); p.add_argument("--journal",type=pathlib.Path,required=True); p.add_argument("--database",type=pathlib.Path,required=True); p.add_argument("--health",type=pathlib.Path,required=True); p.add_argument("--lock",type=pathlib.Path,required=True); p.add_argument("--poll",type=float,default=60); p.add_argument("--run-once",action="store_true"); a=p.parse_args()

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "kind": "OWNER_CONTRACT_APPROVAL_NOT_ACTIVATION",
+  "contract_path": "docs/contracts/v13-abc-research-simulation-candidate-v1.json",
+  "contract_file_sha256": "df3a43768708da1f7b2bf2d94e218838119b787a2e7fb148e4eeb276cb630fa4",
+  "decision": "APPROVED",
+  "decision_date": "2026-10-08",
+  "recorded_at_utc": "2026-10-08T10:44:58.290767+00:00",
+  "evidence": "Owner replied: si approvo, to the explicit ABC simulation-contract approval question in this conversation.",
+  "approved_scope": [
+    "same research simulation rules and risk limits proposed for the new ABC accounts",
+    "funding estimate from prior observed and received book within 900 seconds",
+    "deny new risk when funding coverage is incomplete"
+  ],
+  "not_authorized": [
+    "ABC activation",
+    "operational grants",
+    "real orders",
+    "additional data acquisitions",
+    "waiver of qualification or funding coverage"
+  ],
+  "active": false,
+  "paper_orders_authorized": false,
+  "work_card": "work-card-ea6b980a-b19b-4a91-9ef4-6f308441f295"
+}

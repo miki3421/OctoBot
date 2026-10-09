@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "CANDIDATE_RESEARCH_ONLY_NOT_APPROVED_FOR_EXECUTION",
+  "experiment_id": "v13-btc-paper-new-v1",
+  "account": "v13-paper-v2",
+  "symbol": "BTC/USDT:USDT",
+  "exchange_symbol": "XBTUSDTM",
+  "strategy": "v13-btc-paper-producer-v1",
+  "lineage_root": "29ae069f52b7cb820fb54476d5e47e094ac1174a98186da9ada107e728a2efb7",
+  "producer_version": "btc-daily-dual-momentum-research-v1",
+  "source": "kucoin-classic-futures-public-klines",
+  "endpoint": "https://api-futures.kucoin.com/api/v1/kline/query",
+  "granularity_minutes": 1440,
+  "lookback_fast_days": 30,
+  "lookback_slow_days": 120,
+  "required_contiguous_bars": 121,
+  "decision_lag_minutes": 10,
+  "target_weight_abs": "0.10",
+  "proposal_schema_version": 1,
+  "inherited_authorizations": false,
+  "scientific_validity": "UNASSESSED"
+}

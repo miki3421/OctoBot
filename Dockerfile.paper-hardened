@@ -1,0 +1,21 @@
+# P0-05 candidate only. The base was built by Dockerfile.local; record and pin
+# its digest when constructing a reviewable candidate, never rebuild at runtime.
+ARG BASE_IMAGE=octobot-local:dev
+FROM ${BASE_IMAGE}
+
+USER root
+WORKDIR /workspace
+COPY --chown=0:0 octobot /workspace/octobot
+COPY --chown=0:0 packages /workspace/packages
+COPY --chown=0:0 docker /workspace/docker
+RUN mkdir -p /workspace/tentacles \
+    && cp -a /workspace/packages/tentacles/. /workspace/tentacles/ \
+    && find /workspace/tentacles -type d -exec sh -c 'test -e "$1/__init__.py" || : > "$1/__init__.py"' sh '{}' \; \
+    && mkdir -p /opt/paper-profiles \
+    && cp -a /workspace/packages/tentacles/profiles/local_ai_trading /opt/paper-profiles/ \
+    && chown -R 0:0 /workspace /opt/paper-profiles \
+    && chmod -R a-w /workspace /opt/paper-profiles
+
+ENV PYTHONPATH=/workspace:/workspace/packages/agents:/workspace/packages/async_channel:/workspace/packages/backtesting:/workspace/packages/commons:/workspace/packages/copy:/workspace/packages/evaluators:/workspace/packages/flow:/workspace/packages/node:/workspace/packages/protocol:/workspace/packages/services:/workspace/packages/sync:/workspace/packages/tentacles_manager:/workspace/packages/trading:/workspace/packages \
+    PYTHONDONTWRITEBYTECODE=1 PYTHONNOUSERSITE=1 HOME=/tmp
+USER 30000:30001

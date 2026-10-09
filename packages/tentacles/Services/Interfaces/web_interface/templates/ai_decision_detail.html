@@ -18,7 +18,7 @@
             <div class="col-md-3"><div class="text-muted small">Ora UTC</div><strong>{{ decision.created_at }}</strong></div>
             <div class="col-md-3"><div class="text-muted small">Mercato</div><strong>{{ decision.exchange_name }} · {{ decision.symbol }}</strong></div>
             <div class="col-md-3"><div class="text-muted small">Decisione</div><strong>{{ decision.action }}</strong> · {{ "%.0f"|format((decision.confidence or 0) * 100) }}%</div>
-            <div class="col-md-3"><div class="text-muted small">Risk Guard</div><strong>{{ "APPROVATA" if decision.approved else "BLOCCATA / NEUTRALE" }}</strong><br><code>{{ decision.guard_reason }}</code></div>
+            <div class="col-md-3"><div class="text-muted small">Filtro segnale (non autorizza ordini)</div><strong>{{ "SEGNALE IDONEO" if decision.approved else "NEUTRALE / BLOCCATO" }}</strong><br><code>{{ decision.guard_reason }}</code></div>
         </div>
         <div class="card border-{{ decision.paper_execution.color }} mb-3">
             <div class="card-body">

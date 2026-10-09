@@ -19,7 +19,7 @@ import flask
 
 import tentacles.Services.Interfaces.web_interface.login as login
 import tentacles.Services.Interfaces.web_interface.models as models
-from octobot.ai_strategy_lab import forward_carry_dashboard
+from octobot.ai_strategy_lab import forward_carry_dashboard, v13_paper_view
 
 
 DEFAULT_AI_DECISIONS_DB_PATH = "/octobot/user/ai_decisions.sqlite"
@@ -1045,29 +1045,7 @@ def _diversified_paper_summary(health: dict) -> dict:
 
 
 def _v13_paper_summary(health: dict) -> dict:
-    if not health:
-        return {"available": False}
-    required = {
-        "mode": "trend_v13_paper_v1",
-        "status": "healthy",
-        "paper_only": True,
-        "orders_authorized": False,
-        "paper_orders_authorized": True,
-        "credentials_used": False,
-        "network_required": False,
-    }
-    if any(health.get(key) != value for key, value in required.items()):
-        raise ValueError("V13 paper invariant differs")
-    return {
-        "available": True,
-        "equity": float(health["equity"]),
-        "pnl": float(health["pnl"]),
-        "order_count": int(health.get("order_count", 0)),
-        "position_count": int(health.get("position_count", 0)),
-        "last_bar": health.get("last_bar"),
-        "positions": health.get("positions", []),
-        "last_success_at": health.get("last_success_at"),
-    }
+    return v13_paper_view.summarize_health(health)
 
 
 def _microstructure_summary(root: pathlib.Path) -> dict:
@@ -1970,17 +1948,18 @@ def register(blueprint):
             ),
             "diversified decisions",
         )
+        diversified_health = load_json(
+            pathlib.Path(
+                os.getenv(
+                    "DIVERSIFIED_FORWARD_HEALTH_PATH",
+                    DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH,
+                )
+            ),
+            "diversified observer",
+        )
         try:
             diversified_forward = _diversified_forward_summary(
-                load_json(
-                    pathlib.Path(
-                        os.getenv(
-                            "DIVERSIFIED_FORWARD_HEALTH_PATH",
-                            DEFAULT_DIVERSIFIED_FORWARD_HEALTH_PATH,
-                        )
-                    ),
-                    "diversified observer",
-                ),
+                diversified_health,
                 diversified_protocol,
                 diversified_lock,
                 load_json(
@@ -2025,13 +2004,20 @@ def register(blueprint):
             errors.append(f"diversified manual paper: {error}")
 
         try:
-            v13_paper = _v13_paper_summary(load_json(
-                pathlib.Path(os.getenv("V13_PAPER_HEALTH_PATH", DEFAULT_V13_PAPER_HEALTH_PATH)),
-                "V13 paper",
-            ))
-        except (KeyError, TypeError, ValueError) as error:
+            if os.getenv("V13_PAPER_HEALTH_PATH"):
+                v13_paper = _v13_paper_summary(load_json(
+                    pathlib.Path(os.environ["V13_PAPER_HEALTH_PATH"]), "V13 paper"))
+            else:
+                v13_paper = v13_paper_view.load_paper_view()
+        except (OSError, sqlite3.Error, KeyError, TypeError, ValueError) as error:
             v13_paper = {"available": False}
-            errors.append(f"V13 paper: {error}")
+            if isinstance(error, FileNotFoundError) and "microstructure.jsonl" in str(error):
+                errors.append(
+                    "V13 paper: collector mercato non disponibile; conto in pausa sicura"
+                )
+            else:
+                errors.append(f"V13 paper: {error}")
+        v13_paper_focus = v13_paper_view.paper_focus(v13_paper, diversified_health)
 
         try:
             diversified_chart = _diversified_equity_chart(
@@ -2098,6 +2084,7 @@ def register(blueprint):
             diversified_forward=diversified_forward,
             diversified_paper=diversified_paper,
             v13_paper=v13_paper,
+            v13_paper_focus=v13_paper_focus,
             diversified_chart=diversified_chart,
             breadth_forward=breadth_forward,
             data_quality=data_quality,
@@ -2123,6 +2110,15 @@ def register(blueprint):
             as_attachment=False,
             download_name="HISTORY.md",
         )
+
+    @blueprint.route("/research_archive/lab_audit")
+    @login.login_required_when_activated
+    def lab_audit():
+        path = pathlib.Path("/workspace/TRADING_LAB_AUDIT_2026-09-10.md")
+        if not path.is_file():
+            flask.abort(404)
+        return flask.send_file(path, mimetype="text/markdown", as_attachment=False,
+                               download_name=path.name)
 
     @blueprint.route("/research_archive/migration_audit")
     @login.login_required_when_activated

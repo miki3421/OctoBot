@@ -1,0 +1,10 @@
+{
+  "disks": {"root": "/", "lab": "/var/lib/libvirt/trading-ai-lab"},
+  "containers": ["octobot-local", "octobot-v13-research-capture", "octobot-v13-research-producer", "octobot-v13-research-issuer", "octobot-v13-research-executor", "octobot-market-observer", "octobot-scalping-observer"],
+  "collectors": {
+    "market": {"path": "/root/auto_trading_sys/octobot-local/shadow/market/health.json", "timestamp_keys": ["last_success_at"], "warn_after_seconds": 1800},
+    "scalping_book": {"path": "/root/auto_trading_sys/octobot-local/scalping/health.json", "timestamp_keys": ["last_book_at"], "warn_after_seconds": 120},
+    "scalping_trade": {"path": "/root/auto_trading_sys/octobot-local/scalping/health.json", "timestamp_keys": ["last_trade_at"], "warn_after_seconds": 120},
+    "paper": {"path": "/root/auto_trading_sys/octobot-local/v13-paper/research/execution/health-research.json", "timestamp_keys": ["last_success_at"], "warn_after_seconds": 300}
+  }
+}

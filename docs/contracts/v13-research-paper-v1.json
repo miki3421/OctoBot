@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "contract_id": "v13-research-paper-v1",
+  "scope": "RESEARCH_SIMULATION_ONLY",
+  "account": "v13-paper-v2",
+  "portfolio": "trend-v13-original-standalone",
+  "scientific_lineage_ref": "8990ff6e4884d56f9872f7fcf4712359da7416cacfbbf3d0af9611a10b9a3235",
+  "scientific_validity": "UNASSESSED",
+  "real_orders_authorized": false,
+  "exchange_faithful_entries_authorized": false,
+  "kucoin_min_quantity": null,
+  "kucoin_min_notional": null,
+  "simulation": {
+    "min_quantity": "one declared simulation quantity increment",
+    "quantity_increment": "public lotSize * multiplier, precision only; explicitly NOT exchange minimum evidence",
+    "min_notional_usdt": 1.0,
+    "fill": "observed depth VWAP + adverse 2bps; conservative price tick rounding",
+    "depth": "cap each simulated leg at observed side depth; no invented liquidity",
+    "fee": "max(public takerFeeRate, 0.0006)",
+    "funding": "settled public rates multiplied by held quantity and previous observed mark; explicitly ESTIMATED, including preserved-position gap; not actual exchange charges",
+    "small_orders": "round toward zero; below simulation minimum recorded as skipped, never fabricate a fill"
+  },
+  "risk_policy": {
+    "version": "risk-policy-v13-original-research-v1",
+    "controls": {
+      "daily_loss": 0.02,
+      "drawdown": 0.1,
+      "order_frequency": 1,
+      "cooldown": 79200,
+      "per_asset_exposure": 0.315,
+      "gross_exposure": 0.9
+    },
+    "frequency_unit": "risk-increasing portfolio rebalance per UTC day",
+    "equity": "initial + realized + unrealized + estimated funding - fees",
+    "daily_baseline": "first complete equity observation of UTC day, persisted before new risk; historical peak retained",
+    "drawdown": "persistent historical equity high-water mark",
+    "protective_reductions": "allowed without issuer proposal and unaffected by entry cooldown; never reverse/increase",
+    "missing_gates": []
+  },
+  "ownership": {
+    "capture": 30911,
+    "producer": 30912,
+    "issuer": 30913,
+    "executor": 30914,
+    "reader_gid": 30910,
+    "administrator": 0
+  },
+  "authorization": "operator explicitly selected research paper, approved numeric risk policy and authorized public Binance/KuCoin acquisitions on 2026-09-28; subsequent annotation explicitly requested simulated minima",
+  "history": "same account and initial equity; old database retained unchanged; new execution.sqlite continues copied economic history with migration receipt and new position generation",
+  "source_availability": "historical bootstrap availability remains UNRESOLVED; new capture reception and publication precede proposal and issuance; no historical issuance",
+  "activation": "only after internal adversarial tests and real pipeline verification; no independent scientific review claimed",
+  "work_card": "work-card-395f2fc2-b628-4c87-a48a-e922687a2eed"
+}

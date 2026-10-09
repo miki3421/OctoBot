@@ -1,0 +1,72 @@
+version: '3.3'
+# Isolated candidate only. V13_SANDBOX must not point into octobot-local.
+x-v13-base: &v13-base
+  image: sha256:b5db2301bfdf5e8a3882adda92d968c3309ba9d4a9e838c40e325f560a8a92ac
+  read_only: true
+  network_mode: none
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: [/tmp:rw,noexec,nosuid,nodev,size=64m]
+services:
+  v13-strategy-candidate:
+    <<: *v13-base
+    profiles: [v13-strategy-candidate]
+    user: '30010:30010'
+    entrypoint: [/bin/sh, /workspace/docker/v13_trusted_entrypoint.sh]
+    environment: {V13_ROLE: strategy}
+    command: [--module, octobot.ai_strategy_lab.v13_intent_client,
+      --proposal, /strategy/proposal.json, --inbox, /intents]
+    volumes:
+      - ${V13_SANDBOX:?isolated V13_SANDBOX required}/strategy:/strategy:ro
+      - ${V13_SANDBOX:?}/intents:/intents:rw
+  v13-executor-candidate:
+    <<: *v13-base
+    profiles: [v13-executor-candidate]
+    user: '30000:30001'
+    entrypoint: [/bin/sh, /workspace/docker/v13_trusted_entrypoint.sh]
+    environment: {V13_ROLE: executor}
+    command: [--module, octobot.ai_strategy_lab.v13_trusted_execution,
+      --inbox, /intents, --approval-db, /approvals/approvals.sqlite,
+      --protocol, /protocol/v13-btc-protocol.json,
+      --ledger, /ledger/v13-v2.sqlite, --market-journal, /market/v2.jsonl,
+      --control-root, /var/lib/octobot-paper-control,
+      --consumer-audit, /audit/authorization.sqlite,
+      --policy, /policy/policy.json, --identity, /policy/identity.json,
+      --lock, /ledger/executor.lock]
+    volumes:
+      - ${V13_SANDBOX:?}/intents:/intents:ro
+      - ${V13_SANDBOX:?}/market:/market:ro
+      - ${V13_SANDBOX:?}/approvals:/approvals:ro
+      - ${V13_SANDBOX:?}/protocol:/protocol:ro
+      - ${V13_SANDBOX:?}/policy:/policy:ro
+      - ${V13_SANDBOX:?}/ledger:/ledger:rw
+      - ${V13_SANDBOX:?}/audit:/audit:rw
+      - ${V13_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+  v13-issuer-candidate:
+    <<: *v13-base
+    profiles: [v13-issuer-candidate]
+    user: '30020:30020'
+    entrypoint: [/bin/sh, /workspace/docker/v13_trusted_entrypoint.sh]
+    environment: {V13_ROLE: issuer}
+    command: [--module, octobot.ai_strategy_lab.v13_btc_issuer,
+      --config, /issuer/config.json]
+    volumes:
+      - ${V13_SANDBOX:?}/issuer:/issuer:ro
+      - ${V13_SANDBOX:?}/protocol:/protocol:ro
+      - ${V13_SANDBOX:?}/producer:/producer:ro
+      - ${V13_SANDBOX:?}/source-archive:/source-archive:ro
+      - ${V13_SANDBOX:?}/approvals:/approvals:rw
+  v13-admin-close-candidate:
+    <<: *v13-base
+    profiles: [v13-admin-close-candidate]
+    user: '30000:30030'
+    entrypoint: [/bin/sh, /workspace/docker/v13_trusted_entrypoint.sh]
+    environment: {V13_ROLE: admin-close}
+    command: [--module, octobot.ai_strategy_lab.v13_admin_close,
+      --socket, /admin-socket/close.sock, --allowed-uid, '30030', --allowed-gid, '30030',
+      --ledger, /ledger/v13-v2.sqlite, --market-journal, /market/v2.jsonl,
+      --lock, /ledger/executor.lock]
+    volumes:
+      - ${V13_SANDBOX:?}/ledger:/ledger:rw
+      - ${V13_SANDBOX:?}/market:/market:ro
+      - ${V13_SANDBOX:?}/admin-socket:/admin-socket:rw

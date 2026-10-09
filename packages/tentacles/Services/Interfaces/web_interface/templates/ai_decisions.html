@@ -18,8 +18,8 @@
 <div class="card">
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
         <div>
-            <h2 class="mb-1"><i class="fas fa-clipboard-check mr-2"></i>Decision Audit</h2>
-            <div class="text-muted">Journal append-only del profilo KuCoin Futures paper-only</div>
+            <h2 class="mb-1"><i class="fas fa-clipboard-check mr-2"></i>Baseline BTC · audit paper</h2>
+            <div class="text-muted">Solo il vecchio motore KuCoin BTC. Non contiene i trade né i risultati della V13.</div>
         </div>
         <a class="btn btn-outline-primary waves-effect" href="{{ url_for('ai_decisions') }}">
             <i class="fas fa-rotate mr-1"></i> Aggiorna
@@ -37,33 +37,50 @@
             <span class="small">Ultime {{ display_limit }} decisioni · più recenti prima</span>
         </div>
 
-        <div class="row">
+        {% if execution_policy and execution_policy.entries_quarantined %}
+        <div class="alert alert-warning" id="btc-execution-policy">
+            <strong>NUOVI INGRESSI SOSPESI.</strong> {{ execution_policy.reason }}
+            <div class="small">Policy caricata dal motore il {{ execution_policy.created_at }}. I segnali sotto sono osservazioni, non ordini autorizzati.</div>
+        </div>
+        {% elif not execution_policy %}
+        <div class="alert alert-warning">Policy di esecuzione non disponibile nel journal: non dedurre che il motore possa aprire ordini.</div>
+        {% else %}
+        <div class="alert alert-info">Nuovi ingressi abilitati nella policy caricata il {{ execution_policy.created_at }}. Un segnale idoneo non garantisce un ordine.</div>
+        {% endif %}
+
+        <details class="mb-3"><summary>Conteggi dei segnali storici (non sono trade)</summary><div class="row mt-3">
             {{ metric_card("Decisioni", summary.total) }}
-            {{ metric_card("Approvate", summary.approved, "success") }}
+            {{ metric_card("Segnali idonei", summary.approved, "info") }}
             {{ metric_card("Bloccate / Hold", summary.rejected, "warning") }}
             {{ metric_card("Buy", summary.buy, "success") }}
             {{ metric_card("Sell", summary.sell, "danger") }}
             {{ metric_card("Errori", summary.errors, "danger") }}
-        </div>
+        </div></details>
 
         <div class="card border-success mb-4">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap justify-content-between align-items-start mb-2">
                     <div>
-                        <h4 class="mb-1"><i class="fas fa-chart-line mr-2"></i>Feedback paper chiuso</h4>
-                        <div class="text-muted small">P/L con fee note, funding escluso. Nessuna metrica rappresenta fondi reali.</div>
+                        <h4 class="mb-1"><i class="fas fa-chart-line mr-2"></i>Risultati BTC · solo trade chiusi</h4>
+                        <div class="text-muted small">Storico cumulativo di più versioni della baseline. Fee note incluse nel netto; funding escluso e slippage reale non misurato. Non è una validazione fuori campione.</div>
                     </div>
                     <span class="badge badge-info p-2">{{ outcome_summary.closed_positions }} posizioni</span>
                 </div>
                 {% if outcome_error %}<div class="alert alert-warning">{{ outcome_error }}</div>{% endif %}
                 <div class="row">
-                    {{ metric_card("Eventi ordine", outcome_summary.order_events, "info") }}
-                    {{ metric_card("Interrotti", outcome_summary.interrupted_orders, "warning") }}
-                    {{ metric_card("Vinte", outcome_summary.wins, "success") }}
-                    {{ metric_card("Perse", outcome_summary.losses, "danger") }}
+                    {{ metric_card("P/L lordo", "%+.2f USDT"|format(outcome_summary.gross_price_pnl), "info") }}
+                    {{ metric_card("Fee pagate", "%.2f USDT"|format(outcome_summary.known_fees), "warning") }}
+                    {{ metric_card("Vinti / persi", outcome_summary.wins ~ " / " ~ outcome_summary.losses, "info") }}
+                    {{ metric_card("Profit factor", "%.2f"|format(outcome_summary.profit_factor) if outcome_summary.profit_factor is not none else "n/d", "info") }}
                     {{ metric_card("Win rate", "%.1f%%"|format(outcome_summary.win_rate), "primary") }}
                     {{ metric_card("P/L ex funding", "%+.2f USDT"|format(outcome_summary.net_pnl_excluding_funding), "success" if outcome_summary.net_pnl_excluding_funding > 0 else "warning") }}
                 </div>
+                <details class="small mb-3"><summary>E se invertissimo BUY e SELL?</summary>
+                    <p class="mt-2 mb-1">Agli stessi ingressi, quantità e prezzi di uscita: −P/L lordo − fee = <strong>{{ "%+.2f USDT"|format(outcome_summary.same_exit_inverse) }}</strong>.
+                    È solo un controfattuale aritmetico: con direzione inversa cambiano stop, durata, funding e ingressi successivi.
+                    Il diagnostico corretto del 10 settembre, con uscite ricalcolate, non supera lo stress 3× dei costi.
+                    <a href="{{ url_for('lab_audit') }}">Leggi analisi e limiti</a>. Non viene attivata una strategia inversa.</p>
+                </details>
                 {% if outcomes %}
                 <div class="table-responsive mt-3">
                     <table class="table table-sm table-striped mb-1">
@@ -91,12 +108,13 @@
 
         {% if decisions %}
         <div class="alert alert-info small">
-            <strong>Decisione ≠ trade.</strong> “Approvata” indica che il segnale ha superato il Risk Guard;
-            la colonna <strong>Esecuzione paper</strong> conferma se è esistito davvero un ordine o un trade.
+            <strong>Segnale ≠ ordine.</strong> “Segnale idoneo” significa solo che ha superato i filtri del Risk Guard.
+            Il punteggio di consenso non è una probabilità di guadagno calibrata. L'esito sotto deriva dagli eventi del motore;
+            per lo storico senza tracciamento non inventiamo il motivo della mancata esecuzione.
         </div>
         <div class="table-responsive">
             <table id="ai-decisions-table" class="table table-striped table-hover w-100">
-                <thead><tr><th>Ora UTC</th><th>Mercato</th><th>Decisione</th><th>Risk Guard</th><th>Esecuzione paper</th><th>Motivo</th><th></th></tr></thead>
+                <thead><tr><th>Ora UTC</th><th>Mercato</th><th>Segnale</th><th>Filtro segnale</th><th>Esito nel motore</th><th>Motivo del segnale</th><th></th></tr></thead>
                 <tbody>
                 {% for decision in decisions %}
                 <tr>
@@ -104,10 +122,10 @@
                     <td><strong>{{ decision.symbol or "-" }}</strong><br><span class="small text-muted">{{ decision.exchange_name or "-" }}</span></td>
                     <td>
                         <span class="badge badge-{{ "success" if decision.action == "BUY" else "danger" if decision.action == "SELL" else "secondary" }}">{{ decision.action or "HOLD" }}</span>
-                        <div class="small mt-1">conf. {{ "%.0f"|format((decision.confidence or 0) * 100) }}% · forza {{ "%.2f"|format(decision.signal_strength or 0) }}</div>
+                        <div class="small mt-1">punteggio {{ "%.0f"|format((decision.confidence or 0) * 100) }}% · forza {{ "%.2f"|format(decision.signal_strength or 0) }}</div>
                     </td>
                     <td>
-                        <span class="badge badge-{{ "success" if decision.approved else "warning" }}">{{ "APPROVATA" if decision.approved else "BLOCCATA / NEUTRALE" }}</span>
+                        <span class="badge badge-{{ "info" if decision.approved else "secondary" }}">{{ "SEGNALE IDONEO" if decision.approved else "NEUTRALE / BLOCCATO" }}</span>
                         <div class="small mt-1"><code>{{ decision.guard_reason or "-" }}</code></div>
                     </td>
                     <td>
@@ -125,11 +143,11 @@
             <div class="text-center text-muted py-5">Nessuna decisione registrata.</div>
         {% endif %}
 
-        <div class="alert alert-secondary small mt-3 mb-0">
+        <details class="small mt-3"><summary>Backtest storico separato (non è questo conto)</summary><div class="alert alert-secondary small mt-3 mb-0">
             Ultimo backtest: {% if capital.run_name %}<strong>{{ capital.run_name }}</strong> · equity {{ "%.2f"|format(capital.end_equity) }} USDT · surplus teorico {{ "%.2f"|format(capital.theoretical_surplus) }} USDT{% else %}non disponibile{% endif %}.
             È una stima storica, non un saldo live. <a href="{{ url_for('backtesting') }}">Apri backtest</a>.
             {% if backtest_error %}<span class="text-warning">{{ backtest_error }}</span>{% endif %}
-        </div>
+        </div></details>
     </div>
 </div>
 {% endblock %}

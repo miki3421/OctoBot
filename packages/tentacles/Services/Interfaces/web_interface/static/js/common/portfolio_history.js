@@ -21,21 +21,28 @@ $(document).ready(function() {
         const element = $(`#${element_id}`);
         if (element.data("v13-paper") === true) {
             const source = document.getElementById("v13-paper-history");
-            let history = source ? JSON.parse(source.textContent).map((point) => ({
-                time: typeof point.time === "string" ? Date.parse(`${point.time}T00:00:00Z`) / 1000 : point.time,
+            const history = source ? JSON.parse(source.textContent).map((point) => ({
+                time: typeof point.time === "string" ? Date.parse(point.time.length === 10 ? `${point.time}T00:00:00Z` : point.time) / 1000 : point.time,
                 value: point.value
             })) : [];
-            if (history.length === 1) {
-                history = [
-                    {time: history[0].time - 86400, value: 10000},
-                    history[0]
-                ];
-            }
             const height = isMobileDisplay()? 250 : isMediumDisplay() ? 450 : undefined;
             if (history.length) {
                 const currentValue = history[history.length - 1].value;
-                create_line_chart(document.getElementById(element_id), history,
-                    `V13 paper · ${currentValue.toFixed(2)} ${reference_market}`, 'white', update, height);
+                const xaxis = {type: 'date', title: 'Ora UTC'};
+                if (history.length === 1) {
+                    xaxis.range = [new Date((history[0].time - 3600) * 1000).toISOString(), new Date((history[0].time + 3600) * 1000).toISOString()];
+                }
+                const draw = update ? Plotly.react : Plotly.newPlot;
+                draw(document.getElementById(element_id), [{
+                    x: history.map(point => new Date(point.time * 1000).toISOString()),
+                    y: history.map(point => point.value), type: 'scatter', mode: 'lines+markers',
+                    name: 'Equity paper', line: {color: '#29b6f6'}, marker: {size: 7},
+                    hovertemplate: '%{x}<br>%{y:.2f} USDT<extra></extra>'
+                }], {title: `${element.data('v13-label')} · ${currentValue.toFixed(2)} ${reference_market}`,
+                    height: height || 400, xaxis, yaxis: {title: 'Equity (USDT)'},
+                    paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)', font: {color: 'white'},
+                    hoverlabel: {bgcolor: '#172b42', bordercolor: '#4f6b87', font: {color: '#f4f7fb'}}
+                }, {responsive: true, displaylogo: false});
                 $(`#profitability_graph`).removeClass(hidden_class);
                 $(`#no_profitability_graph`).addClass(hidden_class);
             }

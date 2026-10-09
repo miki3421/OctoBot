@@ -504,31 +504,32 @@ async def test_create_new_orders_rejects_minimal_quantity_below_exchange_limits(
     assert "minimum" in str(err.value).lower() or "min_amount" in str(err.value).lower() or "min_cost" in str(err.value).lower()
 
 
-async def test_computed_quantity_is_raised_above_strict_exchange_minimum(tools):
+async def test_exact_exchange_minimum_is_inclusive(tools):
     exchange_manager, _, symbol, consumer, _ = tools
     symbol_market = exchange_manager.exchange.get_market_status(symbol, with_fixer=False)
     min_amount = decimal.Decimal(str(symbol_market["limits"]["amount"]["min"]))
-    funded_maximum = min_amount * 10
-
-    adjusted = consumer._raise_to_exchange_minimum_when_funded(
-        symbol, symbol_market, min_amount * decimal.Decimal("1.5"), funded_maximum
-    )
+    symbol_market["limits"]["cost"]["min"] = 0
     adapted_orders = list(
         trading_personal_data.decimal_check_and_adapt_order_details_if_necessary(
-            adjusted, decimal.Decimal("7009.19"), symbol_market
+            min_amount, decimal.Decimal("7009.19"), symbol_market
         )
     )
 
-    assert adjusted == min_amount * 2
-    assert adjusted > min_amount
     assert adapted_orders
-    assert adapted_orders[0][0] > min_amount
+    assert adapted_orders[0][0] == min_amount
 
 
-async def test_futures_long_creates_order_when_risk_quantity_rounds_to_minimum(future_tools):
+async def test_user_inputs_register_without_swallowed_initialization_errors(tools):
+    _, _, _, consumer, _ = tools
+    # Mode.initialize catches registration failures: exercise it directly too.
+    consumer.trading_mode.init_user_inputs({})
+
+
+async def test_futures_long_does_not_inflate_risk_quantity(future_tools):
     exchange_manager, _, symbol, consumer, _ = future_tools
     symbol_market = exchange_manager.exchange.get_market_status(symbol, with_fixer=False)
     min_amount = decimal.Decimal(str(symbol_market["limits"]["amount"]["min"]))
+    symbol_market["limits"]["cost"]["min"] = 0
 
     with mock.patch.object(
         consumer,
@@ -542,7 +543,8 @@ async def test_futures_long_creates_order_when_risk_quantity_rounds_to_minimum(f
         )
 
     assert len(orders) == 1
-    assert orders[0].origin_quantity == min_amount * 2
+    assert orders[0].origin_quantity <= min_amount * decimal.Decimal("1.5")
+    assert orders[0].origin_quantity >= min_amount
 
 
 async def test_create_new_orders_with_dusts_included(tools):

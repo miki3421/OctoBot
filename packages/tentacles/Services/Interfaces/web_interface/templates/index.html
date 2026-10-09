@@ -68,12 +68,13 @@
         </div>
         {% endif %}
         {{ m_critical_notifications.critical_notifications_alert(critical_notifications) }}
+        {% if v13_error %}<div class="alert alert-danger">V13 non disponibile: {{ v13_error }}. Il grafico sottostante appartiene al conto BTC legacy, non alla V13.</div>{% endif %}
         <div class="card" id="profitability-display" data-v13-paper="{{ 'true' if v13_paper else 'false' }}">
             <div class="card-header">
                 <h4>
                     <div class="row">
                         <div class="d-none d-md-flex col-md-3">
-                            {{ "V13 paper equity" if v13_paper else "Portfolio value" }}
+                            {{ v13_paper.label if v13_paper else "Portfolio BTC legacy" }}
                         </div>
                         <div class="col-10 col-md-6 text-md-center">
                             <span class="{{ '' if v13_paper else 'd-none' }} align-middle"
@@ -85,18 +86,18 @@
                             <span class="badge {{ 'badge-success' if v13_paper and v13_paper.pnl >= 0 else 'badge-danger' if v13_paper else 'd-none' }}"
                                   id="profitability-badge"
                                   data-toggle="tooltip"
-                                  title="Portfolio total value change since the first valuation. You can reset it from the portfolio tab."
-                            ><span id="profitability-value">{% if v13_paper %}{{ "%+.2f"|format((v13_paper.equity / 10000 - 1) * 100) }}{% endif %}</span>%</span>
+                                  title="Variazione del conto mostrato; non è un rendimento garantito."
+                            ><span id="profitability-value">{% if v13_paper %}{{ "%+.2f"|format((v13_paper.equity / v13_paper.initial_equity - 1) * 100) }}{% endif %}</span>%</span>
                         </div>
                         <div class="col-2 offset-md-1 text-right px-0">
                             <a class="blue-text"
-                               href="{{url_for('trading', _anchor='panel-pnl')}}"
+                               href="{{url_for('strategy_status', _anchor='lab-paper') if v13_paper else url_for('trading', _anchor='panel-pnl')}}"
                                data-toggle="tooltip"
                                title="{{ 'Profit and Loss' if has_pnl_history else 'Profit and Loss: requires trading with a PNL compatible trading mode.'}}">
                                 <i class="fa-solid fa-chart-line"></i>
                             </a>
                             <a class="blue-text"
-                               href="{{url_for('portfolio')}}"
+                               href="{{url_for('strategy_status', _anchor='lab-paper') if v13_paper else url_for('portfolio')}}"
                                data-toggle="tooltip"
                                title="Portfolio details">
                                 <i class="fas fa-chart-pie"></i>
@@ -106,11 +107,24 @@
                 </h4>
             </div>
             <div class="card-body card-text" id="profitability_graph">
+                {% if v13_paper %}
+                {% if v13_paper.legacy %}
+                <div class="alert alert-warning">LEGACY NON RICONCILIATO: questi valori storici usavano rendimenti di ricerca, non una contabilità completa dei fill. Conservati per audit; non dimostrano il profitto della V13.</div>
+                {% else %}
+                <div class="small mb-2">Conto V13 V2 dal {{ (v13_paper.activation_at|replace('T', ' '))[:19] }} UTC · capitale iniziale {{ "%.2f"|format(v13_paper.initial_equity) }} USDT. Storico V2 conservato; dati osservati, non una curva intraday continua.</div>
+                <div class="alert alert-{{ v13_paper_focus.color }} py-2"><strong>{{ v13_paper_focus.title }}</strong> · {{ v13_paper_focus.description }} Nessun ordine reale. <a href="{{url_for('strategy_status', _anchor='lab-paper')}}">Contabilità e posizioni</a></div>
+                {% if v13_paper.execution_scope == 'RESEARCH_SIMULATION_ONLY' %}
+                <div class="alert alert-light py-2"><strong>Simulazione di ricerca</strong>: prezzi pubblici e liquidità osservata; fill del nostro simulatore. Minimi simulati: 1 incremento di quantità e 1 USDT. Minimi KuCoin: UNKNOWN, validazione exchange bloccata. Funding stimato.<br>{{ v13_paper_focus.next_action }}</div>
+                {% if v13_paper.simulation_notes %}<details class="small mb-2"><summary>Quantità e liquidità dell’ultimo ribilanciamento</summary>{% for note in v13_paper.simulation_notes %}<div>{{note.symbol}} · {{note.reason}}</div>{% endfor %}</details>{% endif %}
+                {% endif %}
+                {% endif %}
+                {% endif %}
                 <div class="w-100">
                     <div id="portfolio_historyChart"
                          data-url="{{url_for('api.historical_portfolio_value', currency=reference_unit, time_frame='')}}"
                          data-reference-market="{{reference_unit}}"
                          data-v13-paper="{{ 'true' if v13_paper else 'false' }}"
+                         data-v13-label="{{ v13_paper.label if v13_paper else '' }}"
                          class="w-100">
                     </div>
                     {% if v13_paper %}<script type="application/json" id="v13-paper-history">{{ v13_paper.history | tojson }}</script>{% endif %}
@@ -123,10 +137,10 @@
         <br>
         {% if v13_symbol_charts %}
         <div class="card mb-3">
-            <div class="card-header"><h4 class="mb-0">V13 paper · prezzi e fill per mercato</h4></div>
+            <div class="card-header"><h4 class="mb-0">V13 V2 · quotazioni KuCoin e fill simulati per mercato</h4><div class="small text-muted">Prezzi osservati dopo l'attivazione; triangoli al prezzo e all'ora del fill. P/L mostrato: non realizzato, esclusi costi e funding.</div></div>
             <div class="card-body"><div class="row">
             {% for chart in v13_symbol_charts %}
-                <div class="col-12 col-lg-6 mb-3"><div class="card h-100"><div class="card-header d-flex justify-content-between"><strong>{{ chart.symbol }}</strong><span class="text-{{ 'success' if chart.pnl >= 0 else 'danger' }}">{{ "%+.2f USDT"|format(chart.pnl) }}</span></div><div id="v13-symbol-chart-{{ loop.index }}" style="height:280px"></div></div></div>
+                <div class="col-12 col-lg-6 mb-3"><div class="card h-100"><div class="card-header d-flex justify-content-between"><strong>{{ chart.symbol }}</strong>{% if chart.pnl is not none %}<span class="text-{{ 'success' if chart.pnl >= 0 else 'danger' }}">{{ "%+.2f USDT"|format(chart.pnl) }}</span>{% else %}<span>Posizione chiusa</span>{% endif %}</div><div id="v13-symbol-chart-{{ loop.index }}" style="height:280px"></div></div></div>
             {% endfor %}
             </div></div>
         </div>
@@ -258,13 +272,12 @@
     document.addEventListener("DOMContentLoaded", () => {
         const charts = {{ v13_symbol_charts | tojson }};
         charts.forEach((chart, index) => {
-            const points = chart.points.map((point) => ({time: Date.parse(`${point.time}T00:00:00Z`) / 1000, value: point.value}));
-            const closeByDate = Object.fromEntries(chart.points.map((point) => [point.time, point.value]));
-            const fills = chart.fills.filter((fill) => closeByDate[fill.time] !== undefined);
+            const points = chart.points;
+            const fills = chart.fills;
             Plotly.newPlot(`v13-symbol-chart-${index + 1}`, [
-                {x: points.map((p) => new Date(p.time * 1000)), y: points.map((p) => p.value), type: "scatter", mode: "lines", name: "Prezzo giornaliero", line: {color: "#29b6f6", width: 2}},
-                {x: fills.map((f) => `${f.time}T00:00:00Z`), y: fills.map((f) => closeByDate[f.time]), type: "scatter", mode: "markers", name: "Fill V13", text: fills.map((f) => `${f.action} · ${Number(f.notional).toFixed(2)} USDT<br>Costo ${Number(f.fee).toFixed(2)} USDT`), hoverinfo: "text", marker: {size: 11, symbol: fills.map((f) => f.action === "BUY" ? "triangle-up" : "triangle-down"), color: fills.map((f) => f.action === "BUY" ? "#00c875" : "#ff5252"), line: {color: "#ffffff", width: 1}}}
-            ], {title: `${chart.symbol} · prezzo giornaliero`, height: 280, margin: {l: 45, r: 12, t: 45, b: 35}, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: {color: "white"}, hoverlabel: {bgcolor: "#172b42", bordercolor: "#4f6b87", font: {color: "#f4f7fb"}}, shapes: chart.entry_price ? [{type: "line", xref: "paper", x0: 0, x1: 1, y0: chart.entry_price, y1: chart.entry_price, line: {color: "#ffb74d", width: 1, dash: "dash"}}] : []}, {responsive: true, displaylogo: false});
+                {x: points.map((p) => p.time), y: points.map((p) => p.value), type: "scatter", mode: "lines+markers", name: "Quotazione KuCoin", line: {color: "#29b6f6", width: 2}},
+                {x: fills.map((f) => f.time), y: fills.map((f) => f.price), type: "scatter", mode: "markers", name: "Fill V13 V2", text: fills.map((f) => `${f.action} · ${Number(f.quantity).toPrecision(6)} unità · ${Number(f.notional).toFixed(2)} USDT<br>Prezzo ${Number(f.price).toPrecision(7)} · Fee ${Number(f.fee).toFixed(4)} USDT`), hovertemplate: "%{x}<br>%{text}<extra></extra>", marker: {size: 11, symbol: fills.map((f) => f.action === "BUY" ? "triangle-up" : "triangle-down"), color: fills.map((f) => f.action === "BUY" ? "#00c875" : "#ff5252"), line: {color: "#ffffff", width: 1}}}
+            ], {title: `${chart.symbol} · prezzo KuCoin`, xaxis: {type: "date", title: "Ora UTC"}, yaxis: {title: "Prezzo (USDT)"}, height: 280, margin: {l: 55, r: 12, t: 45, b: 50}, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)", font: {color: "white"}, hoverlabel: {bgcolor: "#172b42", bordercolor: "#4f6b87", font: {color: "#f4f7fb"}}, shapes: chart.entry_price ? [{type: "line", xref: "paper", x0: 0, x1: 1, y0: chart.entry_price, y1: chart.entry_price, line: {color: "#ffb74d", width: 1, dash: "dash"}}] : []}, {responsive: true, displaylogo: false});
         });
     });
     </script>{% endif %}

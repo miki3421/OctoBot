@@ -21,7 +21,9 @@
             <table class="table table-striped">
                 <thead><tr><th>Famiglia</th><th>Stato</th><th>Esito sintetico</th></tr></thead>
                 <tbody>
-                    <tr><td>Baseline legacy / Guarded AI</td><td><span class="badge badge-secondary">SOLO AUDIT</span></td><td>Journal preservato; profilo operativo limitato al simulatore paper.</td></tr>
+                    <tr><td>Baseline legacy / Guarded AI</td><td><span class="badge badge-warning">QUARANTENA INGRESSI</span></td><td>Economia non validata dopo i costi. <a href="{{ url_for('ai_decisions') }}">Esiti e policy effettivamente caricata</a>; journal preservato.</td></tr>
+                    <tr><td>Cross-venue market observer</td><td><span class="badge badge-secondary">IN PAUSA</span></td><td>Collector generale senza una prova attiva che consumi i dati. Snapshot conservati; riavvio solo esplicito tramite profilo Compose archived.</td></tr>
+                    <tr><td>TimesFM 3 / Semantic Trend V2 / inversa legacy</td><td><span class="badge badge-danger">NON PROMOSSE</span></td><td>Diagnostici storici insufficienti o non robusti ai costi. Nessun nuovo collector o paper account.</td></tr>
                     <tr><td>Trend V3 / V14 shadow</td><td><span class="badge badge-secondary">RITIRATA</span></td><td>Runtime fermato; evidence storica sostituita dai forward correnti.</td></tr>
                     <tr><td>V5 path-surface Binance</td><td><span class="badge badge-danger">RESPINTA</span></td><td>Paper runtime fermato; cinque trade storici e P/L preservati per audit.</td></tr>
                     <tr><td>Microstruttura direzionale V1 / V2</td><td><span class="badge badge-danger">RESPINTA</span></td><td>Il book non ha aggiunto valore direzionale stabile; continua solo l'uso execution.</td></tr>
@@ -30,6 +32,7 @@
             </table>
         </div>
         <a class="btn btn-primary mr-2" href="{{ url_for('project_history') }}" target="_blank">Apri HISTORY.md</a>
+        <a class="btn btn-outline-primary mr-2" href="{{ url_for('lab_audit') }}" target="_blank">Audit Lab 2026-09-10</a>
         <a class="btn btn-outline-secondary" href="{{ url_for('migration_audit') }}" target="_blank">Audit migrazione 2026-09-02</a>
     </div>
 </div>

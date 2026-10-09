@@ -1,0 +1,16 @@
+{
+  "account": "v13-paper-v2",
+  "exchange_symbol": "XBTUSDTM",
+  "experiment_id": "v13-btc-paper-new-v1",
+  "inherited_authorizations": false,
+  "inherited_performance": false,
+  "lineage_root": "29ae069f52b7cb820fb54476d5e47e094ac1174a98186da9ada107e728a2efb7",
+  "producer_implementation": null,
+  "producer_status": "UNRESOLVED",
+  "proposal_schema_version": 1,
+  "risk_policy_version": "risk-policy-v13-btc-paper-v1",
+  "schema_version": 1,
+  "scientific_validity": "UNASSESSED",
+  "strategy": "v13-btc-paper-producer-v1",
+  "symbol": "BTC/USDT:USDT"
+}

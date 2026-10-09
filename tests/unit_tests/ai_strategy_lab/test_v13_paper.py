@@ -4,7 +4,9 @@ import json
 from octobot.ai_strategy_lab import v13_paper
 
 
-def test_v13_paper_creates_only_trend_positions_and_is_idempotent(tmp_path):
+def test_v13_paper_creates_only_trend_positions_and_is_idempotent(tmp_path, monkeypatch):
+    # Historical accounting unit fixture, not an operational authorization.
+    monkeypatch.setattr(v13_paper.paper_runtime_authorization, "unsupported_execution", lambda *args: None)
     payload = {
         "bar_date": "2026-09-06",
         "research_targets": {

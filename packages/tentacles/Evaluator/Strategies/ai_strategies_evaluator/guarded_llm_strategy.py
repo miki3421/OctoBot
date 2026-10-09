@@ -407,25 +407,23 @@ class GuardedLLMStrategyEvaluator(BaseLLMAIStrategyEvaluator):
             model = self.DETERMINISTIC_MODEL
             prompt_version = self.DETERMINISTIC_PROMPT_VERSION
         guarded = self._risk_guard.evaluate(decision)
-        self.eval_note = guarded.eval_note
+        authorization = None
         if not self._is_in_backtesting():
-            try:
-                self._journal.record(
-                    context=context,
-                    model=model,
-                    prompt_version=prompt_version,
-                    input_data=technical_data,
-                    output_data=decision.model_dump(mode="json"),
-                    guarded=guarded,
-                )
-            except Exception as error:
-                self.logger.warning(f"Unable to write baseline decision journal: {error}")
+            guarded, authorization = self._persist_guarded_decision(
+                context=context, model=model, prompt_version=prompt_version,
+                input_data=technical_data, output_data=decision.model_dump(mode="json"),
+                guarded=guarded,
+            )
+        self.eval_note = guarded.eval_note
         await self.evaluation_completed(
             cryptocurrency=context["cryptocurrency"],
             symbol=context["symbol"],
             time_frame=None,
             eval_note=self.eval_note,
             eval_note_description=self._format_description(guarded),
+            eval_note_metadata=(
+                {SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY: authorization} if authorization else {}
+            ),
             eval_time=triggered_at,
             notify=True,
             origin_consumer=self.consumer_instance,
@@ -600,30 +598,37 @@ class GuardedLLMStrategyEvaluator(BaseLLMAIStrategyEvaluator):
             guarded = GuardedDecision(False, 0.0, "llm_or_schema_error", decision)
             raw_output = {"error": str(error), "response": raw_output}
 
+        guarded, authorization = self._persist_guarded_decision(
+            context=context, model=self.model, prompt_version=self.PROMPT_VERSION,
+            input_data=technical_data, output_data=raw_output, guarded=guarded,
+        )
         self.eval_note = guarded.eval_note
-        description = self._format_description(guarded)
-        try:
-            self._journal.record(
-                context=context,
-                model=self.model,
-                prompt_version=self.PROMPT_VERSION,
-                input_data=technical_data,
-                output_data=raw_output,
-                guarded=guarded,
-            )
-        except Exception as error:
-            self.logger.warning(f"Unable to write AI decision journal: {error}")
-
         await self.evaluation_completed(
             cryptocurrency=context["cryptocurrency"],
             symbol=context["symbol"],
             time_frame=None,
             eval_note=self.eval_note,
-            eval_note_description=description,
+            eval_note_description=self._format_description(guarded),
+            eval_note_metadata=(
+                {SQLiteDecisionJournal.ENTRY_AUTHORIZATION_KEY: authorization} if authorization else {}
+            ),
             eval_time=0,
             notify=True,
             origin_consumer=self.consumer_instance,
         )
+
+    def _persist_guarded_decision(self, *, context, model, prompt_version, input_data, output_data, guarded):
+        """No audit or no one-use approval means a neutral published signal."""
+        try:
+            decision_id = self._journal.record(
+                context=context, model=model, prompt_version=prompt_version,
+                input_data=input_data, output_data=output_data, guarded=guarded,
+            )
+            authorization = self._journal.authorize_entry(decision_id) if guarded.approved else None
+            return guarded, authorization
+        except Exception as error:
+            self.logger.error(f"audit_persistence_failed: no new entry: {type(error).__name__}: {error}")
+            return GuardedDecision(False, 0.0, "audit_persistence_failed", guarded.decision), None
 
     @staticmethod
     def _format_description(guarded: GuardedDecision) -> str:

@@ -41,20 +41,16 @@ import octobot.ai_strategy_lab.percentage_probability_engine as percentage_proba
 import octobot.ai_strategy_lab.percentage_signal_engine as percentage_signal_engine
 import octobot.ai_strategy_lab.perfect_map_forecaster_v2 as perfect_map_forecaster_v2
 import octobot.ai_strategy_lab.price_path_forecaster_v1 as price_path_forecaster_v1
+from octobot.ai_strategy_lab import v13_paper_view
 
 GET_SYMBOL_SEPARATOR = "|"
 
 
 def _v13_paper_events():
     try:
-        with sqlite3.connect("/v13-paper/v13.sqlite") as connection:
-            return [
-                {"time": row[0], "symbol": row[1], "action": row[2], "notional": row[3], "fee": row[4]}
-                for row in connection.execute(
-                    "SELECT bar, symbol, action, notional, fee FROM orders ORDER BY bar, id"
-                )
-            ]
-    except (OSError, sqlite3.Error):
+        paper = v13_paper_view.load_paper_view()
+        return [] if paper["legacy"] else paper["fills"]
+    except (OSError, KeyError, TypeError, ValueError, sqlite3.Error):
         return []
 DISPLAY_CANCELLED_TRADES = False
 PERCENTAGE_RESEARCH_5M_COLLECTOR = pathlib.Path(

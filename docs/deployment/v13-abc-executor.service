@@ -1,0 +1,13 @@
+# PREPARED ONLY. Not installed or enabled. Draft CLI scope is intentionally rejected.
+[Unit]
+Description=V13 ABC executor - inactive prepared candidate
+After=docker.service
+Requires=docker.service
+ConditionPathExists=/var/lib/libvirt/trading-ai-lab/v13-abc/inputs/release-activation.json
+
+[Service]
+Type=simple
+UMask=0027
+ExecStart=/usr/bin/docker run --rm --pull never --name v13-abc-executor --read-only --cap-drop ALL --security-opt no-new-privileges --network none --memory 512m --pids-limit 64 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 30933:30933 --group-add 30934 --group-add 30935 --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8,dst=/var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8,readonly --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/collector,dst=/var/lib/libvirt/trading-ai-lab/v13-abc/collector,readonly --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/producer,dst=/var/lib/libvirt/trading-ai-lab/v13-abc/producer,readonly --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/inputs,dst=/var/lib/libvirt/trading-ai-lab/v13-abc/inputs,readonly --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/inputs/qualification-after-cutoff,dst=/srv/v13-universe-qualification-v1,readonly --mount type=bind,src=/etc/v13-universe-qualification,dst=/etc/v13-universe-qualification,readonly --mount type=bind,src=/var/lib/libvirt/trading-ai-lab/v13-abc/executor,dst=/var/lib/libvirt/trading-ai-lab/v13-abc/executor --entrypoint python3 sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575 -B /var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8/scripts/run_v13_abc_service.py --config /var/lib/libvirt/trading-ai-lab/v13-abc/prepared-release/repo-v8/docs/deployment/abc-executor-prepared-v2.json --config-sha256 75181d22ee9a611b7ac77ea3c9fdb5266fc42a2b2eefa31caad2c6cac266c287
+Restart=no
+TimeoutStopSec=60

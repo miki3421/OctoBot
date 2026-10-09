@@ -1,0 +1,122 @@
+version: '3.3'
+
+# Isolated P0-05 candidate. P005_SANDBOX must be a separate disposable tree.
+# Every service is opt-in; this file never references octobot-local volumes.
+x-paper-security: &paper-security
+  # Exact locally built candidate; a rebuilt image requires explicit review.
+  image: sha256:8c983af2fe9d557df62dd618e393cd77720e4b885ebe176c4a4ffa3c895b3047
+  user: '30000:30001'
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m
+  volumes:
+    - ${P005_SANDBOX:?set isolated P005_SANDBOX}/control:/var/lib/octobot-paper-control:ro
+
+services:
+  paper-native-candidate:
+    <<: *paper-security
+    profiles: [candidate-native]
+    entrypoint: [/bin/sh, /workspace/docker/paper-hardened-entrypoint.sh]
+    environment:
+      PAPER_REQUIRED_WRITABLE: /octobot/user:/octobot/logs:/var/lib/octobot-paper-consumer
+      AI_DECISIONS_DB_PATH: /octobot/user/ai_decisions.sqlite
+      ENABLE_SIMULATED_ORDERS_STORAGE: 'true'
+    volumes:
+      - ${P005_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/tentacles:ro
+      - ${P005_SANDBOX:?}/native/user:/octobot/user
+      - ${P005_SANDBOX:?}/native/logs:/octobot/logs
+      - ${P005_SANDBOX:?}/native/config.json:/octobot/user/config.json:ro
+      - ${P005_SANDBOX:?}/native/profiles:/octobot/user/profiles:ro
+      - ${P005_SANDBOX:?}/native/backtesting:/octobot/backtesting:ro
+      - ${P005_SANDBOX:?}/native/audit:/var/lib/octobot-paper-consumer
+    ports:
+      - '127.0.0.1:15001:5001'
+
+  paper-v13-candidate:
+    <<: *paper-security
+    profiles: [candidate-v13]
+    network_mode: none
+    entrypoint: [/bin/sh, /workspace/docker/paper-hardened-entrypoint.sh]
+    environment:
+      PAPER_REQUIRED_WRITABLE: /paper:/var/lib/octobot-paper-consumer
+    command: [--module, octobot.ai_strategy_lab.v13_paper_v2, --journal, /inputs/decisions.jsonl, --protocol, /inputs/protocol.json,
+      --implementation-lock, /inputs/implementation-lock.json, --market-journal,
+      /inputs/microstructure.jsonl, --database, /paper/v13-v2.sqlite,
+      --health, /paper/health-v2.json, --lock, /paper/runner-v2.lock, --poll, '60']
+    volumes:
+      - ${P005_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/user:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/logs:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/tentacles:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/backtesting:ro
+      - ${P005_SANDBOX:?}/v13/inputs:/inputs:ro
+      - ${P005_SANDBOX:?}/v13/state:/paper
+      - ${P005_SANDBOX:?}/v13/audit:/var/lib/octobot-paper-consumer
+
+  paper-diversified-candidate:
+    <<: *paper-security
+    profiles: [candidate-diversified]
+    network_mode: none
+    entrypoint: [/bin/sh, /workspace/docker/paper-hardened-entrypoint.sh]
+    environment:
+      PAPER_REQUIRED_WRITABLE: /paper:/var/lib/octobot-paper-consumer
+    command: [--module, octobot.ai_strategy_lab.diversified_manual_paper_v1, --journal, /inputs/decisions.jsonl, --protocol, /inputs/protocol.json,
+      --implementation-lock, /inputs/implementation-lock.json, --database,
+      /paper/paper.sqlite, --health, /paper/health.json,
+      --runner-lock, /paper/runner.lock, --poll-seconds, '60']
+    volumes:
+      - ${P005_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/user:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/logs:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/tentacles:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/backtesting:ro
+      - ${P005_SANDBOX:?}/diversified/inputs:/inputs:ro
+      - ${P005_SANDBOX:?}/diversified/state:/paper
+      - ${P005_SANDBOX:?}/diversified/audit:/var/lib/octobot-paper-consumer
+
+  paper-v5-candidate:
+    <<: *paper-security
+    profiles: [candidate-v5]
+    entrypoint: [/bin/sh, /workspace/docker/paper-hardened-entrypoint.sh]
+    environment:
+      PAPER_REQUIRED_WRITABLE: /paper:/var/lib/octobot-paper-consumer
+    command: [--module, octobot.ai_strategy_lab.v5_paper, --model-directory, /inputs/model, --protocol, /inputs/protocol.json,
+      --database, /paper/v5-paper.sqlite, --health, /paper/health.json,
+      --poll-seconds, '30', --broker-url, http://paper-v5-broker-candidate:5001/api/v5-paper/command,
+      --broker-token, /run/secrets/v5-paper-bridge-token]
+    volumes:
+      - ${P005_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/user:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/logs:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/tentacles:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/backtesting:ro
+      - ${P005_SANDBOX:?}/v5/inputs:/inputs:ro
+      - ${P005_SANDBOX:?}/v5/state:/paper
+      - ${P005_SANDBOX:?}/v5/audit:/var/lib/octobot-paper-consumer
+      - ${P005_SANDBOX:?}/v5/fake-bridge-token:/run/secrets/v5-paper-bridge-token:ro
+
+  paper-v5-broker-candidate:
+    <<: *paper-security
+    profiles: [candidate-v5-broker]
+    entrypoint: [/bin/sh, /workspace/docker/paper-hardened-entrypoint.sh]
+    environment:
+      PAPER_REQUIRED_WRITABLE: /octobot/user:/octobot/logs:/var/lib/octobot-paper-consumer
+      V5_PAPER_BRIDGE_ENABLED: 'true'
+      V5_PAPER_BRIDGE_TOKEN_PATH: /run/secrets/v5-paper-bridge-token
+      V5_PAPER_BRIDGE_DATABASE_PATH: /octobot/user/v5-paper-bridge.sqlite
+      ENABLE_SIMULATED_ORDERS_STORAGE: 'true'
+    volumes:
+      - ${P005_SANDBOX:?}/control:/var/lib/octobot-paper-control:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/tentacles:ro
+      - ${P005_SANDBOX:?}/empty:/octobot/backtesting:ro
+      - ${P005_SANDBOX:?}/v5-broker/user:/octobot/user
+      - ${P005_SANDBOX:?}/v5-broker/config.json:/octobot/user/config.json:ro
+      - ${P005_SANDBOX:?}/v5-broker/profiles:/octobot/user/profiles:ro
+      - ${P005_SANDBOX:?}/v5-broker/logs:/octobot/logs
+      - ${P005_SANDBOX:?}/v5-broker/audit:/var/lib/octobot-paper-consumer
+      - ${P005_SANDBOX:?}/v5/fake-bridge-token:/run/secrets/v5-paper-bridge-token:ro
+    ports:
+      - '127.0.0.1:15002:5001'

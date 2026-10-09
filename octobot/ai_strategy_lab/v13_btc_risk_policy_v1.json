@@ -1,0 +1,19 @@
+{
+  "cooldown": {
+    "seconds": 3600
+  },
+  "daily_loss": {
+    "limit_fraction": 0.02
+  },
+  "drawdown": {
+    "limit_fraction": 0.05
+  },
+  "gross_exposure": 0.9,
+  "missing_gates": [],
+  "order_frequency": {
+    "max_new_entries": 4,
+    "window_seconds": 86400
+  },
+  "per_asset_exposure": 0.315,
+  "version": "risk-policy-v13-btc-paper-v1"
+}

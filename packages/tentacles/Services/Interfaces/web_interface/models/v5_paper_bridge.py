@@ -356,6 +356,11 @@ def _active_position(manager):
 
 
 async def _open(manager, request):
+    from octobot.ai_strategy_lab import paper_authorization, paper_runtime_authorization
+    try:
+        paper_runtime_authorization.unsupported_execution("v5-paper-broker")
+    except paper_authorization.Denied as exc:
+        raise V5PaperBridgeError(exc.code) from exc
     if _active_position(manager) is not None:
         raise V5PaperBridgeError("V5 paper account already has a position")
     if _tagged_open_orders(manager):

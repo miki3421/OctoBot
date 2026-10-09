@@ -1,0 +1,332 @@
+{
+  "schema_version": 1,
+  "document_kind": "candidate_contract_not_runtime_configuration",
+  "contract_id": "v13-original-multiasset-provenance-candidate-v1",
+  "status": "DRAFT",
+  "active": false,
+  "execution_approved": false,
+  "issuable": false,
+  "account": "v13-paper-v2",
+  "portfolio_id": "trend-v13-original-standalone",
+  "scientific_lineage_ref": "8990ff6e4884d56f9872f7fcf4712359da7416cacfbbf3d0af9611a10b9a3235",
+  "universe_hash": "15ef730f7484b7bd0563399015725b8e018f251660e9baef98ce88bb33238108",
+  "universe": [
+    "AAVEUSDT",
+    "ADAUSDT",
+    "ATOMUSDT",
+    "AVAXUSDT",
+    "BCHUSDT",
+    "BTCUSDT",
+    "DOGEUSDT",
+    "DOTUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "NEARUSDT",
+    "SOLUSDT",
+    "UNIUSDT",
+    "XLMUSDT",
+    "XRPUSDT",
+    "ZECUSDT"
+  ],
+  "symbol_mapping_candidates": [
+    {
+      "symbol": "AAVEUSDT",
+      "research_symbol": "AAVE/USDT:USDT",
+      "exchange_symbol": "AAVEUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ADAUSDT",
+      "research_symbol": "ADA/USDT:USDT",
+      "exchange_symbol": "ADAUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ATOMUSDT",
+      "research_symbol": "ATOM/USDT:USDT",
+      "exchange_symbol": "ATOMUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "AVAXUSDT",
+      "research_symbol": "AVAX/USDT:USDT",
+      "exchange_symbol": "AVAXUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "BCHUSDT",
+      "research_symbol": "BCH/USDT:USDT",
+      "exchange_symbol": "BCHUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "BTCUSDT",
+      "research_symbol": "BTC/USDT:USDT",
+      "exchange_symbol": "XBTUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "DOGEUSDT",
+      "research_symbol": "DOGE/USDT:USDT",
+      "exchange_symbol": "DOGEUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "DOTUSDT",
+      "research_symbol": "DOT/USDT:USDT",
+      "exchange_symbol": "DOTUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "research_symbol": "ETH/USDT:USDT",
+      "exchange_symbol": "ETHUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "HBARUSDT",
+      "research_symbol": "HBAR/USDT:USDT",
+      "exchange_symbol": "HBARUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "LINKUSDT",
+      "research_symbol": "LINK/USDT:USDT",
+      "exchange_symbol": "LINKUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "LTCUSDT",
+      "research_symbol": "LTC/USDT:USDT",
+      "exchange_symbol": "LTCUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "NEARUSDT",
+      "research_symbol": "NEAR/USDT:USDT",
+      "exchange_symbol": "NEARUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "SOLUSDT",
+      "research_symbol": "SOL/USDT:USDT",
+      "exchange_symbol": "SOLUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "UNIUSDT",
+      "research_symbol": "UNI/USDT:USDT",
+      "exchange_symbol": "UNIUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "XLMUSDT",
+      "research_symbol": "XLM/USDT:USDT",
+      "exchange_symbol": "XLMUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "XRPUSDT",
+      "research_symbol": "XRP/USDT:USDT",
+      "exchange_symbol": "XRPUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    },
+    {
+      "symbol": "ZECUSDT",
+      "research_symbol": "ZEC/USDT:USDT",
+      "exchange_symbol": "ZECUSDTM",
+      "mapping_evidence_record_hash": "3e4c12140d661b05a165616159e590b94844a95dd4f609167a5abda7f3ca0041"
+    }
+  ],
+  "adapter_contract_sha256": "5dfa8ade1eb8b22bf92fe6c88658d4a433be80def181b97d73f4f9bd380911b8",
+  "evidence_classes": {
+    "LEGACY_ARCHIVE_REVIEW": {
+      "historical_availability": "UNRESOLVED",
+      "independent_custody": false,
+      "eligible_for_issuance": false,
+      "eligible_for_exchange_faithful_new_entry": false,
+      "funding_use": "retrospective_estimate_on_copies_requires_explicit_method_and_quality_acceptance"
+    },
+    "FUTURE_CAUSAL_CAPTURE": {
+      "implemented": false,
+      "eligible_for_issuance": false,
+      "eligible_for_exchange_faithful_new_entry": false,
+      "meaning": "proposed evidence class; verified provenance alone confers no execution authority"
+    },
+    "SYNTHETIC_ARCHITECTURE_ONLY": {
+      "eligible_for_issuance": false,
+      "eligible_for_exchange_faithful_new_entry": false,
+      "isolation_required": true,
+      "meaning": "fixture-only control tests; never source of operational metadata"
+    }
+  },
+  "legacy_capture_ref": {
+    "path": "audit-evidence/v13-funding-reconciliation-20260928T133115Z/capture.json",
+    "prefix_sha256": "59d48ca654438e407dc28074b8f1e318bc871bcc65e289194580500e17c14ceb",
+    "captured_at": "2026-09-28T13:34:20.018791+00:00",
+    "record_count": 693,
+    "settlement_count_held_symbols": 168,
+    "historical_receipts_present": false,
+    "exact_mark_timestamp": null
+  },
+  "proposed_envelopes": {
+    "capture_receipt": {
+      "required": [
+        "receipt_id",
+        "capture_epoch",
+        "sequence",
+        "previous_receipt_hash",
+        "collector_identity",
+        "component_bundle_sha256",
+        "request_method",
+        "request_url",
+        "request_started_at",
+        "response_completed_at",
+        "http_status",
+        "raw_payload_sha256",
+        "raw_payload_length",
+        "transport_result",
+        "receipt_committed_at",
+        "clock_evidence_ref"
+      ],
+      "method": "GET",
+      "credentials_used": false,
+      "authority": "independent approved capture custodian; not strategy"
+    },
+    "instrument_observation": {
+      "required": [
+        "symbol",
+        "research_symbol",
+        "exchange_symbol",
+        "market_type",
+        "quote_currency",
+        "settlement_currency",
+        "capture_receipt_refs",
+        "normalized_value_hash",
+        "units",
+        "measurement_timestamp",
+        "measurement_timestamp_status",
+        "timestamp_source",
+        "receipt_bounds",
+        "minimums"
+      ],
+      "unknown_timestamp_encoding": "null with UNKNOWN status",
+      "book_timestamp_is_mark_timestamp": false,
+      "minimums": {
+        "min_quantity": null,
+        "min_notional": null,
+        "status": "UNKNOWN"
+      }
+    },
+    "source_publication": {
+      "required": [
+        "manifest_sha256",
+        "causal_input_hash",
+        "source_record_hash",
+        "source_bar_date",
+        "scientific_lineage_ref",
+        "universe_hash",
+        "dependency_receipts",
+        "completed_at",
+        "publisher_identity",
+        "publication_epoch",
+        "publication_sequence",
+        "external_witness_ref"
+      ],
+      "kind": "v13-original-publication-v1",
+      "dependency_time_semantics": "response receipt durably committed, not request start; keyed by exact raw hash"
+    },
+    "derivation_receipt": {
+      "kind": "v13-original-derivation-v1",
+      "required": [
+        "manifest_sha256",
+        "causal_input_hash",
+        "raw_response_hashes",
+        "source_record_hash",
+        "source_bar_date",
+        "scientific_lineage_ref",
+        "universe_hash",
+        "targets",
+        "verified_at",
+        "receipt_committed_at",
+        "verifier_identity",
+        "derivation_status",
+        "availability_status"
+      ],
+      "existing_verifier_emits": "UNRESOLVED",
+      "future_source_available_at": "max dependency receipt_committed_at, publication completed_at, verified derivation receipt_committed_at",
+      "requires_interface_version_review": true
+    }
+  },
+  "causal_identity": {
+    "raw_hash_purpose": "forensic full-response provenance",
+    "causal_hash_purpose": "canonical consumed subset and units, closed bar times, contract version and universe",
+    "snapshot_id_inputs": [
+      "scientific_lineage_ref",
+      "source_bar_date",
+      "universe_hash",
+      "causal_input_hash",
+      "contract_version"
+    ],
+    "exclude_from_snapshot_id": [
+      "unused_future_bars",
+      "capture_timestamp",
+      "publication_timestamp",
+      "full_raw_hash_if_contains_unused_future_data"
+    ],
+    "proposal_existing_source_record_hash_semantics": "unchanged; historical source records immutable; future slot requires reviewed binding"
+  },
+  "future_publication_order": [
+    "capture raw bytes and persist independent receipt",
+    "write immutable normalized causal input and dependency manifest",
+    "fsync payload files and directory; publish no-overwrite bundle",
+    "write independent source publication completion receipt after durable bundle",
+    "independent verifier recomputes and durably commits derivation receipt",
+    "pin external receipt hashes and publish availability descriptor without backdating"
+  ],
+  "ownership": {
+    "raw_and_capture_receipts": "approved capture custodian sole writer; strategy read-only",
+    "source_publication": "independent publisher sole writer; strategy read-only",
+    "derivation_receipts": "independent verifier sole writer; strategy read-only",
+    "approvals_sqlite": "issuer sole writer; executor read-only",
+    "execution_sqlite_claims_and_ledger": "executor sole writer",
+    "filesystem_table_isolation": false,
+    "production_identities_configured": false
+  },
+  "operational_decisions": {
+    "custodian_identity": null,
+    "publisher_identity": null,
+    "verifier_identity": null,
+    "pinned_component_bundle": null,
+    "external_witness_authority": null,
+    "approved_clock_error_bound_seconds": null,
+    "approved_source_freshness_seconds": null,
+    "approved_market_freshness_seconds": null,
+    "approved_cross_asset_skew_seconds": null,
+    "approved_future_issuance_boundary": null,
+    "approved_account_epoch": null,
+    "approved_funding_quality_and_method": null,
+    "admissibility_mode": null
+  },
+  "operational_policy": {
+    "daily_loss": null,
+    "drawdown": null,
+    "order_frequency": null,
+    "cooldown": null,
+    "status": "UNCONFIGURED"
+  },
+  "failure_behavior": {
+    "partial_bundle": "DENY",
+    "unknown_required_timestamp": "DENY for path requiring measurement time; preserve UNKNOWN",
+    "conflicting_raw_funding_duplicates": "DENY",
+    "required_symbol_missing": "DENY full batch",
+    "foreign_symbol_in_selected_universe": "DENY",
+    "storage_failure": "no published availability or economic commit; quarantine incomplete candidate",
+    "old_restore": "DENY against independently retained monotonic witness; otherwise rollback undetectable",
+    "unapproved_custody_or_binding": "DENY",
+    "minima_unknown": "DENY exchange-faithful new entries only"
+  },
+  "runtime_effect": "NONE; no imports, configuration changes, grants, network acquisition or collector updates"
+}

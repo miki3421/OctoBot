@@ -20,12 +20,27 @@
 {%- endmacro %}
 
 {% block body %}
+{% if v13_paper_focus is not defined %}
+{% if v13_paper.available and v13_paper.status == 'blocked' %}
+{% set v13_paper_focus = {'color': 'warning', 'title': 'PAPER IN PAUSA', 'description': 'Il conto V13 V2 esiste, ma il segnale non è disponibile.', 'next_action': 'Verificare la sorgente V13 originale; conservare il conto e non creare fill retrodatati.'} %}
+{% elif v13_paper.available %}
+{% set v13_paper_focus = {'color': 'warning', 'title': 'STATO DA VERIFICARE', 'description': 'Il conto V13 V2 esiste; la freschezza del monitor non è ancora confermata.', 'next_action': 'Verificare heartbeat e sorgente prima di considerare attivo il paper.'} %}
+{% else %}
+{% set v13_paper_focus = {'color': 'danger', 'title': 'CONTO NON DISPONIBILE', 'description': 'Il conto V13 V2 non è verificabile dalla UI.', 'next_action': 'Verificare health e ledger senza creare un nuovo conto.'} %}
+{% endif %}
+{% endif %}
+<style>
+    #lab-operations h2, #lab-operations h3, #lab-operations h4,
+    #lab-operations .h4 { color: var(--mdb-card-color); }
+    #lab-operations .nav-pills .nav-link:not(.active) { color: var(--mdb-link-color); }
+    #lab-operations .nav-pills .nav-link.active { color: #fff; }
+</style>
 <br>
-<div class="card">
+<div class="card" id="lab-operations">
     <div class="card-header d-flex flex-wrap align-items-center justify-content-between">
         <div>
             <h2 class="mb-1"><i class="fas fa-heartbeat mr-2"></i>Operations</h2>
-            <div class="text-muted">Solo stato corrente, dipendenze attive e scadenze forward</div>
+            <div class="text-muted">Il conto paper V13, il blocco attuale e la prossima azione</div>
         </div>
         <div>
             <a class="btn btn-outline-secondary mr-2" href="{{ url_for('research_archive') }}">Archivio ricerca</a>
@@ -33,32 +48,42 @@
         </div>
     </div>
     <div class="card-body">
-        {% for error in errors %}
-            <div class="alert alert-warning" role="alert">{{ error }}</div>
-        {% endfor %}
+        <div class="card border-{{ v13_paper_focus.color }} mb-4" role="status">
+            <div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-center">
+                    <div>
+                        <h3 class="mb-1">V13 V2 · Conto paper esistente</h3>
+                        <div class="text-muted">{{ v13_paper_focus.description }}</div>
+                    </div>
+                    <span class="badge badge-{{ v13_paper_focus.color }} p-2">{{ v13_paper_focus.title }}</span>
+                </div>
+                <div class="row mt-3">
+                    {{ metric_card("Fill simulati", v13_paper.order_count if v13_paper.available else "—", "info") }}
+                    {{ metric_card("Posizioni registrate", v13_paper.position_count if v13_paper.available else "—", "info") }}
+                    {{ metric_card("Ultimo segnale", v13_paper.last_bar if v13_paper.available and v13_paper.last_bar else "—", "secondary") }}
+                    {{ metric_card("Ultima quotazione", (v13_paper.last_market_at or "—")[:19] if v13_paper.available else "—", "secondary", "UTC") }}
+                </div>
+                <div class="alert alert-light border mb-0"><strong>Stiamo facendo:</strong> {{ v13_paper_focus.next_action }}</div>
+                <div class="small text-muted mt-2">Ultimo controllo del conto: {{ (v13_paper.last_check_at or "—")[:19] if v13_paper.available else "—" }} UTC · Nessun ordine reale.</div>
+            </div>
+        </div>
 
         <div class="alert alert-{{ "success" if paper_only_profile else "danger" }}" role="status">
             <strong>{{ "Profilo operativo paper-only verificato." if paper_only_profile else "Profilo operativo inatteso." }}</strong>
-            KuCoin Futures · BTC/USDT:USDT · ingressi baseline BUY/SELL sospesi · trader reale disabilitato.
+            KuCoin Futures · BTC/USDT:USDT · trader reale disabilitato. Policy BTC: <a href="{{ url_for('ai_decisions') }}">audit dedicato</a>.
         </div>
-
-        <div class="alert alert-{{ operational.color }} mb-4">
-            <h4 class="alert-heading mb-1">{{ operational.title }}</h4>
-            <div>{{ operational.description }}</div>
-        </div>
+        {% if errors %}
+        <details class="alert alert-warning" role="alert">
+            <summary>{{ errors|length }} dettagli diagnostici da verificare</summary>
+            <ul class="mb-0 mt-2">{% for error in errors %}<li>{{ error }}</li>{% endfor %}</ul>
+        </details>
+        {% endif %}
 
         <nav class="nav nav-pills nav-fill mb-4" aria-label="Trading Lab sections">
-            <a class="nav-link active" href="#lab-collector"><i class="fas fa-database mr-1"></i>1. Collector</a>
-            <a class="nav-link" href="#lab-previsioni"><i class="fas fa-chart-line mr-1"></i>2. Previsioni</a>
-            <a class="nav-link" href="#lab-paper"><i class="fas fa-wallet mr-1"></i>3. Account paper effettivi</a>
+            <a class="nav-link active" href="#lab-paper"><i class="fas fa-wallet mr-1"></i>Conto V13</a>
+            <a class="nav-link" href="#lab-collector"><i class="fas fa-database mr-1"></i>Dati e servizi</a>
+            <a class="nav-link" href="#lab-previsioni"><i class="fas fa-chart-line mr-1"></i>Ricerca</a>
         </nav>
-
-        <div class="row">
-            {{ metric_card("Ultima decisione", latest_decision.action or "-", "success" if latest_decision.action == "BUY" else "danger" if latest_decision.action == "SELL" else "secondary", "#" ~ latest_decision.id if latest_decision.id else "") }}
-            {{ metric_card("Risk Guard", "APPROVATO" if latest_decision.approved else "NEUTRALE / BLOCCATO", "success" if latest_decision.approved else "warning", latest_decision.guard_reason or "") }}
-            {{ metric_card("Ordini pendenti", orders | length, "warning" if orders else "success") }}
-            {{ metric_card("Posizioni aperte", positions | length, "warning" if positions else "success") }}
-        </div>
 
         {% if data_quality %}
         <div class="card border-secondary mb-4">
@@ -80,10 +105,22 @@
         </div>
         {% endif %}
 
-        <div id="lab-collector" class="card border-primary mb-4">
+        <div id="lab-collector" data-lab-panel class="card border-primary mb-4">
             <div class="card-body">
-                <h4 class="mb-1"><i class="fas fa-database mr-2"></i>Collector attivi</h4>
+                <h4 class="mb-1"><i class="fas fa-database mr-2"></i>Dati e servizi</h4>
                 <div class="small text-muted mb-3">Ogni collector usa dati pubblici e non dispone di capability d'ordine.</div>
+                <details class="mb-3">
+                    <summary class="text-info">Conto BTC legacy e filtri separati dalla V13</summary>
+                    <div class="alert alert-{{ operational.color }} mt-2">
+                        <strong>{{ operational.title }}</strong> · {{ operational.description }}
+                    </div>
+                    <div class="row">
+                        {{ metric_card("Ultima decisione BTC", latest_decision.action or "-", "secondary") }}
+                        {{ metric_card("Filtro BTC", "SEGNALE IDONEO" if latest_decision.approved else "NEUTRALE / BLOCCATO", "info", "non è un ordine") }}
+                        {{ metric_card("Ordini pendenti BTC", orders | length, "warning" if orders else "success") }}
+                        {{ metric_card("Posizioni BTC", positions | length, "warning" if positions else "success") }}
+                    </div>
+                </details>
                 <div class="table-responsive">
                     <table class="table table-sm table-striped mb-0">
                         <thead><tr><th>Flusso</th><th>Stato</th><th>Copertura utile</th><th>Ultimo successo UTC</th><th>Dipendenza</th></tr></thead>
@@ -96,11 +133,11 @@
                                 <td>Carry V1.1</td>
                             </tr>
                             <tr>
-                                <td><strong>Cross venue</strong><br><span class="small text-muted">Binance + KuCoin book</span></td>
-                                <td>{{ status_badge(cross_venue.available and cross_venue.healthy) }}</td>
-                                <td>{% if cross_venue.available %}{{ cross_venue.symbol_count }} mercati · {{ cross_venue.archived_records }} snapshot · {{ cross_venue.forward_observed_days }} giorni{% else %}-{% endif %}</td>
-                                <td>{{ cross_venue.last_success_at | replace("T", " ") | truncate(26, True, "") if cross_venue.available else "-" }}</td>
-                                <td>Dataset generale</td>
+                                <td><strong>Archivio giornaliero Diversified</strong><br><span class="small text-muted">prezzi · funding · target congelati</span></td>
+                                <td>{{ status_badge(diversified_forward.available and diversified_forward.healthy) }}</td>
+                                <td>{{ diversified_forward.official_records if diversified_forward.available else 0 }} bar ufficiali</td>
+                                <td>{{ diversified_forward.last_archived_bar if diversified_forward.available else "-" }} (bar UTC)</td>
+                                <td>V13 · Diversified · Breadth</td>
                             </tr>
                             <tr>
                                 <td><strong>BTC Level-5</strong><br><span class="small text-muted">book 100 ms + trade</span></td>
@@ -115,8 +152,8 @@
             </div>
         </div>
 
-        <div id="lab-previsioni">
-        <h3 class="mb-3">2. Previsioni e segnali (nessun ordine)</h3>
+        <div id="lab-previsioni" data-lab-panel>
+        <h3 class="mb-3">Ricerca e segnali (nessun ordine)</h3>
         <div class="card border-info mb-3">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap justify-content-between">
@@ -181,61 +218,6 @@
             </div>
         </div>
 
-        </div>
-
-        <div id="lab-paper" class="card border-success mb-3">
-            <div class="card-body py-3">
-                <div class="d-flex justify-content-between">
-                    <div><h3>V13 · Paper trading</h3><div class="small text-muted">Account standalone: contiene esclusivamente il sleeve Trend V13.</div></div>
-                    <span class="badge badge-{{ 'success' if v13_paper.available else 'danger' }} p-2">{{ 'ATTIVO' if v13_paper.available else 'NON DISPONIBILE' }}</span>
-                </div>
-                {% if v13_paper.available %}
-                <div class="row mt-3">
-                    {{ metric_card("Equity V13", "%.2f USDT"|format(v13_paper.equity), "success" if v13_paper.pnl >= 0 else "danger") }}
-                    {{ metric_card("P/L V13", "%+.2f USDT"|format(v13_paper.pnl), "success" if v13_paper.pnl >= 0 else "danger") }}
-                    {{ metric_card("Fill simulati", v13_paper.order_count, "info") }}
-                    {{ metric_card("Posizioni V13", v13_paper.position_count, "info", v13_paper.last_bar or "-") }}
-                </div>
-                <details class="mb-4"><summary class="text-info">Posizioni V13 correnti</summary><div class="table-responsive mt-2"><table class="table table-sm table-striped"><thead><tr><th>Mercato</th><th class="text-right">Peso</th><th class="text-right">Notional</th><th class="text-right">Ingresso</th><th class="text-right">Corrente</th><th class="text-right">P/L</th></tr></thead><tbody>
-                {% for position in v13_paper.positions %}<tr><td>{{ position.symbol }}</td><td class="text-right">{{ "%+.3f%%"|format(position.weight_pct) }}</td><td class="text-right">{{ "%+.2f USDT"|format(position.notional) }}</td><td class="text-right">{{ "%.6f"|format(position.entry_price) }}</td><td class="text-right">{{ "%.6f"|format(position.current_price) }}</td><td class="text-right text-{{ 'success' if position.unrealized_pnl >= 0 else 'danger' }}">{{ "%+.2f USDT"|format(position.unrealized_pnl) }}</td></tr>{% endfor %}
-                </tbody></table></div></details>
-                {% endif %}
-                <hr>
-                <div class="d-flex flex-wrap justify-content-between">
-                    <div>
-                        <h3 class="mb-1">3. Account paper effettivi</h3>
-                        <div class="small text-muted">Qui compaiono solo fill e posizioni simulate realmente registrati. Nessun ordine reale.</div>
-                    </div>
-                    {% if diversified_paper.available %}<span class="badge badge-{{ "warning" if diversified_paper.phase == "armed_waiting_next_decision" else "success" }} p-2">{{ diversified_paper.phase_label }}</span>{% endif %}
-                </div>
-                {% if diversified_paper.available %}
-                <div class="row mt-3">
-                    {{ metric_card("Equity paper", "%.2f USDT"|format(diversified_paper.paper_equity), "success" if diversified_paper.paper_pnl >= 0 else "danger") }}
-                    {{ metric_card("P/L paper", "%+.2f USDT"|format(diversified_paper.paper_pnl), "success" if diversified_paper.paper_pnl >= 0 else "danger", "%+.3f%%"|format(diversified_paper.paper_return_pct)) }}
-                    {{ metric_card("Ordini simulati", diversified_paper.order_event_count, "info", "fill virtuali") }}
-                    {{ metric_card("Posizioni", diversified_paper.position_count, "info", "gross %.2f%%"|format(diversified_paper.gross_weight_pct)) }}
-                </div>
-                {% if diversified_paper.phase == "armed_waiting_next_decision" %}
-                <div class="alert alert-warning mb-0">Armato sul bar {{ diversified_paper.activation_boundary_bar }}. Il primo portafoglio verrà aperto soltanto alla prossima decisione giornaliera, senza attribuirsi il rendimento già noto.</div>
-                {% elif diversified_paper.positions %}
-                <details>
-                    <summary class="text-info">Posizioni paper correnti <span class="small text-muted">(P/L per posizione disponibile dopo il prossimo mark-to-market)</span></summary>
-                    <div class="table-responsive mt-2">
-                        <table class="table table-sm table-striped mb-0">
-                            <thead><tr><th>Sleeve</th><th>Mercato</th><th class="text-right">Peso</th><th class="text-right">Notional</th><th class="text-right">P/L posizione</th></tr></thead>
-                            <tbody>
-                            {% for position in diversified_paper.positions %}
-                                <tr><td>{{ position.sleeve }}</td><td>{{ position.symbol }}</td><td class="text-right">{{ "%+.3f%%"|format(position.weight_pct) }}</td><td class="text-right">{{ "%+.2f"|format(position.notional) }} USDT</td><td class="text-right">{% if position.unrealized_pnl is defined and position.unrealized_pnl is not none %}{{ "%+.2f"|format(position.unrealized_pnl) }} USDT{% else %}<span class="text-muted">n/d</span>{% endif %}</td></tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
-                {% endif %}
-                {% else %}<div class="alert alert-warning mt-3 mb-0">Paper manuale non disponibile.</div>{% endif %}
-            </div>
-        </div>
-
         <div class="card border-info mb-3">
             <div class="card-body py-3">
                 <div class="d-flex flex-wrap justify-content-between">
@@ -266,7 +248,7 @@
                 </div>
                 {% if execution_shadow.available %}
                 <div class="row mt-3">
-                    {{ metric_card("Avanzamento", "%.2f%%"|format(execution_shadow.progress_pct), "info", execution_shadow.forward_end[:10]) }}
+                    {{ metric_card("Avanzamento", "%.2f%%"|format(execution_shadow.progress_pct), "info", execution_shadow.forward_end[:10] if execution_shadow.forward_end else "—") }}
                     {{ metric_card("Prediction", execution_shadow.predicted, "info", "%.1f%% coverage"|format(execution_shadow.prediction_coverage_pct)) }}
                     {{ metric_card("Outcome maturi", execution_shadow.completed_outcomes, "info") }}
                     {{ metric_card("Ordini", "DISABILITATI", "success") }}
@@ -295,8 +277,91 @@
             </div>
         </div>
 
+        </div>
+
+        <div id="lab-paper" data-lab-panel class="card border-{{ v13_paper_focus.color }} mb-3">
+            <div class="card-body py-3">
+                <div class="d-flex justify-content-between">
+                    <div><h3>{{ v13_paper.label if v13_paper.available else 'V13 · Paper trading' }}</h3><div class="small text-muted">Conto standalone, solo Trend V13. Separato dal motore BTC e dal conto Diversified.</div></div>
+                    <span class="badge badge-{{ v13_paper_focus.color }} p-2">{{ v13_paper_focus.title }}</span>
+                </div>
+                {% if v13_paper.available %}
+                {% if v13_paper.legacy %}
+                <div class="alert alert-warning mt-3">LEGACY NON RICONCILIATO. La precedente equity incorporava rendimenti di ricerca: questi numeri sono conservati per audit, non certificano il risultato dei fill. Non vengono trasferiti al nuovo conto V2.</div>
+                {% else %}
+                <div class="alert alert-info mt-3">Conto V2 esistente dal {{ (v13_paper.activation_at|replace('T', ' '))[:19] }} UTC, capitale iniziale {{ "%.2f"|format(v13_paper.initial_equity) }} USDT. Nessuna posizione o performance V1 ereditata. Fill simulati su quotazioni KuCoin; nessun ordine reale.</div>
+                {% if v13_paper.reason %}<div class="alert alert-warning">{% if v13_paper.status == 'blocked' %}BLOCCATO: {% endif %}{{ v13_paper.reason }} Le posizioni già aperte restano visibili; non si inventano fill o prezzi mancanti.</div>{% endif %}
+                {% if v13_paper.execution_scope|default('') == 'RESEARCH_SIMULATION_ONLY' %}
+                <div class="alert alert-light">Paper di ricerca: minimi simulati 1 incremento / 1 USDT; minimi KuCoin UNKNOWN. Funding stimato, nessun ordine reale. {{v13_paper_focus.next_action}}</div>
+                {% endif %}
+                <div class="small text-muted">Ultime quotazioni: {{ (v13_paper.last_market_at|replace('T', ' '))[:19] ~ ' UTC' if v13_paper.last_market_at else '—' }} · ultimo controllo: {{ ((v13_paper.last_check_at or v13_paper.last_success_at)|replace('T', ' '))[:19] }} UTC · ultimo segnale: {{ v13_paper.last_bar }}.</div>
+                {% endif %}
+                {% if v13_paper_focus.title not in ['PAPER ATTIVO', 'PAPER DI RICERCA ATTIVO'] %}<div class="small text-warning mt-2">Equity e P/L sotto sono l'ultimo snapshot registrato, non una valutazione corrente.</div>{% endif %}
+                <div class="row mt-3">
+                    {{ metric_card("Equity V13", "%.2f USDT"|format(v13_paper.equity), "secondary" if v13_paper_focus.title not in ['PAPER ATTIVO', 'PAPER DI RICERCA ATTIVO'] else "success" if v13_paper.pnl >= 0 else "danger") }}
+                    {{ metric_card("P/L V13", "%+.2f USDT"|format(v13_paper.pnl), "secondary" if v13_paper_focus.title not in ['PAPER ATTIVO', 'PAPER DI RICERCA ATTIVO'] else "success" if v13_paper.pnl >= 0 else "danger") }}
+                    {{ metric_card("Fill simulati", v13_paper.order_count, "info") }}
+                    {{ metric_card("Posizioni V13", v13_paper.position_count, "info", v13_paper.last_bar or "-") }}
+                </div>
+                {% if not v13_paper.legacy %}
+                <div class="row">
+                    {{ metric_card("P/L realizzato", "%+.2f USDT"|format(v13_paper.realized_pnl), "info", "prezzo delle quantità chiuse, lordo") }}
+                    {{ metric_card("P/L aperto", "%+.2f USDT"|format(v13_paper.unrealized_pnl), "info", "quantità × (mark − ingresso), lordo") }}
+                    {{ metric_card("Commissioni", "%.2f USDT"|format(v13_paper.fees), "warning", "già sottratte dall’equity") }}
+                    {{ metric_card("Funding", "%+.2f USDT"|format(v13_paper.funding), "info", "positivo = incasso; negativo = costo") }}
+                </div>
+                <p class="small">P/L netto = realizzato + aperto + funding − commissioni. Lo slippage è incorporato nel prezzo dei fill, non sottratto una seconda volta.<br>Modello esecuzioni: {{ v13_paper.execution_model }}.<br>Limite funding: {{ v13_paper.funding_note }}</p>
+                {% endif %}
+                <details class="mb-4"><summary class="text-info">Posizioni V13 correnti</summary><div class="table-responsive mt-2"><table class="table table-sm table-striped"><thead><tr><th>Mercato</th><th class="text-right">Peso</th><th class="text-right">Notional</th><th class="text-right">Ingresso</th><th class="text-right">Corrente</th><th class="text-right">P/L</th></tr></thead><tbody>
+                {% for position in v13_paper.positions %}<tr><td>{{ position.symbol }}{% if not v13_paper.legacy %}<div class="small">{{ 'LONG' if position.quantity > 0 else 'SHORT' }} · {{ "%.8f"|format(position.quantity|abs) }} unità</div>{% endif %}</td><td class="text-right">{{ "%+.3f%%"|format(position.weight_pct) if position.weight_pct is not none else "—" }}</td><td class="text-right">{{ "%+.2f USDT"|format(position.notional) }}</td><td class="text-right">{{ "%.6f"|format(position.entry_price) }}</td><td class="text-right">{{ "%.6f"|format(position.current_price) }}</td><td class="text-right text-{{ 'success' if position.unrealized_pnl >= 0 else 'danger' }}">{{ "%+.2f USDT"|format(position.unrealized_pnl) }}<div class="small">aperto lordo{% if v13_paper.legacy %}, non riconciliato{% endif %}</div></td></tr>{% else %}<tr><td colspan="6">Nessuna posizione aperta. Il conto resta flat fino a un fill simulato verificabile.</td></tr>{% endfor %}
+                </tbody></table></div></details>
+                {% if not v13_paper.legacy %}
+                <details class="mb-4"><summary class="text-info">Ultimi fill V13 V2 effettivamente registrati ({{ v13_paper.order_count }})</summary><div class="table-responsive mt-2"><table class="table table-sm table-striped"><thead><tr><th>Ora UTC</th><th>Mercato</th><th>Lato</th><th class="text-right">Quantità</th><th class="text-right">Prezzo</th><th class="text-right">Commissione</th></tr></thead><tbody>
+                {% for fill in (v13_paper.fills or [])[-20:]|reverse %}<tr><td>{{ (fill.time|replace('T', ' '))[:19] }}</td><td>{{ fill.symbol }}</td><td>{{ fill.action }}</td><td class="text-right">{{ "%.8f"|format(fill.quantity|abs) }}</td><td class="text-right">{{ "%.6f"|format(fill.price) }}</td><td class="text-right">{{ "%.4f USDT"|format(fill.fee) }}</td></tr>{% else %}<tr><td colspan="6">Nessun fill: conto in attesa di quotazioni utilizzabili successive all’attivazione.</td></tr>{% endfor %}
+                </tbody></table></div></details>
+                {% endif %}
+                {% endif %}
+                <hr>
+                <details class="mt-3">
+                <summary class="text-info">Altro conto paper: Diversified 50/50 (archivio separato)</summary>
+                <div class="d-flex flex-wrap justify-content-between">
+                    <div>
+                        <h3 class="mb-1">Altro conto: Diversified 50/50 · simulazione a pesi</h3>
+                        <div class="small text-muted">Conto distinto dalla V13: ribilanciamenti virtuali giornalieri, non eseguiti nel motore KuCoin. Nessun ordine reale.</div>
+                    </div>
+                    {% if diversified_paper.available %}<span class="badge badge-{{ "warning" if diversified_paper.phase == "armed_waiting_next_decision" else "success" }} p-2">{{ diversified_paper.phase_label }}</span>{% endif %}
+                </div>
+                {% if diversified_paper.available %}
+                <div class="row mt-3">
+                    {{ metric_card("Equity paper", "%.2f USDT"|format(diversified_paper.paper_equity), "success" if diversified_paper.paper_pnl >= 0 else "danger") }}
+                    {{ metric_card("P/L paper", "%+.2f USDT"|format(diversified_paper.paper_pnl), "success" if diversified_paper.paper_pnl >= 0 else "danger", "%+.3f%%"|format(diversified_paper.paper_return_pct)) }}
+                    {{ metric_card("Ordini simulati", diversified_paper.order_event_count, "info", "fill virtuali") }}
+                    {{ metric_card("Posizioni", diversified_paper.position_count, "info", "gross %.2f%%"|format(diversified_paper.gross_weight_pct)) }}
+                </div>
+                {% if diversified_paper.phase == "armed_waiting_next_decision" %}
+                <div class="alert alert-warning mb-0">Armato sul bar {{ diversified_paper.activation_boundary_bar }}. Il primo portafoglio verrà aperto soltanto alla prossima decisione giornaliera, senza attribuirsi il rendimento già noto.</div>
+                {% elif diversified_paper.positions %}
+                <details>
+                    <summary class="text-info">Posizioni paper correnti <span class="small text-muted">(attribuzione individuale non implementata nel ledger a pesi)</span></summary>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead><tr><th>Sleeve</th><th>Mercato</th><th class="text-right">Peso</th><th class="text-right">Notional</th><th class="text-right">P/L posizione</th></tr></thead>
+                            <tbody>
+                            {% for position in diversified_paper.positions %}
+                                <tr><td>{{ position.sleeve }}</td><td>{{ position.symbol }}</td><td class="text-right">{{ "%+.3f%%"|format(position.weight_pct) }}</td><td class="text-right">{{ "%+.2f"|format(position.notional) }} USDT</td><td class="text-right">{% if position.unrealized_pnl is defined and position.unrealized_pnl is not none %}{{ "%+.2f"|format(position.unrealized_pnl) }} USDT{% else %}<span class="text-muted">n/d</span>{% endif %}</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+                {% endif %}
+                {% else %}<div class="alert alert-warning mt-3 mb-0">Paper manuale non disponibile.</div>{% endif %}
+                </details>
+            </div>
+        </div>
+
         <div class="alert alert-secondary mb-0">
-            <strong>Runtime ritirati fermati:</strong> Trend V3/V14 shadow e V5 Binance paper. Storico, journal e report non sono stati cancellati.
+            <strong>Strategie ritirate:</strong> BTC legacy in quarantena ingressi; Trend V3/V14 shadow e V5 Binance paper fermati. Cross-venue è in archivio, senza consumatori attivi. Storico, journal e report non sono stati cancellati.
             <a href="{{ url_for('research_archive') }}">Apri l'archivio della ricerca</a>.
         </div>
     </div>
@@ -386,4 +451,29 @@ $(document).ready(function () {
 });
 </script>
 {% endif %}
+
+<script>
+$(function () {
+    const links = Array.from(document.querySelectorAll('nav[aria-label="Trading Lab sections"] a'));
+    const panels = Array.from(document.querySelectorAll('[data-lab-panel]'));
+    function selectSection() {
+        const selected = panels.some(p => '#' + p.id === window.location.hash)
+            ? window.location.hash : '#lab-paper';
+        panels.forEach(p => { p.hidden = '#' + p.id !== selected; });
+        links.forEach(a => {
+            const active = a.getAttribute('href') === selected;
+            a.classList.toggle('active', active);
+            if (active) a.setAttribute('aria-current', 'page');
+            else a.removeAttribute('aria-current');
+        });
+        requestAnimationFrame(() => {
+            document.querySelector(selected).querySelectorAll('.js-plotly-plot').forEach(chart => {
+                if (typeof Plotly !== 'undefined') Plotly.Plots.resize(chart);
+            });
+        });
+    }
+    window.addEventListener('hashchange', selectSection);
+    selectSection();
+});
+</script>
 {% endblock additional_scripts %}
