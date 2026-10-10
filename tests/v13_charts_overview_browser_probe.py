@@ -27,10 +27,29 @@ def main():
         data=context.request.get(args.origin+'/v13_paper/charts/overview').json()
         assert len(data['charts'])==18 and len(set(data['symbols']))==18
         assert all(len(c['points'])<=800 for c in data['charts'])
+        outcomes=page.evaluate("""() => [
+          {action:'SELL',closed_quantity:1,realized_less_fill_fee:9.9,fee:.1,equity_impact:-.2},
+          {action:'SELL',closed_quantity:1,realized_less_fill_fee:-2.1,fee:.1},
+          {action:'SELL',closed_quantity:0,realized_less_fill_fee:-.1,fee:.1},
+          {action:'SELL',closed_quantity:1,realized_less_fill_fee:null,fee:null},
+          {action:'SELL',closed_quantity:1,realized_less_fill_fee:0,fee:.1}
+        ].map(sellOutcome)""")
+        assert [o['icon'] for o in outcomes]==['+','−','·','?','=']
+        badges=page.evaluate("""() => [...overviewCards.values()].flatMap(card=>card.hits.filter(h=>h.outcome).map(h=>({symbol:card.item.symbol,icon:h.outcome})))""")
+        assert badges and any(b['icon']=='+' for b in badges) and any(b['icon']=='−' for b in badges)
+        checks.append(dict(sell_outcomes=[o['icon'] for o in outcomes],overview_badges=len(badges),profit_separate_from_equity_cost=True))
         page.screenshot(path=str(args.evidence/(args.label+'-desktop.png')))
         page.get_by_role('button',name='Apri dettaglio BTCUSDT',exact=True).click()
         page.wait_for_function("!document.getElementById('content').hidden && document.getElementById('chart-title').textContent.startsWith('BTCUSDT')")
         assert page.locator('#symbol').input_value()=='BTCUSDT'
+        badge=page.evaluate("() => hits.find(h=>h.outcome==='+')")
+        assert badge
+        box=page.locator('#chart').bounding_box()
+        page.mouse.click(box['x']+badge['x'],box['y']+badge['y'])
+        assert 'Profitto realizzato meno la commissione' in page.locator('#readout').inner_text()
+        assert page.locator('#detail').is_visible()
+        page.screenshot(path=str(args.evidence/(args.label+'-sell-detail.png')))
+
         page.locator('#fills button').first.click();assert page.locator('#detail').is_visible()
         assert 'Impatto immediato' in page.locator('#detail').inner_text()
         page.get_by_role('button',name='Tutti i simboli',exact=True).click()
