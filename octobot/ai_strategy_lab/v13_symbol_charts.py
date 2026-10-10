@@ -6,9 +6,11 @@ import math
 from pathlib import Path
 import re
 import sqlite3
+from collections import defaultdict
 
 SYMBOL = re.compile(r'^[A-Z0-9]{2,24}USDT$')
 MAX_POINTS = 20000
+OVERVIEW_POINTS = 800
 
 
 def timestamp(value):
@@ -171,3 +173,63 @@ def load(symbol=None, root='/v13-paper', now=None):
         marks = [dict(r) for r in db.execute(
             'SELECT bar,price FROM marks WHERE symbol=? ORDER BY bar DESC LIMIT ?', (symbol, MAX_POINTS + 1))]
         return project(state, fills, list(reversed(marks[:MAX_POINTS])), symbol, now, len(marks) > MAX_POINTS)
+
+
+def compact_points(points, limit=OVERVIEW_POINTS):
+    """Keep observed extrema and endpoints; never connect through a source gap."""
+    if len(points) <= limit:
+        return points
+    selected = {0, len(points)-1}
+    buckets = (limit-2)//2
+    for bucket in range(buckets):
+        start = 1 + bucket*(len(points)-2)//buckets
+        end = 1 + (bucket+1)*(len(points)-2)//buckets
+        if start < end:
+            selected.add(min(range(start,end), key=lambda i:points[i]['price']))
+            selected.add(max(range(start,end), key=lambda i:points[i]['price']))
+    result=[];previous=-1
+    for index in sorted(selected):
+        point=dict(points[index])
+        point['gap_before']=any(p['gap_before'] for p in points[previous+1:index+1]) if previous>=0 else False
+        result.append(point);previous=index
+    return result
+
+
+def load_overview(period='all', root='/v13-paper', now=None):
+    """One coherent read-only snapshot for all charts, compacted for display."""
+    if period not in ('all','1','7'):
+        raise ValueError('unknown_chart_period')
+    directory=Path(root)/'research/execution'
+    health=json.loads((directory/'health-research.json').read_text())
+    if health.get('execution_scope')!='RESEARCH_SIMULATION_ONLY' or health.get('orders_authorized') is not False:
+        raise ValueError('wrong_scope')
+    database=directory/'execution.sqlite'
+    if not database.is_file():raise FileNotFoundError('missing_ledger')
+    with sqlite3.connect(database.resolve().as_uri()+'?mode=ro',uri=True,timeout=3) as db:
+        db.row_factory=sqlite3.Row;db.execute('PRAGMA query_only=ON');db.execute('BEGIN')
+        state=json.loads(db.execute('SELECT payload FROM state WHERE id=1').fetchone()[0])
+        start,as_of=timestamp(state['activation_at']),timestamp(state['last_success_at'])
+        cutoff=start if period=='all' else max(start,as_of-dt.timedelta(days=int(period)))
+        fills=defaultdict(list)
+        for row in db.execute("SELECT o.id,o.bar,o.recorded_at,o.symbol,o.action,o.quantity,o.price,o.fee,"
+            "m.price AS reference_mark FROM orders o LEFT JOIN marks m ON m.symbol=o.symbol AND m.bar=o.bar "
+            "WHERE o.status='filled' ORDER BY o.id"):
+            fills[row['symbol']].append(dict(row))
+        if sum(map(len,fills.values()))!=state['order_count'] or set(fills)-set(state['positions']):
+            raise ValueError('incomplete_fill_history')
+        marks=defaultdict(list)
+        for row in db.execute('SELECT symbol,bar,price FROM (SELECT symbol,bar,price, '
+            'ROW_NUMBER() OVER(PARTITION BY symbol ORDER BY bar DESC) AS n FROM marks WHERE bar>=? AND bar<=?) '
+            'WHERE n<=? ORDER BY symbol,bar',(cutoff.isoformat(),as_of.isoformat(),MAX_POINTS+1)):
+            marks[row['symbol']].append(dict(row))
+        charts=[]
+        for symbol in sorted(state['positions']):
+            prices=marks[symbol]
+            chart=project(state,fills[symbol],prices[-MAX_POINTS:],symbol,now,len(prices)>MAX_POINTS)
+            chart['total_fills']=len(chart['fills'])
+            chart['fills']=[f for f in chart['fills'] if timestamp(f['time'])>=cutoff]
+            chart['observed_points']=len(chart['points'])
+            chart['points']=compact_points(chart['points'])
+            charts.append(chart)
+        return dict(available=True,as_of=as_of.isoformat(),from_time=cutoff.isoformat(),period=period,
+                    stale=any(c['stale'] for c in charts),symbols=sorted(state['positions']),charts=charts)

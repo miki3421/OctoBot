@@ -82,6 +82,14 @@ class ChartTests(unittest.TestCase):
                 conn.executemany('INSERT INTO orders VALUES(:id,:bar,:recorded_at,:symbol,:action,:quantity,:price,:status,:fee)',[dict(x,status='filled',fee=.1) for x in f])
                 conn.executemany('INSERT INTO marks VALUES(:bar,:symbol,:price)',[dict(x,symbol='BTCUSDT') for x in m])
             before=db.read_bytes();r=c.load('BTCUSDT',root,NOW);self.assertEqual(len(r['fills']),2);self.assertEqual(before,db.read_bytes())
+            overview=c.load_overview('all',root,NOW)
+            self.assertEqual(overview['symbols'],['BTCUSDT','ETHUSDT'])
+            self.assertEqual(len(overview['charts']),2)
+            self.assertEqual(overview['charts'][0]['fills'],r['fills'])
+            self.assertEqual(overview['charts'][1]['position'],'FLAT')
+            self.assertEqual(overview['charts'][1]['points'],[])
+            self.assertEqual(before,db.read_bytes())
+            with self.assertRaises(ValueError):c.load_overview('unbounded',root,NOW)
             self.assertEqual(r['fills'][0]['reference_mark'],109)
             with sqlite3.connect(db) as conn:conn.execute("DELETE FROM marks WHERE bar=?",(f[0]['bar'],))
             r=c.load('BTCUSDT',root,NOW)
@@ -94,6 +102,17 @@ class ChartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaises(FileNotFoundError):c.load(root=folder)
             self.assertEqual(list(Path(folder).iterdir()),[])
+
+    def test_overview_compaction_preserves_extrema_and_gap(self):
+        start=NOW-dt.timedelta(seconds=2000)
+        points=[dict(time=(start+dt.timedelta(seconds=i)).isoformat(),price=100+(i%9),gap_before=False) for i in range(2000)]
+        points[799]['price']=1000;points[1201]['price']=1;points[1001]['gap_before']=True
+        result=c.compact_points(points,80)
+        self.assertLessEqual(len(result),80)
+        self.assertEqual(result[0]['time'],points[0]['time']);self.assertEqual(result[-1]['time'],points[-1]['time'])
+        self.assertEqual(max(p['price'] for p in result),1000);self.assertEqual(min(p['price'] for p in result),1)
+        self.assertTrue(any(p['gap_before'] for p in result))
+        self.assertTrue(all(any(p['time']==original['time'] and p['price']==original['price'] for original in points) for p in result))
 
     def test_equity_effect_is_not_realized_profit(self):
         # Expected values from cash transfer plus marked holdings, including reversals.

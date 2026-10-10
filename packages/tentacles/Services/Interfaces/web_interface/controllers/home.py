@@ -65,6 +65,19 @@ def register(blueprint):
         response.cache_control.no_store = True
         return response
 
+    @blueprint.route("/v13_paper/charts/overview")
+    @login.login_required_when_activated
+    def v13_symbol_dashboard_overview_data():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        try:
+            result = v13_symbol_charts.load_overview(flask.request.args.get('range','all'))
+        except (OSError, KeyError, TypeError, ValueError, IndexError, sqlite3.Error):
+            result = {'available': False, 'message': 'Panoramica dei simboli non verificabile.'}
+        response = flask.jsonify(result)
+        response.cache_control.no_store = True
+        return response
+
     @blueprint.route("/v13_candidates/shortlist")
     @login.login_required_when_activated
     def v13_shortlist_data():
