@@ -76,3 +76,26 @@ class MailTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 mail.deliver(config, 'TEST', [], 10000)
             smtp.login.assert_not_called()
+
+    def test_confirmation_filters_only_single_blind_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'status.json'
+            value=dict(scope='PASSIVE_LAB_TELEMETRY_ONLY',observed_at='2026-10-10T00:00:00+00:00',
+                alerts=['CONTAINER_STATE_UNAVAILABLE'],notification_alerts=[],container_check_failure_streak=1)
+            now=mail.dt.datetime.fromisoformat(value['observed_at']).timestamp()+5
+            p.write_text(json.dumps(value))
+            self.assertEqual(mail.read_alerts(p,now),[])
+            value.update(container_check_failure_streak=2,notification_alerts=['CONTAINER_STATE_UNAVAILABLE'])
+            p.write_text(json.dumps(value))
+            self.assertEqual(mail.read_alerts(p,now),['CONTAINER_STATE_UNAVAILABLE'])
+            value.update(alerts=['CONTAINER_NOT_HEALTHY:paper'],notification_alerts=[])
+            p.write_text(json.dumps(value))
+            self.assertEqual(mail.read_alerts(p,now),['MONITOR_UNAVAILABLE_OR_STALE'])
+
+    def test_legacy_projection_retains_immediate_alerts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p=Path(tmp)/'status.json'
+            p.write_text(json.dumps(dict(scope='PASSIVE_LAB_TELEMETRY_ONLY',
+                observed_at='2026-10-10T00:00:00+00:00',alerts=['CONTAINER_STATE_UNAVAILABLE'])))
+            now=mail.dt.datetime.fromisoformat('2026-10-10T00:00:00+00:00').timestamp()+5
+            self.assertEqual(mail.read_alerts(p,now),['CONTAINER_STATE_UNAVAILABLE'])

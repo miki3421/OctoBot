@@ -66,11 +66,19 @@ def read_alerts(path, now):
     try:
         sample = json.loads(Path(path).read_text())
         at = dt.datetime.fromisoformat(sample['observed_at'].replace('Z', '+00:00'))
-        alerts = sample['alerts']
+        raw_alerts = sample['alerts']
+        alerts = sample.get('notification_alerts', raw_alerts)
         if (sample['scope'] != 'PASSIVE_LAB_TELEMETRY_ONLY' or at.tzinfo is None
                 or not 0 <= now - at.timestamp() <= 900 or not isinstance(alerts, list)
+                or not isinstance(raw_alerts, list)
+                or not all(isinstance(a, str) and a.split(':', 1)[0] in LABELS for a in raw_alerts)
                 or not all(isinstance(a, str) and a.split(':', 1)[0] in LABELS for a in alerts)):
             raise ValueError('invalid_monitor_sample')
+        excluded = set(raw_alerts) - set(alerts)
+        if (not set(alerts) <= set(raw_alerts) or excluded and (
+                excluded != {'CONTAINER_STATE_UNAVAILABLE'}
+                or sample.get('container_check_failure_streak') != 1)):
+            raise ValueError('invalid_notification_filter')
         return sorted(set(alerts))
     except (OSError, ValueError, KeyError, TypeError):
         return ['MONITOR_UNAVAILABLE_OR_STALE']

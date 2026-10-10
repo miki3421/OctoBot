@@ -2,6 +2,8 @@ import copy
 import importlib.util
 from pathlib import Path
 import unittest
+import subprocess
+from unittest.mock import Mock
 
 spec = importlib.util.spec_from_file_location('monitor', Path(__file__).resolve().parents[3] / 'scripts/lab_resource_monitor.py')
 monitor = importlib.util.module_from_spec(spec)
@@ -58,3 +60,41 @@ class MonitorTests(unittest.TestCase):
         result = monitor.assess(current, prior)['collectors']['market']
         self.assertTrue(result['recovered_since_previous_sample'])
         self.assertEqual(result['success_interval_seconds'], 3600)
+
+    def test_retry_recovers_thread_failure_without_alert(self):
+        run = Mock(side_effect=[subprocess.CompletedProcess([],1,'','pthread_create failed'),
+            subprocess.CompletedProcess([],0,'{"name":"/paper","state":"running","health":"healthy","restarts":0}\n','')])
+        result = monitor.inspect_containers(['paper'],run)
+        self.assertNotIn('container_error',result)
+        self.assertEqual(result['container_inspection_attempts'],2)
+        self.assertEqual(result['container_inspection_failures'],['DOCKER_CLIENT_THREAD_LIMIT'])
+
+    def test_missing_inventory_never_reports_healthy(self):
+        run = Mock(return_value=subprocess.CompletedProcess([],0,'',''))
+        result = monitor.inspect_containers(['paper'],run)
+        self.assertEqual(result['container_error'],'DOCKER_INSPECT_UNAVAILABLE_OR_INVALID')
+        self.assertEqual(run.call_count,2)
+
+    def test_timeout_is_precise_and_bounded(self):
+        run = Mock(side_effect=subprocess.TimeoutExpired('docker',15))
+        result = monitor.inspect_containers(['paper'],run)
+        self.assertEqual(result['container_error'],'DOCKER_INSPECT_TIMEOUT')
+        self.assertEqual(run.call_count,2)
+
+    def test_blind_check_confirmation_and_real_failure_immediate(self):
+        first=self.sample();first['container_error']='DOCKER_INSPECT_TIMEOUT'
+        first=monitor.assess(first)
+        self.assertIn('CONTAINER_STATE_UNAVAILABLE',first['alerts'])
+        self.assertNotIn('CONTAINER_STATE_UNAVAILABLE',first['notification_alerts'])
+        second=self.sample();second['container_error']='DOCKER_INSPECT_TIMEOUT'
+        second=monitor.assess(second,first)
+        self.assertIn('CONTAINER_STATE_UNAVAILABLE',second['notification_alerts'])
+        recovered=monitor.assess(self.sample(),second)
+        self.assertEqual(recovered['container_check_failure_streak'],0)
+        unhealthy=self.sample();unhealthy['containers'][0]['health']='unhealthy'
+        self.assertIn('CONTAINER_NOT_HEALTHY:paper',monitor.assess(unhealthy)['notification_alerts'])
+
+    def test_raw_client_error_not_exposed(self):
+        run=Mock(return_value=subprocess.CompletedProcess([],1,'','private raw diagnostic'))
+        result=monitor.inspect_containers(['paper'],run)
+        self.assertNotIn('private raw diagnostic',str(result))

@@ -56,13 +56,50 @@ def assess(sample, previous=None):
         if health.get('source_status', 'healthy') != 'healthy':
             alerts.append('COLLECTOR_SOURCE_UNHEALTHY:' + name)
     if sample.get('container_error'):
+        sample['container_check_failure_streak'] = (previous or {}).get('container_check_failure_streak', 0) + 1
         alerts.append('CONTAINER_STATE_UNAVAILABLE')
     else:
+        sample['container_check_failure_streak'] = 0
         for item in sample['containers']:
             if item['state'] != 'running' or item['health'] != 'healthy':
                 alerts.append('CONTAINER_NOT_HEALTHY:' + item['name'])
     sample['alerts'] = alerts
+    # Retain immediate raw visibility of failed checks. Only monitor blindness
+    # needs two consecutive samples for email; confirmed unhealthy containers
+    # and all resource/data alerts remain immediate.
+    sample['notification_alerts'] = [a for a in alerts if not (
+        a == 'CONTAINER_STATE_UNAVAILABLE' and sample['container_check_failure_streak'] < 2)]
     return sample
+
+
+def inspect_containers(names, run=subprocess.run):
+    template = '{"name":{{json .Name}},"state":{{json .State.Status}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},"restarts":{{.RestartCount}}}'
+    failures = []
+    for attempt in range(2):
+        try:
+            result = run(['docker', 'inspect', '--format', template, *names],
+                         timeout=15, capture_output=True, text=True)
+            if result.returncode:
+                if 'pthread_create failed' in result.stderr or 'failed to create new OS thread' in result.stderr:
+                    failures.append('DOCKER_CLIENT_THREAD_LIMIT')
+                else:
+                    failures.append('DOCKER_INSPECT_EXIT_NONZERO')
+                continue
+            containers = [json.loads(line) for line in result.stdout.splitlines()]
+            for item in containers:
+                item['name'] = item['name'].lstrip('/')
+                if not isinstance(item['state'], str) or item['health'] not in (None, 'healthy', 'unhealthy', 'starting'):
+                    raise ValueError('invalid_container_state')
+            if len(containers) != len(names) or {i['name'] for i in containers} != set(names):
+                raise ValueError('incomplete_container_inventory')
+            return dict(containers=containers, container_inspection_attempts=attempt+1,
+                        container_inspection_failures=failures)
+        except subprocess.TimeoutExpired:
+            failures.append('DOCKER_INSPECT_TIMEOUT')
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError, AttributeError):
+            failures.append('DOCKER_INSPECT_UNAVAILABLE_OR_INVALID')
+    return dict(containers=[], container_error=failures[-1],
+                container_inspection_attempts=2, container_inspection_failures=failures)
 
 
 def collect(config):
@@ -94,13 +131,7 @@ def collect(config):
         except (OSError, ValueError, KeyError, StopIteration, TypeError):
             result['error'] = 'HEALTH_UNAVAILABLE_OR_INVALID'
         sample['collectors'][name] = result
-    try:
-        template = '{"name":{{json .Name}},"state":{{json .State.Status}},"health":{{if .State.Health}}{{json .State.Health.Status}}{{else}}null{{end}},"restarts":{{.RestartCount}}}'
-        raw = subprocess.check_output(['docker', 'inspect', '--format', template,
-                                       *config['containers']], timeout=15, text=True)
-        sample['containers'] = [json.loads(line) for line in raw.splitlines()]
-    except (OSError, subprocess.SubprocessError, ValueError, KeyError):
-        sample['container_error'] = 'INSPECTION_UNAVAILABLE'
+    sample.update(inspect_containers(config['containers']))
     return sample
 
 
