@@ -18,7 +18,7 @@ import flask
 import sqlite3
 from octobot.ai_strategy_lab import v13_paper_view, v13_btc_forward_monitor, qwen_shadow_view, v13_analysis, v13_qwen_analysis, v13_universe_view
 from octobot.ai_strategy_lab import v13_candidate_shortlist, v13_candidate_data
-from octobot.ai_strategy_lab import v13_symbol_charts, v13_fork_view
+from octobot.ai_strategy_lab import v13_symbol_charts, v13_fork_view, v13_variant_charts
 
 import octobot_commons.authentication as authentication
 import octobot_services.interfaces.util as interfaces_util
@@ -52,6 +52,35 @@ def register(blueprint):
         if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
             flask.abort(403)
         response = flask.jsonify(v13_fork_view.load())
+        response.cache_control.no_store = True
+        return response
+
+    @blueprint.route("/v13_variants/<variant>/charts")
+    @login.login_required_when_activated
+    def v13_variant_symbols(variant):
+        if not models.accepted_terms():
+            return flask.redirect(flask.url_for("terms"))
+        if models.get_current_profile().profile_id != "local_ai_trading" or variant not in {"fast", "half"}:
+            flask.abort(404)
+        response = flask.make_response(flask.render_template("v13_symbol_charts.html", variant=variant))
+        response.cache_control.no_store = True
+        return response
+
+    @blueprint.route("/v13_variants/<variant>/charts/data")
+    @blueprint.route("/v13_variants/<variant>/charts/overview")
+    @login.login_required_when_activated
+    def v13_variant_symbols_data(variant):
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        if variant not in {"fast", "half"}:
+            flask.abort(404)
+        try:
+            result = v13_variant_charts.load(variant,
+                symbol=flask.request.args.get("symbol"), period=flask.request.args.get("range", "all"),
+                overview=flask.request.path.endswith("/overview"))
+        except (OSError, KeyError, TypeError, ValueError, IndexError, sqlite3.Error):
+            result = {"available": False, "message": "Storico della biforcazione non verificabile."}
+        response = flask.jsonify(result)
         response.cache_control.no_store = True
         return response
 
