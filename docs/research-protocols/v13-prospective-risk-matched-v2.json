@@ -1,0 +1,173 @@
+{
+  "activation": {
+    "boundary": "Economic attribution begins at the sealed parent snapshot. First branch action is a qualified future 00:15 UTC slot, never backdated. Until first action, copied quantities remain held; all subsequent mark movements and funding must accrue. Unprocessed slots are missed, not retrospectively traded.",
+    "duration_calendar_days": 90,
+    "end": "Economic snapshot T0 +90 days; do not extend based on performance.",
+    "end_exclusive": "2027-01-11T14:55:36.881469+00:00",
+    "first_decision_slot": null,
+    "initial_equity_per_arm": "EXACT_PARENT_SNAPSHOT_EQUITY",
+    "initial_filter_state": "FULL at fork; evaluate the last two causal closed daily bars at first qualified future slot. Do not replay hypothetical pre-fork filter actions.",
+    "initial_positions": "EXACT_PARENT_SNAPSHOT_POSITIONS",
+    "start_receipt_fields": [
+      "parent_snapshot_sha256",
+      "protocol_sha256",
+      "runner_sha256",
+      "economic_t0",
+      "first_decision_slot",
+      "end_exclusive",
+      "account_ids",
+      "inherited_equity",
+      "inherited_positions",
+      "inherited_risk_state",
+      "data_cutoff"
+    ],
+    "started": false,
+    "t0": "2026-10-13T14:55:36.881469+00:00"
+  },
+  "active_v13_mutation": false,
+  "arms": {
+    "FAST": {
+      "candidate_weight": "Positive original V13 targets x0.5 in REDUCED, otherwise original target. Nonpositive original targets unchanged.",
+      "reduced_state": "No increase in positive position while REDUCED; cap desired positive quantity at currently held nonnegative quantity, after mark/equity conversion. This also prevents new long entries while REDUCED.",
+      "signal": "Two consecutive daily closes below their respective trailing SMA10 => REDUCED. Two above => FULL. Equality holds state."
+    },
+    "HALF": {
+      "candidate_weight": "All original V13 targets x0.5 at every slot; ordinary daily rebalance; no fast filter."
+    }
+  },
+  "cards": [
+    "work-card-6c3d36d8-0f82-42f5-af08-e23eee49dc41",
+    "work-card-5fb8e181-a915-4189-b91b-1f0d81fe8a94",
+    "work-card-af85df3f-1489-41a8-8b80-a598e4b31dfb"
+  ],
+  "change_control": "Any parameter, universe, source or executable semantic change after start needs new version and new future boundary. Preserve all prior evidence; observations already inspected are consumed for that new version.",
+  "created_at": "2026-10-13T14:57:47.059830+00:00",
+  "decisions": {
+    "cutoff": "Daily candle of previous UTC day; raw received and source published before slot",
+    "data_deadline_utc": "00:15",
+    "execution_window_seconds": 120,
+    "late_policy": "Record missed slot for both arms; no catch-up trade later that day",
+    "no_forced_weekly_reset_at_t0": true,
+    "slot_utc": "00:15",
+    "source": "Same pinned original V13 weekly target vector, future daily archival proposal, shared universe and snapshot"
+  },
+  "evaluation": {
+    "horizon_evaluation": "Once at fixed 90-day boundary; intermediate weekly checks only completeness and safety, performance descriptive not parameter selection",
+    "minimum_fraction_executed_slots_within_risk_tolerance": 0.95,
+    "minimum_paired_valid_slots": 80,
+    "missing_policy": "Preserve every economic outcome; missing marks or funding remain unknown until causally reconstructed with provenance. Terminal net accounting must reconcile in both arms; no favorable-subset scoring.",
+    "no_auto_promotion": true,
+    "no_optional_stopping": true,
+    "no_parameter_search": true,
+    "positive_candidate_rule": "Primary delta > 0 AND FAST observed drawdown <= HALF on common valid grid AND data/coverage gates pass. Otherwise mixed/negative; if gates fail INCONCLUSIVE. Meeting rule is not statistical proof or operational approval.",
+    "primary": "log(E_FAST_T/E_FAST_AT_FORK)-log(E_HALF_T/E_HALF_AT_FORK), include all inherited-position mark changes and funding after fork, plus actual simulated transaction costs; historical pre-fork gains excluded from variant score.",
+    "secondary": [
+      "net USDT difference",
+      "realized and unrealized P/L",
+      "common-grid drawdown with gap labels",
+      "realized daily volatility",
+      "time-weighted gross exposure",
+      "forecast risk gap and paired valid slot count",
+      "turnover, fees, funding and estimator quality",
+      "entry blocks, reductions, regime transitions and reentry costs",
+      "per-symbol attribution and foregone rebound intervals"
+    ],
+    "valuation_grid": "Shared 5-minute causal observation grid using existing capture if complete, plus daily UTC 00:15 observation; no new collector in this task"
+  },
+  "execution": {
+    "accounts": "Two independent research-only ledgers; no approval store, intent to operational executor, grant or live account writes",
+    "costs": "Include initial entry, reentries, fees, funding and unrealized P/L; no free initial positions or free end liquidation",
+    "limits_on_pair": "If either arm blocks an increase, block increases in both; reductions remain allowed. Record resulting risk mismatch. Do not bypass guards to force parity.",
+    "minimums": "Separate simulation contract only; real KuCoin min_quantity/min_notional remain UNKNOWN",
+    "paired_snapshot": "Same first complete causal book bundle for all 18 symbols after slot and within 120 seconds",
+    "pricing": "Existing archived/public depth VWAP, adverse 2bps, adverse tick rounding, fee at least 6bps; full-size feasible fill or recorded capacity limitation",
+    "risk_limits": "2% daily loss, 10% high-water drawdown, one risk-increasing rebalance/day UTC, 22h cooldown, 31.5% per symbol and 90% gross, independently enforced and persisted for each arm",
+    "storage_failure": "No new fills if durable journal/slot reservation is unavailable; recover idempotently, never reset equity, filter, funding debt or limits."
+  },
+  "fork": {
+    "account_ids": {
+      "FAST": "v13-risk-matched-clone-v2-fast-ca4acd534434",
+      "HALF": "v13-risk-matched-clone-v2-half-ca4acd534434"
+    },
+    "authority": "Branch metadata is separate. Historical claims and inherited position IDs never confer execution authority. New writes require branch namespace, fresh slot IDs and explicit isolated runner. No operational grants.",
+    "history": "Every execution database table and row copied unchanged; pre-fork P/L is common history, never variant performance.",
+    "manifest_sha256": "f6ce74d845be41e111a3187757f16bcbcaabb8600f23f114a84785da67f92849",
+    "parent_db_sha256": "ca4acd534434c32fadfff3c548c6cb8bfab796ad091ec7b2a5612b54ca644bbc",
+    "prepared_ledger_mode": "Read-only sealed DB copies; writable branch continuation only after qualification; immutable parent remains retained.",
+    "risk": "Inherit daily_start, high_water, daily_entries, last_increase_at, position generations and funding cursors. Do not reset at T0."
+  },
+  "funding": "Observed public settlements with causal previous observed reference mark; estimated, never official exchange ledger. Missing coverage is explicit debt, not zero.",
+  "id": "v13-prospective-fast-vs-half-risk-matched-v2",
+  "readiness": {
+    "accounts": "COMPLETE_SEALED_COPIES_VERIFIED",
+    "next": "Implement isolated branch continuation from these snapshots, account for passive mark/funding since fork, qualify and seal first future action. Preserve parent and do not reset risk state.",
+    "operational_activation": "NOT_REQUESTED_BY_THIS_PREPARATION",
+    "parity_tests": "PENDING",
+    "protocol": "FROZEN_V2",
+    "runner": "NOT_IMPLEMENTED_FOR_V2"
+  },
+  "risk_matching": {
+    "annualization_days": 365,
+    "asset_cap": 0.315,
+    "covariance": "Sample covariance ddof=1; C=0.8*S+0.2*diag(S); no parameter fit",
+    "gross_cap": 0.9,
+    "interpretation": "HALF has a constant preliminary multiplier, but final risk-matched allocation may be scaled further down. This tests allocation/selection under common forecast risk, not the full value of varying total market exposure. Ex-ante parity is not realized risk equality.",
+    "lookback_returns": 60,
+    "mismatch_policy": "Record mismatch and retain both full economic outcomes; do not drop bad days or iteratively optimize quantities after outcome. Do not label mismatched intervals risk-equal.",
+    "model": "Annualized volatility sqrt(365*w^T*C*w)",
+    "ordering": [
+      "form candidate weights including FAST quantity cap",
+      "apply shared gross/per-symbol caps by downscaling",
+      "compute both predicted volatilities from the same C",
+      "v_common=min(v_FAST,v_HALF)",
+      "scale each candidate by v_common/v_arm, never above one",
+      "if either risk is zero, target both flat",
+      "convert to executable quantities with own equity and same book/precision/cost model",
+      "recompute predicted risk after actual simulated fills and mark to common book"
+    ],
+    "post_execution_relative_tolerance": 0.02,
+    "relative_gap": "abs(v_FAST-v_HALF)/max(v_FAST,v_HALF); both zero => 0",
+    "returns": "60 contiguous daily simple returns, from 61 closed prices, common across all 18 symbols, available before slot",
+    "shrinkage_diagonal": 0.2,
+    "upscaling_or_leverage": false
+  },
+  "scientific_status": "UNVALIDATED",
+  "scope": "RESEARCH_SIMULATION_ONLY_NO_EXECUTOR_LINK",
+  "source_code_pins": {
+    "octobot/ai_strategy_lab/diversified_trend_cointegration_forward_runner.py": "63f9f58609a9e227cdd70455d91839634d6aef7d03aac14803bec506178632eb",
+    "octobot/ai_strategy_lab/trend.py": "ec07dc6c6fb74a9763a3251cb4b9c5753b3625566f8fb2d63fa41361c43a57f9",
+    "octobot/ai_strategy_lab/v13_exposure.py": "53c2d7782201229800566a4f52b546834d747e7f75dc10ae496027251a62062d",
+    "octobot/ai_strategy_lab/v13_fast_protection_diagnostic.py": "2de36b2adfda3442f084d40e4ca1f1721d6667e0cf8443aace0badf78cba3031",
+    "octobot/ai_strategy_lab/v13_market.py": "7c01092ae234f958758b45b3fe02aef25aeffb465bc5dfd4f11024efbff259c7",
+    "octobot/ai_strategy_lab/v13_paper_v2.py": "45c5c428170aa469f9f9cbb9edd7facd4d84d74bab2eac303654199237554de5",
+    "octobot/ai_strategy_lab/v13_research_paper.py": "d915ec12e196b2299a9df2e2ca4f8b60cb102a9920b4a529ebf4104e0b585a8d",
+    "octobot/ai_strategy_lab/v13_research_source.py": "833b843f63f5c09410cb26abbc9ba6c599237ad13d5abbfec4a610a71ad4afbf"
+  },
+  "status": "FROZEN_CLONED_ACCOUNTS_PREPARED_NOT_RUNNING",
+  "supersedes": {
+    "protocol": "v13-prospective-risk-matched-v1.json",
+    "reason": "User requires exact full-account copy and shared history instead of flat accounts.",
+    "sha256": "c4deeeb4fc959471c60b2b3f3eb73232ee7e9c32bfeab8527651788855106a08"
+  },
+  "universe": [
+    "AAVEUSDT",
+    "ADAUSDT",
+    "ATOMUSDT",
+    "AVAXUSDT",
+    "BCHUSDT",
+    "BTCUSDT",
+    "DOGEUSDT",
+    "DOTUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "NEARUSDT",
+    "SOLUSDT",
+    "UNIUSDT",
+    "XLMUSDT",
+    "XRPUSDT",
+    "ZECUSDT"
+  ],
+  "version": 2
+}
