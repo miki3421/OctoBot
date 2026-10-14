@@ -5,6 +5,8 @@ work-card-355d630a-dd57-407b-af16-c4b29d82da39.
 import argparse
 import datetime as dt
 import json
+import math
+import re
 import os
 from pathlib import Path
 import shutil
@@ -63,6 +65,7 @@ def assess(sample, previous=None):
         for item in sample['containers']:
             if item['state'] != 'running' or item['health'] != 'healthy':
                 alerts.append('CONTAINER_NOT_HEALTHY:' + item['name'])
+    alerts.extend(sample.get('forks', {}).get('issues', []))
     sample['alerts'] = alerts
     # Retain immediate raw visibility of failed checks. Only monitor blindness
     # needs two consecutive samples for email; confirmed unhealthy containers
@@ -102,6 +105,127 @@ def inspect_containers(names, run=subprocess.run):
                 container_inspection_attempts=2, container_inspection_failures=failures)
 
 
+
+def read_forks(item, now=None):
+    """Read only the paired projection. No access to trading or approval DBs.
+
+    Current debt/gaps alert; historical incomplete samples are retained as
+    information, so a recovered settlement does not create perpetual emails.
+    """
+    result = dict(accounts={}, issues=[])
+    issues = result['issues']
+    try:
+        path = Path(item['path'])
+        if path.is_symlink() or path.stat().st_uid != 30934 or path.stat().st_mode & 0o022:
+            raise ValueError('projection_custody')
+        with path.open('rb') as stream:
+            raw = stream.read(8 * 1024 * 1024 + 1)
+        if len(raw) > 8 * 1024 * 1024:
+            raise ValueError('projection_size')
+        value = json.loads(raw)
+        now = time.time() if now is None else now
+        def instant(text):
+            when = dt.datetime.fromisoformat(text.replace('Z', '+00:00'))
+            if when.tzinfo is None:
+                raise ValueError('timezone')
+            return when.astimezone(dt.timezone.utc)
+        def finite(number):
+            if isinstance(number, bool) or not isinstance(number, (int, float)) or not math.isfinite(number):
+                raise ValueError('nonfinite_accounting')
+            return number
+        receipt = value['receipt']
+        parent = receipt['parent_snapshot_sha256']
+        if (value.get('available') is not True or value['schema'] != 1
+                or receipt['scope'] != 'RESEARCH_SIMULATION_ONLY_NO_EXECUTOR_LINK'
+                or not isinstance(parent, str) or not re.fullmatch('[0-9a-f]{64}', parent)):
+            raise ValueError('projection_identity')
+        generated, checked = instant(value['generated_at']), instant(value['health']['checked_at'])
+        if max(generated.timestamp(), checked.timestamp()) > now:
+            raise ValueError('future_heartbeat')
+        age = max(now-generated.timestamp(), now-checked.timestamp())
+        result.update(generated_at=generated.isoformat(), heartbeat_age_seconds=age,
+                      heartbeat_warn_after_seconds=item['heartbeat_warn_after_seconds'])
+        if age > item['heartbeat_warn_after_seconds']:
+            issues.append('FORK_PROJECTION_STALE')
+        first, end = instant(receipt['first_decision_slot']), instant(receipt['end_exclusive'])
+        fork = instant(receipt['economic_t0'])
+        if not fork < first < end or first.time() != dt.time(0, 15):
+            raise ValueError('fork_calendar')
+        phase = value['health']['status']
+        completed = phase == 'COMPLETED_AWAITING_REVIEW' and now >= end.timestamp()
+        if phase not in {'OBSERVING', 'BLOCKED', 'COMPLETED_AWAITING_REVIEW'} or (phase == 'COMPLETED_AWAITING_REVIEW' and not completed):
+            raise ValueError('runner_status')
+        result['runner_status'] = phase
+        if phase == 'BLOCKED':
+            issues.append('FORK_RUNNER_BLOCKED')
+        if value['funding_debt'] is not None:
+            issues.append('FORK_FUNDING_INCOMPLETE')
+        if value['valuation_gap'] is not None:
+            issues.append('FORK_VALUATION_GAP')
+        result['historical_incomplete_funding_observations'] = value['incomplete_funding_observations']
+        initial_equity = finite(value['baseline']['equity'])-finite(value['baseline']['pnl'])
+        for arm in ('FAST', 'HALF'):
+            account = value['variants'][arm]
+            expected = 'v13-risk-matched-clone-v2-'+arm.lower()+'-'+parent[:12]
+            if receipt['account_ids'][arm] != expected or account['account_id'] != expected:
+                raise ValueError('account_identity')
+            at = instant(account['observed_at'])
+            if not fork <= at <= generated:
+                raise ValueError('account_time')
+            observation_age = now-at.timestamp()
+            entry = dict(observed_at=at.isoformat(), age_seconds=observation_age,
+                         warn_after_seconds=item['valuation_warn_after_seconds'],
+                         valuation_required=not completed, accounting='VERIFIED')
+            result['accounts'][arm] = entry
+            if not completed and observation_age > item['valuation_warn_after_seconds']:
+                issues.append('FORK_VALUATION_STALE:'+arm)
+            metrics = account['metrics']
+            try:
+                fields = {k:finite(metrics[k]) for k in ('equity', 'pnl', 'realized_pnl', 'unrealized_pnl', 'fees', 'funding')}
+                computed = initial_equity+fields['realized_pnl']+fields['unrealized_pnl']-fields['fees']+fields['funding']
+                positions = account['positions']
+                symbols = [p['symbol'] for p in positions]
+                if (not symbols or len(symbols) != len(set(symbols)) or fields['fees'] < 0
+                        or not math.isclose(computed,fields['equity'],rel_tol=1e-9,abs_tol=1e-6)
+                        or not math.isclose(fields['equity']-initial_equity,fields['pnl'],rel_tol=1e-9,abs_tol=1e-6)
+                        or not math.isclose(math.fsum(finite(p['net']) for p in positions),fields['pnl'],rel_tol=1e-9,abs_tol=1e-6)):
+                    raise ValueError('accounting_identity')
+                if fields['equity'] <= 0:
+                    issues.append('FORK_NON_POSITIVE_EQUITY:'+arm)
+            except (ValueError, KeyError, TypeError):
+                entry['accounting'] = 'INVALID'
+                issues.append('FORK_ACCOUNTING_INVALID:'+arm)
+        # Only the latest due daily slot alerts; a new successful slot recovers.
+        current = dt.datetime.fromtimestamp(now, dt.timezone.utc)
+        due = current.replace(hour=0, minute=15, second=0, microsecond=0)
+        if now <= due.timestamp()+120:
+            due -= dt.timedelta(days=1)
+        if not completed and first <= due < end:
+            matching = [s for s in value['slots'] if instant(s['slot']) == due]
+            result['expected_slot'] = due.isoformat()
+            if len(matching) != 1:
+                issues.append('FORK_DECISION_MISSING')
+            else:
+                slot = matching[0]
+                status = slot['status']
+                result['latest_slot_status'] = status
+                if status in {'MISSED', 'DENIED'}:
+                    issues.append('FORK_DECISION_'+status)
+                elif status in {'EXECUTED', 'OBSERVED_NO_FILL'}:
+                    gap = finite(slot['detail']['risk_gap'])
+                    if gap < 0 or gap > 1:
+                        raise ValueError('risk_gap')
+                    result['risk_gap'] = gap
+                    if gap > .02:
+                        issues.append('FORK_RISK_MISMATCH')
+                else:
+                    raise ValueError('slot_status')
+        result['status'] = 'healthy' if not issues else 'attention'
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, OverflowError):
+        result['status'] = 'unavailable'
+        result['issues'] = ['FORK_PROJECTION_UNAVAILABLE']
+    return result
+
 def collect(config):
     now = time.time()
     m = counters('/proc/meminfo')
@@ -131,6 +255,8 @@ def collect(config):
         except (OSError, ValueError, KeyError, StopIteration, TypeError):
             result['error'] = 'HEALTH_UNAVAILABLE_OR_INVALID'
         sample['collectors'][name] = result
+    if 'forks' in config:
+        sample['forks'] = read_forks(config['forks'])
     sample.update(inspect_containers(config['containers']))
     return sample
 

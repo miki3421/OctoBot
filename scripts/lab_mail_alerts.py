@@ -26,6 +26,18 @@ LABELS = {
     'COLLECTOR_SOURCE_UNHEALTHY': 'Collector che segnala un problema',
     'CONTAINER_NOT_HEALTHY': 'Container fermo o unhealthy',
     'CONTAINER_STATE_UNAVAILABLE': 'Stato dei container non verificabile.',
+    'FORK_PROJECTION_UNAVAILABLE': 'FAST/HALF: stato non leggibile o non verificabile.',
+    'FORK_PROJECTION_STALE': 'FAST/HALF: il simulatore non aggiorna il proprio stato.',
+    'FORK_RUNNER_BLOCKED': 'FAST/HALF: simulatore sospeso per un errore.',
+    'FORK_VALUATION_STALE': 'Conto della biforcazione con prezzi o valorizzazione non aggiornati',
+    'FORK_FUNDING_INCOMPLETE': 'FAST/HALF: funding corrente incompleto; nuovi ingressi sospesi.',
+    'FORK_VALUATION_GAP': 'FAST/HALF: manca la copertura di una valorizzazione.',
+    'FORK_ACCOUNTING_INVALID': 'Contabilita del conto della biforcazione non riconciliata',
+    'FORK_NON_POSITIVE_EQUITY': 'Equity non positiva nel conto della biforcazione',
+    'FORK_DECISION_MISSING': 'FAST/HALF: manca lo slot giornaliero atteso.',
+    'FORK_DECISION_MISSED': 'FAST/HALF: finestra della decisione giornaliera mancata.',
+    'FORK_DECISION_DENIED': 'FAST/HALF: decisione giornaliera rifiutata.',
+    'FORK_RISK_MISMATCH': 'FAST/HALF: scostamento del rischio stimato oltre la tolleranza del 2%.',
     'MONITOR_UNAVAILABLE_OR_STALE': 'Il monitor non pubblica uno stato valido e recente.',
 }
 
