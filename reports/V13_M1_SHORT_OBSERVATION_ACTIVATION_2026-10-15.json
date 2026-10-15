@@ -1,0 +1,72 @@
+{
+  "project_id": "project-tranding-ai-lab",
+  "title": "Avvio osservazione futura M1 SHORT",
+  "checked_at": "2026-10-15T13:37:46.910260+00:00",
+  "status": "ACTIVATED_WAITING_FOR_FUTURE_T0",
+  "study_id": "v13-m1-short-prospective-v1",
+  "scientific_bundle_commit": "277a99731af53d81d462b16d51a3e100a20b544a",
+  "deployment_commit": "ffff0d0f7dad4a6ecc9a67940ff12b05659c6f2e",
+  "release_manifest_sha256": "ba250e98abc409efe56d40cbfd453f04563d04d691db1c380dde149feebf7f0f",
+  "activation": {
+    "end_exclusive": 1799884800,
+    "fixture": false,
+    "protocol_hash": "915c8d4277ba6f74870da03a7abf302a77ecbb812032715b6e7678c26723cecc",
+    "recorded_at": 1792071210.005982,
+    "study": "v13-m1-short-prospective-v1",
+    "t0": 1792108800,
+    "t0_utc": "2026-10-16T00:00:00+00:00",
+    "end_exclusive_utc": "2027-01-14T00:00:00+00:00"
+  },
+  "timer": {
+    "name": "v13-m1-short-observer.timer",
+    "enabled": true,
+    "interval_seconds": 60,
+    "second_utc": 20,
+    "scientific_grid_seconds": 300,
+    "persistent_backfill": false
+  },
+  "checks": {
+    "targeted_tests": 36,
+    "readonly_sources": true,
+    "network_denied": true,
+    "physical_workspace_hidden": true,
+    "qualified_fixture_snapshot_integrity": "ok",
+    "source_integrity": {
+      "original": "ok",
+      "fast_half": "ok",
+      "m1": "ok"
+    },
+    "start_idempotent_after_process_restart": true,
+    "boot_configuration_enabled": true,
+    "physical_host_reboot_performed": false,
+    "original_fast_half_code_and_services_unchanged": true,
+    "observer_cli_rejects_different_uid": true,
+    "operator_status_read_via_readonly_diagnostic": true
+  },
+  "scope": {
+    "observation_only": true,
+    "simulated_counterfactual_shorts": true,
+    "new_operational_account": false,
+    "issuer_executor_link": false,
+    "operational_grants": false,
+    "real_orders": false,
+    "exchange_minima": "UNKNOWN",
+    "interim_economic_assessment": false
+  },
+  "cards": {
+    "activation": "work-card-0ffe29e7-066d-4670-9b68-f23f7c651f94",
+    "qualification": "work-card-6e34a16c-52fb-4994-ade1-2abd126f13a9",
+    "delivery": "work-card-1e06b442-a685-4fad-a0bd-31ffe352ec2b",
+    "first_future_slots_todo": "work-card-31f73989-69b7-43d5-8fe4-59c04351e2d3"
+  },
+  "remaining": "Controllare i primi slot reali dopo T0 e conservare completezza e guasti fino al termine. Nessuna prova forward dichiarata prima di T0.",
+  "operator_checks": [
+    "systemctl status v13-m1-short-observer.timer",
+    "journalctl -u v13-m1-short-observer.service"
+  ],
+  "operator_note": "Il CLI status richiede lo stesso UID del registratore: root sul checkout non è un sostituto del sandbox. Per la diagnosi si leggono il journal systemd o il database in mode=ro; non cambiare proprietario del journal.",
+  "rollback": "Disabilitare e arrestare esclusivamente timer e servizio M1; conservare dati e ricevuta senza resettare T0.",
+  "evidence_directory": "audit-evidence/v13-m1-future-activation-20261015",
+  "iteration_stream": "development",
+  "iteration_time_omission_reason": "Nessuna misura continua affidabile del tempo attivo; nessuna stima retrospettiva aggiunta."
+}
