@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "study_id": "v13-m1-short-prospective-v1",
+  "status": "PREPARED_NOT_STARTED",
+  "scope": "OBSERVATION_AND_OFFLINE_CONDITIONAL_REPLAY_ONLY",
+  "created_at": "2026-10-15T12:12:12.774375+00:00",
+  "universe": [
+    "AAVEUSDT",
+    "ADAUSDT",
+    "ATOMUSDT",
+    "AVAXUSDT",
+    "BCHUSDT",
+    "BTCUSDT",
+    "DOGEUSDT",
+    "DOTUSDT",
+    "ETHUSDT",
+    "HBARUSDT",
+    "LINKUSDT",
+    "LTCUSDT",
+    "NEARUSDT",
+    "SOLUSDT",
+    "UNIUSDT",
+    "XLMUSDT",
+    "XRPUSDT",
+    "ZECUSDT"
+  ],
+  "source_account": "v13-paper-v2",
+  "source_studies": [
+    "V13_CRASH_CAUSAL_STUDY_2026-10-15",
+    "V13_CLOSE_VS_SHORT_OFFLINE_2026-10-15"
+  ],
+  "source_commit": "ef45ce6faa0d1105fac1a0fa73f3ae8e0871de2c",
+  "hypothesis": "M1 mirrored basket shorts improve post-return net PnL over matched cash exits on genuinely future episodes.",
+  "signal": {
+    "btc_return_window_seconds": 3600,
+    "btc_return_lte": -0.01,
+    "negative_breadth_gte": 0.6666666666666666,
+    "denominator": 18,
+    "grid_seconds": 300,
+    "required_contiguous_rows": 289,
+    "maximum_price_age_seconds": 120
+  },
+  "timing": {
+    "activation": "Explicit start receipt; first slot next UTC midnight after durable receipt. Never backdate or shift an existing start.",
+    "duration_days": 90,
+    "decision_deadline_seconds": 120,
+    "entry_delay_slots": 1,
+    "minimum_entry_delay_seconds": 60,
+    "hold_seconds": 21600,
+    "cooldown_seconds_after_exit": 21600,
+    "enrolment": "No episode if scheduled exit plus receipt deadline exceeds fixed horizon.",
+    "late": "Record MISSED and never reconstruct an eligible past decision.",
+    "warmup": "Only pre-slot prices already observed by their grid timestamp. Pre-T0 history warms up the signal, never counts as forward outcome.",
+    "eligibility": "Primary episode comparison requires at least one positive quantity in the entry snapshot. A fully nonpositive original book is recorded NO_LONG_NO_INTERVENTION, never fabricated as missing or profitable."
+  },
+  "arms": {
+    "BASELINE": "Actual original V13 during each eligible six-hour window.",
+    "CASH": "Close the positive sleeve for six hours; existing nonpositive positions unchanged.",
+    "SHORT": "Copy same state, invert positive q to negative q, identical initial gross notional. Nonpositive quantities unchanged."
+  },
+  "return_rule": "Restore both counterfactual arms to actual baseline end quantities, charging combined depth, entry and reentry fees. Same terminal positions and marks.",
+  "costs": {
+    "vwap": "Observed aggregate side depth, one consumption for crossing 2q",
+    "adverse_slippage_bps": 2,
+    "minimum_fee_rate": 0.0006,
+    "tick": "Adverse rounding",
+    "funding": "Verified public settlement rates times held quantity and preceding observed mark at most 1800 seconds old",
+    "stress": "Additional 20bps on ALL counterfactual turnover, including reentry",
+    "simulated_opening_min_notional": 1.0,
+    "real_min_quantity": "UNKNOWN",
+    "real_min_notional": "UNKNOWN"
+  },
+  "evaluation": {
+    "status": "CANDIDATE_RESEARCH_CRITERIA_NOT_OPERATIONAL_APPROVAL",
+    "when": "Once after the fixed 90-day horizon; no early success or discretionary extension.",
+    "primary": "Mean paired post-return net USDT difference SHORT minus CASH per complete qualified episode.",
+    "secondary": [
+      "SHORT absolute net PnL",
+      "Paired difference under additional 20bps turnover costs",
+      "BASELINE conditional PnL",
+      "Sampled drawdown and adverse rebounds",
+      "Fees funding turnover attribution and missingness"
+    ],
+    "minimum_complete_episodes": 20,
+    "minimum_distinct_trigger_days": 10,
+    "minimum_trigger_weeks": 8,
+    "minimum_valid_slot_fraction": 0.95,
+    "requirements": [
+      "All eligible episodes accounted for; any unresolved entry/exit/funding/accounting episode makes conclusion INCONCLUSIVE",
+      "Primary paired difference >0",
+      "SHORT absolute net PnL >0",
+      "Both paired difference and SHORT absolute PnL >0 under frozen stress costs"
+    ],
+    "positive_label": "CANDIDATE_FOR_FURTHER_REVIEW_ONLY",
+    "insufficient_label": "INCONCLUSIVE_NO_PROMOTION",
+    "inference": "Weekly paired aggregation and block uncertainty; episodes share market regimes. No annualization or claim of scientific validation.",
+    "safety": "Storage/integrity/clock fault pauses intake, preserves history, no simulated action. Technical checks can occur weekly; no parameter selection from interim PnL."
+  },
+  "change_control": "Any semantic parameter or source change after start needs a new version and future boundary; preserve consumed observations.",
+  "permissions": {
+    "real_orders": false,
+    "operational_grants": false,
+    "issuer_or_executor_link": false,
+    "new_service_activation": false,
+    "modify_original_fast_half": false
+  },
+  "source_code_pins": {
+    "octobot/ai_strategy_lab/v13_crash_diagnostic.py": "f5b9b722716dfb2d4d4d9de092ba465e6bd7405b69ab684d57aaf492d43142d3",
+    "octobot/ai_strategy_lab/v13_close_short_diagnostic.py": "a8af33aadaa502ac5e9a0f204b44a14ada5adb8f49b7e5600cde36db4bd48fae",
+    "octobot/ai_strategy_lab/v13_research_paper.py": "d915ec12e196b2299a9df2e2ca4f8b60cb102a9920b4a529ebf4104e0b585a8d",
+    "octobot/ai_strategy_lab/v13_research_source.py": "833b843f63f5c09410cb26abbc9ba6c599237ad13d5abbfec4a610a71ad4afbf",
+    "octobot/ai_strategy_lab/v13_paper_v2.py": "45c5c428170aa469f9f9cbb9edd7facd4d84d74bab2eac303654199237554de5",
+    "octobot/ai_strategy_lab/v13_m1_future.py": "51f03302dfe0c3d8975a0546d75fb6d57bfd117e8cf0afbeb7842664b5a42cd0",
+    "octobot/ai_strategy_lab/v13_m1_future_evaluate.py": "6d40e02a4f018f216357fbb28e0f841f99e3025a76a2535a8f89ecfd4cf1edfe",
+    "scripts/v13_m1_future_observer.py": "a4022d3f1a5085aee7202eba32730acef85b044b25fc524b10f83f8fa09ebe15"
+  },
+  "cards": [
+    "work-card-3a1e5054-c264-4262-9fc7-a341128c48a8",
+    "work-card-17c7410d-e45a-48c3-994a-99afa7980615",
+    "work-card-73368f5a-72ef-4126-8dea-95243750bce4"
+  ],
+  "experiment_id": "v13-m1-short-prospective-v1",
+  "scientific_validity": "UNASSESSED",
+  "lineage_id": "9a64add7f711e8a8f72ac4cd1d74ecfb669677d838b62947acda85a6522900c2"
+}

@@ -1,0 +1,25 @@
+{
+  "bundle_id": "v13-m1-short-preparation-bundle-v1",
+  "created_at": "2026-10-15T12:30:18.922951+00:00",
+  "status": "PREPARED_NOT_STARTED",
+  "activation_receipt": null,
+  "scope": "OBSERVATION_AND_OFFLINE_CONDITIONAL_REPLAY_ONLY",
+  "study_id": "v13-m1-short-prospective-v1",
+  "files": {
+    "docs/V13_M1_SHORT_FUTURE_RUNBOOK_V1.md": "2f14613242054292168ab07bdedf8fda5beda9a101381d5b8abd16b6b573e0cd",
+    "docs/research-protocols/v13-m1-short-prospective-v1.json": "6726b06a5b3b77e224f7f7bfc8598678d39c3486d9635e1fafd953a5da5066c1",
+    "octobot/ai_strategy_lab/v13_close_short_diagnostic.py": "a8af33aadaa502ac5e9a0f204b44a14ada5adb8f49b7e5600cde36db4bd48fae",
+    "octobot/ai_strategy_lab/v13_crash_diagnostic.py": "f5b9b722716dfb2d4d4d9de092ba465e6bd7405b69ab684d57aaf492d43142d3",
+    "octobot/ai_strategy_lab/v13_m1_future.py": "51f03302dfe0c3d8975a0546d75fb6d57bfd117e8cf0afbeb7842664b5a42cd0",
+    "octobot/ai_strategy_lab/v13_m1_future_evaluate.py": "6d40e02a4f018f216357fbb28e0f841f99e3025a76a2535a8f89ecfd4cf1edfe",
+    "octobot/ai_strategy_lab/v13_paper_v2.py": "45c5c428170aa469f9f9cbb9edd7facd4d84d74bab2eac303654199237554de5",
+    "octobot/ai_strategy_lab/v13_research_paper.py": "d915ec12e196b2299a9df2e2ca4f8b60cb102a9920b4a529ebf4104e0b585a8d",
+    "octobot/ai_strategy_lab/v13_research_source.py": "833b843f63f5c09410cb26abbc9ba6c599237ad13d5abbfec4a610a71ad4afbf",
+    "reports/V13_M1_SHORT_FUTURE_PREPARATION_2026-10-15.md": "70fbf22d1da3d739237d10c5b67c9b49f29f0bf15ba0ca3ccc6e55a6ed73164d",
+    "scripts/v13_m1_future_observer.py": "a4022d3f1a5085aee7202eba32730acef85b044b25fc524b10f83f8fa09ebe15",
+    "tests/unit_tests/ai_strategy_lab/test_v13_m1_future.py": "8ca4b8a44d78493b4f492471eec450f13eb25456900680c080032c7bd41467c3"
+  },
+  "tests": "19 new prospective/replay tests plus 17 existing causal/accounting tests; author verification, not independent review",
+  "service_installed": false,
+  "operational_approval": false
+}
