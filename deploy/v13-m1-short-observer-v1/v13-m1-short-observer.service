@@ -1,0 +1,44 @@
+# Cards work-card-0ffe29e7-066d-4670-9b68-f23f7c651f94, work-card-6e34a16c-52fb-4994-ade1-2abd126f13a9
+[Unit]
+Description=M1 prospective SHORT research observation; no orders
+RequiresMountsFor=/var/lib/libvirt/trading-ai-lab
+After=time-sync.target
+
+[Service]
+Type=oneshot
+User=30942
+Group=30910
+UMask=0077
+WorkingDirectory=/opt/v13-m1-short-observer-277a9973
+ExecStartPre=/usr/bin/sha256sum --check --status files.sha256
+ExecStart=/usr/bin/python3 -I -S -B /opt/v13-m1-short-observer-277a9973/scripts/v13_m1_future_observer.py tick
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+TemporaryFileSystem=/root:ro,mode=0755
+BindReadOnlyPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-paper/research/execution:/root/auto_trading_sys/octobot-local/v13-paper/research/execution
+BindReadOnlyPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-paper/research/source/market:/root/auto_trading_sys/octobot-local/v13-paper/research/source/market
+BindPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-m1-short-future-v1:/root/auto_trading_sys/octobot-local/v13-m1-short-future-v1
+ReadWritePaths=/root/auto_trading_sys/octobot-local/v13-m1-short-future-v1
+InaccessiblePaths=/home /run/user -/run/secrets -/run/docker.sock -/etc/ssh
+PrivateNetwork=yes
+IPAddressDeny=any
+RestrictAddressFamilies=AF_UNIX
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictRealtime=yes
+MemoryMax=256M
+TasksMax=8
+CPUQuota=25%
+Nice=15
+TimeoutStartSec=90
+Restart=no
+StandardOutput=journal
+StandardError=journal

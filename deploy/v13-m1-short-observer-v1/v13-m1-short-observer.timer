@@ -1,0 +1,13 @@
+# Card work-card-0ffe29e7-066d-4670-9b68-f23f7c651f94
+[Unit]
+Description=Observe M1 every minute; five-minute scientific slots
+
+[Timer]
+OnCalendar=*-*-* *:*:20 UTC
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=false
+Unit=v13-m1-short-observer.service
+
+[Install]
+WantedBy=timers.target
