@@ -1,0 +1,94 @@
+{
+  "project_id": "project-tranding-ai-lab",
+  "title": "Pagina monitoraggio osservazione M1 SHORT",
+  "status": "DELIVERED_LIVE",
+  "checked_at": "2026-10-15T14:30:28.685937+00:00",
+  "candidate_commit": "00c1f4c45079e23c144cba91aae0d753cc8ac979",
+  "page": "/v13_m1",
+  "api": "/v13_m1/data",
+  "entry_link": "/v13_variants",
+  "execution_mode": "SINGLE_AGENT",
+  "review": "Author verification; no independent review claimed",
+  "effect_class": "PRODUCTION",
+  "iteration_stream": "development",
+  "collection": {
+    "state": "WAITING_FOR_FUTURE_T0",
+    "t0": "2026-10-16T00:00:00+00:00",
+    "end_exclusive": "2027-01-14T00:00:00+00:00",
+    "scientific_grid_seconds": 300,
+    "observer_tick_seconds": 60,
+    "monitor_tick_seconds": 60,
+    "browser_poll_seconds": 30
+  },
+  "presentation": [
+    "Stato della raccolta e ultimo ciclo verificato",
+    "Copertura su slot scaduti da almeno 120 secondi, input insufficienti, slot persi e non registrati",
+    "Ultimi 100 segnali, distinti da episodi ammessi e cooldown",
+    "Episodi con tempi previsti e catture ingresso/uscita; nessun risultato economico intermedio",
+    "Stato non disponibile o scaduto esplicito, senza convertire valori ignoti in zero"
+  ],
+  "boundaries": {
+    "private_journal_not_mounted_in_web": true,
+    "publisher_readonly_sqlite": true,
+    "publisher_source_write_denied": true,
+    "closed_projection_schema": true,
+    "raw_inputs_and_economic_outcomes_not_published": true,
+    "frozen_scientific_bundle_unchanged": true,
+    "original_fast_half_code_and_runtime_unchanged": true,
+    "no_exchange_credentials_or_orders": true,
+    "real_kucoin_minima": "UNKNOWN"
+  },
+  "validation": {
+    "distinct_tests": 34,
+    "monitor_tests": 12,
+    "route_tests": 3,
+    "observer_regressions": 19,
+    "browser": {
+      "live_phase": "waiting",
+      "live_available": true,
+      "live_counts": {
+        "episodes": {
+          "CAPTURE_COMPLETE_AWAITING_OFFLINE_REPLAY": 0,
+          "ENTRY_MISSED": 0,
+          "ENTRY_RECORDED": 0,
+          "EXIT_MISSED": 0,
+          "SCHEDULED": 0
+        },
+        "signals": 0,
+        "slots": {
+          "COOLDOWN": 0,
+          "HORIZON_TOO_SHORT": 0,
+          "INSUFFICIENT_INPUT": 0,
+          "MISSED": 0,
+          "NO_SIGNAL": 0,
+          "SCHEDULED": 0
+        }
+      },
+      "desktop_mobile_pass": true,
+      "fixture_only_cases": [
+        "collecting",
+        "signals",
+        "episodes",
+        "stale",
+        "unavailable",
+        "network_failure"
+      ],
+      "javascript_errors": [],
+      "external_requests": [],
+      "no_store": true
+    },
+    "asset_content_and_mime": true,
+    "sqlite_integrity": "M1 ORIGINAL FAST HALF ok",
+    "scheduled_monitor_ticks": true,
+    "rollback_preserves_observation": true
+  },
+  "release_manifest_sha256": "3c77e0a03f6cd74dc3685132144350fc8aab2174eed6ecc889c279e30bfc5459",
+  "cards": {
+    "design": "work-card-f6c096be-cb58-40d8-8475-47539d75cb1e",
+    "implementation": "work-card-6c8ec0ea-1b93-45d2-bd9e-5d2d0465e306",
+    "verification": "work-card-8a6c733e-e440-4325-93e6-964b1b63c157"
+  },
+  "evidence": "audit-evidence/v13-m1-ui-20261015",
+  "remaining": "Verifica dei primi veri slot dopo T0 nella scheda preesistente work-card-31f73989-69b7-43d5-8fe4-59c04351e2d3. Esempi browser solo fixture, non evidenza forward.",
+  "iteration_time_omission_reason": "Nessuna misura continua affidabile del tempo attivo; nessuna stima retrospettiva aggiunta."
+}
