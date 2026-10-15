@@ -1,0 +1,37 @@
+# Card work-card-6c8ec0ea-1b93-45d2-bd9e-5d2d0465e306
+[Unit]
+Description=M1 read-only collection monitor and public UI projection
+RequiresMountsFor=/var/lib/libvirt/trading-ai-lab
+After=time-sync.target
+[Service]
+Type=oneshot
+User=30942
+Group=30910
+UMask=0077
+WorkingDirectory=/opt/v13-m1-monitor-v1
+ExecStartPre=/usr/bin/sha256sum --check --status files.sha256
+ExecStart=/usr/bin/python3 -I -S -B /opt/v13-m1-monitor-v1/monitor.py --journal /m1-observation/observation.sqlite --protocol /opt/v13-m1-short-observer-277a9973/docs/research-protocols/v13-m1-short-prospective-v1.json --output /m1-projection/status.json
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+BindReadOnlyPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-m1-short-future-v1:/m1-observation
+BindPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-paper/m1-ui:/m1-projection
+ReadWritePaths=/m1-projection
+InaccessiblePaths=/var/lib/libvirt/trading-ai-lab -/run/secrets -/run/docker.sock
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryMax=256M
+TasksMax=16
+CPUQuota=25%
+Nice=15
+TimeoutStartSec=30
+Restart=no

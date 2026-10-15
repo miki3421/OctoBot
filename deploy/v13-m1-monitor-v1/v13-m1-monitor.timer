@@ -1,0 +1,10 @@
+# Card work-card-6c8ec0ea-1b93-45d2-bd9e-5d2d0465e306
+[Unit]
+Description=Refresh M1 collection dashboard every minute
+[Timer]
+OnCalendar=*-*-* *:*:35 UTC
+AccuracySec=1s
+Persistent=false
+Unit=v13-m1-monitor.service
+[Install]
+WantedBy=timers.target
