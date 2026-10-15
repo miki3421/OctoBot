@@ -33,6 +33,7 @@ def main():
         os.close(fd)
         raise AssertionError('source_write_open_allowed')
     for hidden in ('/root/.ops/cp.credential', '/run/docker.sock',
+                   '/var/lib/libvirt/trading-ai-lab',
                    '/root/auto_trading_sys/octobot-local/v13-paper/research/approvals'):
         assert not os.access(hidden, os.R_OK), 'unrelated_trust_path_readable'
     try:

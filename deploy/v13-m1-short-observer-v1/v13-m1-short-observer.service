@@ -21,6 +21,7 @@ BindReadOnlyPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local
 BindPaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-m1-short-future-v1:/root/auto_trading_sys/octobot-local/v13-m1-short-future-v1
 ReadWritePaths=/root/auto_trading_sys/octobot-local/v13-m1-short-future-v1
 InaccessiblePaths=/home /run/user -/run/secrets -/run/docker.sock -/etc/ssh
+InaccessiblePaths=/var/lib/libvirt/trading-ai-lab
 PrivateNetwork=yes
 IPAddressDeny=any
 RestrictAddressFamilies=AF_UNIX
