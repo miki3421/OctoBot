@@ -167,6 +167,11 @@ class AccountTests(unittest.TestCase):
         self.open()
         with self.assertRaisesRegex(ValueError,'reversed'):self.act(101*NS,lambda:self.e.fill(row(101*NS),.009,101*NS,'EXIT'))
         self.assertEqual(self.e.s['q'],-.005)
+    def test_stop_has_priority_over_simultaneous_time_exit(self):
+        self.open();at=100*NS+21600*NS
+        self.tick(at,[row(at,102000.)])
+        self.assertEqual(self.e.s['pending']['reason'],'STOP_LOSS')
+
     def test_time_exit_without_full_entry_warmup(self):
         self.open();at=100*NS+21600*NS
         self.tick(at,[row(at)])

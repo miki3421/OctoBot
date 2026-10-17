@@ -62,9 +62,21 @@ un'uscita per evitare funding. Rate mancanti o discordanti restano pending;
 oltre 15 minuti chiedono uscita e bloccano nuovi ingressi. Nessuno zero sostitutivo.
 Le curve già pubblicate non vengono riscritte con informazioni tardive.
 
-La curva stress usa gli stessi fill quantitativi, raddoppia fee/slippage e debit
-funding, sopprime i crediti. È una stima a costi diversi, non un secondo conto
-con equity o rischio azzerati. Il futuro riesame scientifico resta separato.
+Lo scenario stress riceve soltanto le opportunità effettivamente ammesse dal
+primario e le stesse quantità intenzionali congelate. Usa un ledger separato,
+latenza 1000ms, propri book/freshness, posizioni, rischio e uscite, fee/slippage
+raddoppiati, debit funding doppi e crediti nulli. Una posizione stress ancora
+aperta sopprime l'opportunità; mancate entrate e divergenze restano registrate.
+Le quantità possono solo ridursi per i suoi cap, non crescere o essere riselezionate.
+Il futuro riesame scientifico resta separato. La precedente sola stima dei costi
+resta conservata nel ledger primario come diagnostica, ma non viene mostrata
+come scenario stress v2.
+
+La correzione è stata completata prima di T0 e con zero fill primari. Una
+ricevuta root-owned di continuazione lega vecchia attivazione, nuovo codice,
+protocollo invariato e prova zero-fill; l'identità contabile primaria resta
+quella iniziale. Non si cambiano saldo, storico o confine temporale della
+valutazione. Il nuovo stress parte flat prima di T0, senza risultati ereditati.
 
 ## Chiusura locale, stop e recupero
 

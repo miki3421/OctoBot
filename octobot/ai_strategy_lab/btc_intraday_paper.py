@@ -85,15 +85,16 @@ def seed(t0):
 
 
 class Engine:
-    def __init__(self,path,t0,bundle_sha,clock=None,initialize=False,after_commit=None):
-        try:self._open(path,t0,bundle_sha,clock,initialize,after_commit)
+    def __init__(self,path,t0,bundle_sha,clock=None,initialize=False,after_commit=None,stress_mode=False):
+        try:self._open(path,t0,bundle_sha,clock,initialize,after_commit,stress_mode)
         except BaseException:
             if hasattr(self,'db'):self.db.close()
             if hasattr(self,'lock'):self.lock.close()
             raise
 
-    def _open(self,path,t0,bundle_sha,clock=None,initialize=False,after_commit=None):
+    def _open(self,path,t0,bundle_sha,clock=None,initialize=False,after_commit=None,stress_mode=False):
         self.path=Path(path);self.clock=clock or receipt.Clock();self.failed=False
+        self.stress_mode=stress_mode;self.latency_ms=1000 if stress_mode else 500
         if self.path.is_symlink() or (not initialize and not self.path.is_file()) or (initialize and self.path.exists()):
             raise ValueError('new_account_or_exact_continuation_required')
         self.lock=open(str(path)+'.lock','a');fcntl.flock(self.lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -102,6 +103,7 @@ class Engine:
         self.after_commit=after_commit or (lambda:None)
         self.books=deque();self.last_visibility=None
         self.identity=dict(account=ACCOUNT,protocol=receipt.PROTOCOL_SHA,bundle_sha=bundle_sha,t0=t0,scope=SCOPE)
+        if stress_mode:self.identity['scenario']='PROTOCOL_V2_STRESS_INDEPENDENT'
         if initialize:
             self.db.executescript('''
             CREATE TABLE identity(payload TEXT NOT NULL);
@@ -163,6 +165,9 @@ class Engine:
         try:
             self.db.execute('BEGIN IMMEDIATE');detail=mutate() or {}
             deadline=old['pending']['deadline'] if old['pending'] and old['pending']['kind']=='ENTRY' and not old['q'] and self.s['q'] else None
+            if deadline:
+                fill=self.db.execute('SELECT payload FROM fills ORDER BY at_ns DESC LIMIT 1').fetchone()
+                times=strict(fill[0]);deadline=min(deadline,times['exchange']+1000*MS,times['received']+1000*MS)
             if deadline and self.clock.sample()['utc_ns']>deadline:raise ValueError('entry_commit_deadline_missed')
             body=dict(seq=self.seq+1,kind=kind,at_ns=now,previous=self.previous,
                       payload=dict(detail=detail,state=self.s,entry_commit_deadline_ns=deadline))
@@ -225,8 +230,9 @@ class Engine:
                 before=self.q_before(fill['at_ns'])
                 bounds.extend([-before*mark['price']*rate,-(before+fill['quantity'])*mark['price']*rate])
             amount=min(bounds)
+            if self.stress_mode:amount=2*amount if amount<0 else 0.
             self.s['cash']+=amount;self.s['funding']+=amount
-            self.s['stress_cash']+=2*amount if amount<0 else 0.
+            self.s['stress_cash']+=amount if self.stress_mode else (2*amount if amount<0 else 0.)
             if self.s['daily'] and r['tau']<=self.s['daily']['midnight_ns']:
                 self.s['daily']['base']+=amount
             self.db.execute("UPDATE funding SET status='SETTLED',mark=?,rate=?,amount=?,observed=?,payload=? WHERE tau=?",(mark['price'],rate,amount,now,canonical(dict(mark_capture=mark['capture'],rate_count=len(rates),bounds=bounds,effective_at=r['tau'],observed_at=now)).decode(),r['tau']))
@@ -294,7 +300,7 @@ class Engine:
                 mid=(ref['bid_price_1']+ref['ask_price_1'])/2 if ref else None
                 veto=self.risk(now,mid) if mid else 'PRICE_MISSING'
                 calendar=self.db.execute('SELECT * FROM calendars WHERE valid=1 AND received<=? AND available<=? ORDER BY received DESC LIMIT 1',(slot,slot)).fetchone()
-                due=slot+300*NS+500*MS
+                due=slot+300*NS+self.latency_ms*MS
                 if not calendar or now-calendar['received']>300*NS or calendar['tau']<due:veto=veto or 'FUNDING_CALENDAR_MISSING'
                 elif abs(due-calendar['tau'])<=60*NS:veto=veto or 'FUNDING_BOUNDARY'
                 if slot+300*NS+500*MS+1000*MS+21600*NS+500*MS+1000*MS>s['t1']:veto=veto or 'INSUFFICIENT_HORIZON'
@@ -304,12 +310,13 @@ class Engine:
                 else:
                     status='ENTRY_SCHEDULED'
                     s['pending']=dict(kind='ENTRY',commit_seq=self.seq+1,slot=slot,due=due,deadline=due+1000*MS,quantity=q,id=digest(dict(account=ACCOUNT,slot=slot,input_hash=feature['input_hash'])))
+                    details['admitted_opportunity']=copy.deepcopy(s['pending'])
         s['last_slot']=slot;s['slots']+=int(slot>=s['t0']);s['valid_slots']+=int(slot>=s['t0'] and complete)
         self.db.execute('INSERT INTO slots VALUES(?,?,?)',(slot,status,canonical(details).decode()))
         s['reason']=status
 
     def fill(self,row,amount,now,kind):
-        result=execution(row,amount,partial=kind=='EXIT')
+        result=execution(row,amount,stress=self.stress_mode,partial=kind=='EXIT')
         if result is None:return False
         q,price,fee=result;stress=execution(row,q,stress=True,partial=kind=='EXIT')
         if stress is None:raise ValueError('stress_depth_mismatch')
@@ -346,13 +353,40 @@ class Engine:
         if self.db.execute('SELECT 1 FROM admin_claims WHERE nonce=?',(nonce,)).fetchone():return False
         def apply():
             self.db.execute('INSERT INTO admin_claims VALUES(?,?,?)',(nonce,now,canonical(command).decode()))
-            self.s['pending']=dict(kind='EXIT',due=now+500*MS,created=now,reason='ADMIN_CLOSE')
+            self.s['pending']=dict(kind='EXIT',due=now+self.latency_ms*MS,created=now,reason='ADMIN_CLOSE')
             self.s['reason']='ADMIN_CLOSE_PENDING'
         self.transaction('ADMIN_CLOSE_ACCEPTED',now,apply)
         return True
 
-    def tick(self,rows,proof):
-        now=proof['observed_visible']['utc_ns']
+    def primary_opportunity(self,primary,now,proof):
+        """Counterfactual only: no independent directional selection or old replay."""
+        slot=primary['slot_ns']
+        if self.db.execute('SELECT 1 FROM slots WHERE slot_ns=?',(slot,)).fetchone():return
+        details=strict(primary['payload']);op=details.get('admitted_opportunity')
+        status='PRIMARY_NOT_ADMITTED'
+        if op:
+            if now>slot+30*NS:status='STRESS_ADMISSION_MISSED'
+            elif self.s['q'] or self.s['pending']:status='STRESS_PRIOR_POSITION_OR_INTENT'
+            elif slot+300*NS+1000*MS+1000*MS+21600*NS+1000*MS+1000*MS>self.s['t1']:status='STRESS_INSUFFICIENT_HORIZON'
+            elif not frame(self.books,slot):status='STRESS_L5_WINDOW_INCOMPLETE'
+            else:
+                ref=next((r for r in reversed(self.books) if r['received_ts_ns']<=slot),None)
+                mid=(ref['bid_price_1']+ref['ask_price_1'])/2 if ref else None
+                block=self.risk(now,mid) if mid else 'PRICE_MISSING'
+                if block:status='STRESS_'+block
+                else:
+                    pending=copy.deepcopy(op);pending.update(commit_seq=self.seq+1,due=slot+301*NS,deadline=slot+302*NS,
+                                                            id=digest(dict(primary_intent=op['id'],scenario='STRESS')))
+                    self.s['pending']=pending;status='STRESS_ENTRY_SCHEDULED'
+        detail=dict(primary_status=primary['status'],primary_intent=op,input_receipt=proof)
+        self.db.execute('INSERT INTO slots VALUES(?,?,?)',(slot,status,canonical(detail).decode()))
+        self.s['last_slot']=slot;self.s['reason']=status
+        self.s['slots']+=int(slot>=self.s['t0'])
+        self.s['valid_slots']+=int(slot>=self.s['t0'] and details.get('feature') is not None)
+
+    def tick(self,rows,proof,primary_slots=None):
+        now=self.clock.sample()['utc_ns']
+        if proof['observed_visible']['utc_ns']>now:raise ValueError('future_visibility_proof')
         if rows:
             for row in rows:self.books.append(row)
             cutoff=rows[-1]['received_ts_ns']-40*NS
@@ -374,11 +408,11 @@ class Engine:
                 if not current:exit_reason='STALE_DATA'
                 elif veto and veto!='FUNDING_PENDING':exit_reason=veto
                 elif overdue and now-overdue>900*NS:exit_reason='FUNDING_OVERDUE'
-                elif now>=s['entry_at']+21600*NS:exit_reason='TIME_EXIT'
                 elif current['ask_price_1']>=s['entry']*1.01:exit_reason='STOP_LOSS'
+                elif now>=s['entry_at']+21600*NS:exit_reason='TIME_EXIT'
                 elif current['ask_price_1']<=s['entry']*.98:exit_reason='TAKE_PROFIT'
             if exit_reason and (not s['pending'] or s['pending']['kind']!='EXIT'):
-                s['pending']=dict(kind='EXIT',due=now+500*MS,created=now,reason=exit_reason)
+                s['pending']=dict(kind='EXIT',due=now+self.latency_ms*MS,created=now,reason=exit_reason)
             pending=s['pending']
             if pending and pending['kind']=='ENTRY':
                 if now>pending['deadline']:
@@ -392,7 +426,7 @@ class Engine:
                         amount=min(pending['quantity'],quantity(self.equity(s['last_mid']),s['last_mid']))
                         if amount<=0:block=block or 'BELOW_SYNTHETIC_STEP'
                         while amount>0 and not block:
-                            estimate=execution(candidate,-amount)
+                            estimate=execution(candidate,-amount,stress=self.stress_mode)
                             if estimate is None:break
                             post_equity=self.equity(s['last_mid'])-estimate[2]+(-amount)*(s['last_mid']-estimate[1])
                             if amount*estimate[1]<=.1*post_equity+1e-9:break
@@ -405,14 +439,17 @@ class Engine:
                 candidate=next((r for r in self.books if r['received_ts_ns']>=pending['due'] and r['id']!=s['last_fill_book'] and fresh(r,now)),None)
                 if candidate and self.fill(candidate,-s['q'],now,'EXIT'):
                     if not s['q']:s.update(pending=None,reason='PROTECTIVE_CLOSE_COMPLETE')
-                    else:s['pending']['due']=now+500*MS
-            slot=now//(300*NS)*(300*NS)
-            first=self.s['activation_at']//(300*NS)*(300*NS)+300*NS
-            previous=s['last_slot']
-            missing=(previous+300*NS) if previous is not None else first
-            while missing<slot:
-                self.signal_slot(missing,now,proof['data_sha256']);missing+=300*NS
-            if slot>=first and now>=slot+2*NS:self.signal_slot(slot,now,proof['data_sha256'])
+                    else:s['pending']['due']=now+self.latency_ms*MS
+            if self.stress_mode:
+                for primary in primary_slots or []:self.primary_opportunity(primary,now,proof['data_sha256'])
+            else:
+                slot=now//(300*NS)*(300*NS)
+                first=self.s['activation_at']//(300*NS)*(300*NS)+300*NS
+                previous=s['last_slot']
+                missing=(previous+300*NS) if previous is not None else first
+                while missing<slot:
+                    self.signal_slot(missing,now,proof['data_sha256']);missing+=300*NS
+                if slot>=first and now>=slot+2*NS:self.signal_slot(slot,now,proof['data_sha256'])
             s['reason']=s['reason'] if s['pending'] or s['q'] else (veto or s['reason'])
             last=self.db.execute('SELECT MAX(at_ns) FROM equity').fetchone()[0]
             if last is None or now-last>=30*NS:
@@ -459,19 +496,58 @@ def atomic(path,value):
     finally:os.close(fd)
 
 
-def run(config):
+def authority(config):
     raw=Path(config['protocol']).read_bytes()
     if hashlib.sha256(raw).hexdigest()!=receipt.PROTOCOL_SHA:raise ValueError('protocol_changed')
     activation_path=Path(config['activation'])
     if activation_path.is_symlink() or activation_path.stat().st_uid!=0 or activation_path.stat().st_mode&0o022:
         raise ValueError('activation_receipt_owner')
     activation=strict(activation_path.read_bytes())
-    if activation['account']!=ACCOUNT or activation['scope']!=SCOPE or activation['protocol_sha256']!=receipt.PROTOCOL_SHA or not activation['paper_activation_authorized']:raise ValueError('activation_identity')
-    for name,sha in activation['code_pins'].items():
+    if activation['account']!=ACCOUNT or activation['scope']!=SCOPE or activation['protocol_sha256']!=receipt.PROTOCOL_SHA or not activation['paper_activation_authorized'] or activation.get('real_orders') is not False or activation.get('operational_grants') is not False or activation.get('exchange_credentials') is not False:raise ValueError('activation_identity')
+    pins=activation['code_pins']
+    if config.get('continuation'):
+        path=Path(config['continuation'])
+        if path.is_symlink() or path.stat().st_uid!=0 or path.stat().st_mode&0o022:raise ValueError('continuation_owner')
+        continuation=strict(path.read_bytes())
+        if (continuation['account']!=ACCOUNT or continuation['base_activation_sha256']!=hashlib.sha256(activation_path.read_bytes()).hexdigest() or
+                continuation['protocol_sha256']!=receipt.PROTOCOL_SHA or continuation['recorded_ns']>=activation['t0_ns'] or
+                continuation['scope']!='PRE_T0_ZERO_FILL_PROTOCOL_CONFORMANCE_FIX'):
+            raise ValueError('continuation_identity')
+        snapshot=Path(config['continuation_snapshot'])
+        if snapshot.is_symlink() or snapshot.stat().st_uid!=0 or snapshot.stat().st_mode&0o022:raise ValueError('continuation_snapshot_owner')
+        if hashlib.sha256(snapshot.read_bytes()).hexdigest()!=continuation['primary_snapshot_sha256']:raise ValueError('continuation_snapshot_hash')
+        with closing(sqlite3.connect(snapshot.resolve().as_uri()+'?mode=ro&immutable=1',uri=True)) as db:
+            state=strict(db.execute('SELECT payload FROM state WHERE id=1').fetchone()[0])
+            identity=strict(db.execute('SELECT payload FROM identity').fetchone()[0])
+            if (db.execute('SELECT COUNT(*) FROM fills').fetchone()[0]!=0 or state['q']!=0 or state['cash']!=10000 or
+                    state['t0']!=activation['t0_ns'] or identity['bundle_sha']!=digest(activation)):
+                raise ValueError('continuation_not_zero_fill_prestart')
+        pins=continuation['code_pins']
+    if set(pins)!={'btc_intraday_paper.py','btc_intraday_availability.py','btc_intraday_source_qualification.py','btc_intraday_admin.py'}:
+        raise ValueError('runtime_pin_set')
+    for name,sha in pins.items():
         if hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest()!=sha:raise ValueError('runtime_code_changed:'+name)
+    return raw,activation
+
+
+def run(config):
+    raw,activation=authority(config)
     clock=receipt.Clock();witness=receipt.Witness(config['receipts'],clock)
     engine=Engine(config['db'],activation['t0_ns'],digest(activation),clock,initialize=False)
-    engine.protocol=strict(raw);reader=receipt.BookReader(config['book'],clock)
+    stress=Engine(config['stress_db'],activation['t0_ns'],digest(activation),clock,initialize=False,stress_mode=True)
+    engine.protocol=strict(raw);stress.protocol=strict(raw);reader=receipt.BookReader(config['book'],clock)
+    def stress_slots():
+        last=stress.s['last_slot'] if stress.s['last_slot'] is not None else -1
+        return [dict(r) for r in engine.db.execute('SELECT * FROM slots WHERE slot_ns>? ORDER BY slot_ns',(last,))]
+    def projection():
+        now=clock.sample()['utc_ns'];v=engine.view(now)
+        v['metrics']['stress_equity']=stress.equity()
+        v['stress_equity_history']=[list(r) for r in stress.db.execute('SELECT at_ns,equity,complete FROM equity ORDER BY at_ns DESC LIMIT 5000')][::-1]
+        v['stress']=dict(method='PROTOCOL_V2_INDEPENDENT_1000MS_OWN_RISK_EXITS',equity=stress.equity(),q=stress.s['q'],
+                         fills=stress.s['fills'],reason=stress.s['reason'],accounting_complete=stress.accounting_complete())
+        # The old primary-only fee diagnostic is retained in its original ledger but never presented as v2 stress.
+        for point in v['equity']:point[2]=None
+        atomic(config['output'],v)
     market_key=None;published=0;market_checked=0
     try:
         while True:
@@ -485,7 +561,7 @@ def run(config):
                     # Prior source bytes may warm features, never create a past decision.
                     try:
                         data,_=witness.observe('market',key,compact,start,end,received)
-                        proof=witness.available_now(data,clock.sample()['utc_ns']+NS);engine.market(compact,proof)
+                        proof=witness.available_now(data,clock.sample()['utc_ns']+NS);engine.market(compact,proof);stress.market(compact,proof)
                     except receipt.Denied as error:
                         if str(error)!='duplicate_observation':raise
                     market_key=key
@@ -503,16 +579,17 @@ def run(config):
                 payload,start,end=result;rows=payload['rows'];last=rows[-1]['id']
                 data,_=witness.observe('book',str(rows[0]['id'])+':'+str(last),payload,start,end,max(r['received_ts_ns'] for r in rows))
                 proof=witness.available_now(data,clock.sample()['utc_ns']+NS)
-                engine.tick(rows,proof);reader.cursor=last
+                engine.tick(rows,proof);stress.tick(rows,proof,stress_slots());reader.cursor=last
             elif now-published>=5*NS:
-                engine.tick([],dict(data_sha256='NO_NEW_BOOK_NO_FILL',observed_visible=dict(utc_ns=now)))
+                proof=dict(data_sha256='NO_NEW_BOOK_NO_FILL',observed_visible=dict(utc_ns=now))
+                engine.tick([],proof);stress.tick([],proof,stress_slots())
             if now-published>=5*NS:
-                atomic(config['output'],engine.view(clock.sample()['utc_ns']));published=now
+                projection();published=now
             time.sleep(.05)
     except BaseException as error:
         try:
             value=engine.view(time.time_ns());value.update(status='BLOCKED',error=type(error).__name__+':'+str(error));atomic(config['output'],value)
-        finally:engine.close();witness.close()
+        finally:engine.close();stress.close();witness.close()
         raise
 
 

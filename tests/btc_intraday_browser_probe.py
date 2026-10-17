@@ -27,6 +27,8 @@ def main():
         assert data['scope']=='SYNTHETIC_RESEARCH_PAPER_NOT_KUCOIN_ORDER_ADMISSIBILITY'
         assert data['real_min_quantity']=='UNKNOWN' and data['real_min_notional']=='UNKNOWN'
         assert data['frequency_limits'] is False
+        assert data['stress']['method']=='PROTOCOL_V2_INDEPENDENT_1000MS_OWN_RISK_EXITS'
+        assert data['stress_equity_history']
         assert page.locator('#chart').evaluate("e=>e.width>0&&e.height>0")
         page.screenshot(path=str(args.evidence/(args.label+'-desktop.png')),full_page=True)
         page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(300)

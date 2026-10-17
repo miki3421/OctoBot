@@ -18,15 +18,15 @@ services:
       PYTHONDONTWRITEBYTECODE: '1'
     working_dir: /runtime
     entrypoint: [python3, -B, /runtime/btc_intraday_paper.py]
-    command: [--config, /configuration/config.json]
+    command: [--config, /configuration/config-v2.json]
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=33554432,mode=1777
     volumes:
-      - /opt/btc-intraday-paper-v1:/runtime:ro
-      - /opt/btc-intraday-paper-v1/empty:/octobot/user:ro
-      - /opt/btc-intraday-paper-v1/empty:/octobot/backtesting:ro
-      - /opt/btc-intraday-paper-v1/empty:/octobot/logs:ro
-      - /opt/btc-intraday-paper-v1/empty:/octobot/tentacles:ro
+      - /opt/btc-intraday-paper-v2:/runtime:ro
+      - /opt/btc-intraday-paper-v2/empty:/octobot/user:ro
+      - /opt/btc-intraday-paper-v2/empty:/octobot/backtesting:ro
+      - /opt/btc-intraday-paper-v2/empty:/octobot/logs:ro
+      - /opt/btc-intraday-paper-v2/empty:/octobot/tentacles:ro
       - ../octobot-local/btc-intraday-m1-l5-paper-v1/configuration:/configuration:ro
       - ../octobot-local/btc-intraday-m1-l5-paper-v1/control:/control:ro
       - ../octobot-local/btc-intraday-m1-l5-paper-v1/state:/state:rw
