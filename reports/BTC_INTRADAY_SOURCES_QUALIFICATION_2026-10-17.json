@@ -1,0 +1,148 @@
+{
+  "result": {
+    "counts": {
+      "calendar_observed_fresh": 288,
+      "l5_arrival_received": 288,
+      "l5_decision_window_complete": 288,
+      "l5_entry_window_complete": 288,
+      "m1_true": 1,
+      "m1_window_valid": 288,
+      "point_valid": 288,
+      "received_time_join_complete": 288,
+      "slots": 288
+    },
+    "exchange_min_notional": "UNKNOWN",
+    "exchange_min_quantity": "UNKNOWN",
+    "existing_strategies_changed": false,
+    "funding_events": [
+      {
+        "mark_age_seconds": 2.0,
+        "mark_capture": "2761d04d19fd43f63a8663f43c298140ecf0bba49a7b4bd5505bff325f4d04fe",
+        "mark_package_complete_ns": 1792166401317142000,
+        "mark_received_ns": 1792166398996713000,
+        "package_complete_before_event": false,
+        "rate_conflict": false,
+        "rate_first_available_ns": 1792166464683113000,
+        "rate_first_capture": "a2ad0b9d1222fc9b458b278dcb080ef8f7f0ae3be403514c6786fe19c355f065",
+        "status": "QUALIFIED_RESEARCH_ESTIMATE_INPUTS",
+        "tau_ns": 1792166400000000000
+      },
+      {
+        "mark_age_seconds": 45.0,
+        "mark_capture": "9745e64ef5a0ed16fc13569c1b5742cde1d3bf264a9836f0c4653b2ff1175b16",
+        "mark_package_complete_ns": 1792195158339904000,
+        "mark_received_ns": 1792195155976635000,
+        "package_complete_before_event": true,
+        "rate_conflict": false,
+        "rate_first_available_ns": 1792195221682698000,
+        "rate_first_capture": "7008940bcbc2b41531b621036a5a592085f88badac030ca49343a2747774a2e1",
+        "status": "QUALIFIED_RESEARCH_ESTIMATE_INPUTS",
+        "tau_ns": 1792195200000000000
+      },
+      {
+        "mark_age_seconds": 6.0,
+        "mark_capture": "3dcb1eef4ff23fd2843d9c572b20ecb182ccf4eb16036cdbbe24529abfb9d593",
+        "mark_package_complete_ns": 1792223997814481000,
+        "mark_received_ns": 1792223995573116000,
+        "package_complete_before_event": true,
+        "rate_conflict": false,
+        "rate_first_available_ns": 1792224061405164000,
+        "rate_first_capture": "d9ff552367a7b35e599dc630f57a4ed7e6ce234a76f07eb8aca0cc1709cd2e5c",
+        "status": "QUALIFIED_RESEARCH_ESTIMATE_INPUTS",
+        "tau_ns": 1792224000000000000
+      }
+    ],
+    "funding_statuses": {
+      "QUALIFIED_RESEARCH_ESTIMATE_INPUTS": 3
+    },
+    "invalid_calendar_receipts": 0,
+    "l5_snapshot_sha256": "1141375eb2945a09c261e9f1d7b64972d532e2debd4e8543121734d9b739e678",
+    "limitations": [
+      "Applies only to the inspected source and frozen prefix, not all repository sources",
+      "Late settled funding may reconcile a past event only when actually observed; never authorize a past decision",
+      "Raw L5 payloads absent, event hashes not independently reconstructible; sealed copy identity is verified",
+      "Historical receive timestamps do not prove durable publication or the arrival commit deadline",
+      "No external clock calibration, operational grant, strategy promotion or KuCoin order-admissibility validation"
+    ],
+    "missing_rate_receipts": 0,
+    "new_account_created": false,
+    "pnl_calculated": false,
+    "protocol_file_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+    "readiness": "NOT_READY_SOURCE_EVIDENCE_GAPS",
+    "scope": "OFFLINE_SOURCE_QUALIFICATION_NOT_ACCOUNT_READINESS_OR_FORWARD_RESULTS",
+    "source_database_sha256": "443c479689ddb48e8f3bb52fa14ffc29d4ff794275af0ace132f9107a6ebaa6e",
+    "source_gaps": [
+      "HISTORICAL_DURABLE_PUBLICATION_AND_ARRIVAL_COMMIT_RECEIPTS_UNRESOLVED"
+    ],
+    "timestamp_evidence": "Collector-declared raw receive times and conservative package complete times; no independent historical receipt-commit witness"
+  },
+  "input_manifest": {
+    "counts": {
+      "calendar": 2721,
+      "enumerated_packages": 25491,
+      "mark": 48978,
+      "rate": 2721,
+      "selected_packages": 2721,
+      "unneeded_receipts_not_qualified": 95235
+    },
+    "database_sha256": "443c479689ddb48e8f3bb52fa14ffc29d4ff794275af0ace132f9107a6ebaa6e",
+    "elapsed_seconds": 42.97177913505584,
+    "integrity": [
+      "ok"
+    ],
+    "original_files_modified": false,
+    "plan": {
+      "boundary_note": "Additional prior raw receipts initialize the first warm-up grid point within its already fixed 120-second freshness rule. Evaluation start, cutoff, protocol, model and thresholds unchanged; no economic outcomes used. Earlier extraction preserved separately.",
+      "boundary_prelude_seconds": 120,
+      "cutoff_utc": "2026-10-17T13:00:00+00:00",
+      "durability": "Report missing historical publication/commit timestamps explicitly; never infer commit from receive or file mtime",
+      "evaluation_start_utc": "2026-10-16T13:00:00+00:00",
+      "funding_source": "Final BTC public funding-history receipts and prior contracts/mark receipts; never current forecast as settled rate",
+      "id": "btc-intraday-source-qualification-v2-20261017",
+      "l5_source": "Existing sealed technical snapshot 1141375eb294; no scans on live scalping database",
+      "outcomes": "No trade fills, returns of a strategy, markouts or PnL computed; M1 boolean is reconstructed only to verify derivation",
+      "price_source": "Actual KuCoin exchange mark; per-symbol received times verified against raw capture receipts. Whole market record complete receive time is conservative input-availability lower evidence, not proof of historical durable publication.",
+      "protocol_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+      "rules": "Protocol v2 thresholds unchanged; no daily quota/cooldown; technical prefix is not a new future validation sample",
+      "schema": 1,
+      "scope": "TECHNICAL_SOURCE_QUALIFICATION_NO_ACCOUNT_OR_PNL",
+      "selection": "All immutable market records whose declared complete receive time is in the frozen interval; source directory enumerated once, exact hashes and needed raw receipts retained. No mtime used as event/receive evidence.",
+      "warmup_start_utc": "2026-10-15T13:00:00+00:00"
+    },
+    "protocol_file_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+    "protocol_sha256": "e888bf32fdf811dfc95ddabd457420b01f55bb69376070b789bb6ea0416e72c6",
+    "publication_commit_timestamps_present": false,
+    "scope": "TECHNICAL_INPUT_PREFIX_NOT_FORWARD_OR_TRADING",
+    "timestamp_evidence": "Declared collector receive times and package complete time, raw hash verified; not an independent clock attestation or historical commit proof"
+  },
+  "completion": {
+    "files": {
+      "input-manifest.json": "a20685711a7841d84c5216e7275aaecc67e737c8e07b36406808c3bb919bc84b",
+      "qualification.json": "a47667908e2c0e9802cea99e5db1394cfbd60fdf7cf5af45d41f42a5fa1b0f3a",
+      "receipts.sqlite": "443c479689ddb48e8f3bb52fa14ffc29d4ff794275af0ace132f9107a6ebaa6e",
+      "slots.jsonl": "51c6712f943c9517c5c213b504c077752c7306c501af0a2ec903b8f19fb76cfd"
+    },
+    "status": "TECHNICAL_QUALIFICATION_COMPLETE_NOT_READY_TO_START",
+    "tool_sha256": "bf882704a6d5bb75b6feaa5bb768197bbd175a3794d191a4dfc15e2bcaee0082"
+  },
+  "verification": {
+    "result": "PASS_TECHNICAL_QUALIFICATION_CHECKS",
+    "new_tests": 21,
+    "adapter_tests": 21,
+    "receipt_file_hashes_verified": true,
+    "all_slot_and_event_time_bounds_verified": true,
+    "paper_entry_qualified_slots": 0,
+    "durable_availability": "UNRESOLVED_NOT_INFERRED",
+    "containers_healthy_unchanged": 9,
+    "initial_extraction_preserved": true,
+    "source_database_bytes": 516874240
+  },
+  "followup_card": "work-card-1a999de7-c39e-42ad-9929-e8bfda7fa708",
+  "cutoff_scope": "Source archive and fixed technical prefix only; no repository-wide claim of absence",
+  "corrections": {
+    "boundary": "Initial extraction preserved separately; only 120 seconds of prelude added to initialize the first warm-up row under its existing freshness rule. Model and evaluation interval unchanged.",
+    "funding": "Funding reconciliation selects a raw mark received before the event, as the candidate requires. Package completion after the event is recorded separately and is not relabelled as earlier publication."
+  },
+  "input_database_alias": "btc-intraday-source-qualification-20261017-v2-complete-prefix",
+  "source_owner_approval": "No new issuer, scientific or operational approval inferred from source qualification"
+}

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "btc-intraday-source-qualification-v2-20261017",
+  "scope": "TECHNICAL_SOURCE_QUALIFICATION_NO_ACCOUNT_OR_PNL",
+  "protocol_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+  "warmup_start_utc": "2026-10-15T13:00:00+00:00",
+  "evaluation_start_utc": "2026-10-16T13:00:00+00:00",
+  "cutoff_utc": "2026-10-17T13:00:00+00:00",
+  "selection": "All immutable market records whose declared complete receive time is in the frozen interval; source directory enumerated once, exact hashes and needed raw receipts retained. No mtime used as event/receive evidence.",
+  "price_source": "Actual KuCoin exchange mark; per-symbol received times verified against raw capture receipts. Whole market record complete receive time is conservative input-availability lower evidence, not proof of historical durable publication.",
+  "l5_source": "Existing sealed technical snapshot 1141375eb294; no scans on live scalping database",
+  "funding_source": "Final BTC public funding-history receipts and prior contracts/mark receipts; never current forecast as settled rate",
+  "durability": "Report missing historical publication/commit timestamps explicitly; never infer commit from receive or file mtime",
+  "outcomes": "No trade fills, returns of a strategy, markouts or PnL computed; M1 boolean is reconstructed only to verify derivation",
+  "rules": "Protocol v2 thresholds unchanged; no daily quota/cooldown; technical prefix is not a new future validation sample",
+  "boundary_prelude_seconds": 120,
+  "boundary_note": "Additional prior raw receipts initialize the first warm-up grid point within its already fixed 120-second freshness rule. Evaluation start, cutoff, protocol, model and thresholds unchanged; no economic outcomes used. Earlier extraction preserved separately."
+}
