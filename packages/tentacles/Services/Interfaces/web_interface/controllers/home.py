@@ -19,7 +19,7 @@ import sqlite3
 from octobot.ai_strategy_lab import v13_paper_view, v13_btc_forward_monitor, qwen_shadow_view, v13_analysis, v13_qwen_analysis, v13_universe_view
 from octobot.ai_strategy_lab import v13_candidate_shortlist, v13_candidate_data
 from octobot.ai_strategy_lab import v13_symbol_charts, v13_fork_view, v13_variant_charts, v13_m1_paper_view
-from octobot.ai_strategy_lab import v13_m1_monitor
+from octobot.ai_strategy_lab import v13_m1_monitor, btc_intraday_view
 
 import octobot_commons.authentication as authentication
 import octobot_services.interfaces.util as interfaces_util
@@ -33,6 +33,30 @@ import octobot_commons.enums
 
 
 def register(blueprint):
+    @blueprint.route("/btc_intraday")
+    @login.login_required_when_activated
+    def btc_intraday_dashboard():
+        if not models.accepted_terms():
+            return flask.redirect(flask.url_for("terms"))
+        if models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(404)
+        response = flask.make_response(flask.render_template("btc_intraday.html"))
+        response.cache_control.no_store = True
+        return response
+
+    @blueprint.route("/btc_intraday/data")
+    @login.login_required_when_activated
+    def btc_intraday_data():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        try:
+            response = flask.jsonify(btc_intraday_view.public())
+        except (OSError, ValueError, KeyError, TypeError):
+            response = flask.jsonify(dict(available=False, message="Conto intraday non ancora disponibile o non verificabile."))
+            response.status_code = 503
+        response.cache_control.no_store = True
+        return response
+
     @blueprint.route("/v13_m1")
     @login.login_required_when_activated
     def v13_m1_dashboard():

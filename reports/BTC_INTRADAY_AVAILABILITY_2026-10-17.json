@@ -1,0 +1,37 @@
+{
+  "chain_head": "4e97aaf55eeb506851fde88e861f03833accba64a33592ddef25086c9abebeff",
+  "files": {
+    "availability.sqlite": {
+      "bytes": 7155712,
+      "sha256": "707661d4e9ba0717d71b3d1663c54ef7f84211bc5b1c6e9a9cfd654091e8bf13"
+    },
+    "probe-result.json": {
+      "bytes": 532,
+      "sha256": "ab70d4fe44682b3129020d6934a80eb0c62df3530d3a349dbe30d1c65ca931a3"
+    }
+  },
+  "integrity": [
+    "ok"
+  ],
+  "summary": {
+    "book_read_max_ms": 0.881686,
+    "counts": {
+      "book_batches": 89,
+      "book_rows": 901,
+      "market_bootstrap": 1,
+      "market_prospective": 1,
+      "rows_older_than_quote_limit_at_witness_visibility": 78
+    },
+    "no_historical_availability_certified": true,
+    "no_order_admissibility_certified": true,
+    "protocol_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+    "run": "79d2342618ff444ea72da3abb9fae75a",
+    "status": "BOUNDED_OBSERVATION_ONLY_NOT_ACCOUNT_READY",
+    "visibility_lag_ms": {
+      "max": 1220.798839,
+      "median": 557.671601,
+      "min": 46.024935,
+      "p95": 1046.465533
+    }
+  }
+}
