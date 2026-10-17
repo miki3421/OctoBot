@@ -1,0 +1,110 @@
+{
+  "schema": 1,
+  "qualified_at": "2026-10-17T13:25:33.037331+00:00",
+  "status": "QUALIFIED_FOR_OFFLINE_RESEARCH_WITH_EXCLUSIONS",
+  "scope": "TECHNICAL_DATA_QUALIFICATION_NOT_ALPHA_OR_ACCOUNT_APPROVAL",
+  "snapshot_sha256": "1141375eb2945a09c261e9f1d7b64972d532e2debd4e8543121734d9b739e678",
+  "snapshot_bytes": 27573239808,
+  "snapshot_alias": "scalping-qualification-20261017/snapshot.sqlite",
+  "period": {
+    "start_utc": "2026-07-23T14:01:49+00:00",
+    "end_utc": "2026-10-17T13:11:33+00:00",
+    "span_days": 85.9650925925926,
+    "UTC_dates": 87
+  },
+  "rows": {
+    "book": 74116396,
+    "trades": 6005509,
+    "second_buckets": 7409297,
+    "book_seconds": 7409293
+  },
+  "integrity": "ok",
+  "raw_bucket_reconciled": true,
+  "structurally_invalid": {
+    "book": 0,
+    "trade": 0,
+    "buckets": 0
+  },
+  "book_second_coverage": 0.9975641494280961,
+  "minimum_daily_coverage": 0.9612384259259259,
+  "book_gaps_over5s": 318,
+  "largest_raw_gap_seconds": 2528.399511522,
+  "insertion_order_chronology": {
+    "rows": 74116396,
+    "received_timestamp_regressions": 0,
+    "maximum_receive_regression_ns": 0,
+    "exchange_timestamp_regressions_same_session": 0,
+    "sequence_regressions_same_session": 0,
+    "session_switches": 174,
+    "examples": [],
+    "scope": "IMMUTABLE_OFFLINE_COPY_ONLY",
+    "elapsed_seconds": 62.83352784300223,
+    "completed_at": "2026-10-17T13:24:14.869111+00:00"
+  },
+  "book_capture_latency": {
+    "events_above1s": 26431,
+    "fraction_above1s": 0.00035661474958928116,
+    "maximum_ms": 418816.918427,
+    "cumulative_histogram_upper_bounds": {
+      "100": 0,
+      "150": 73821311,
+      "250": 74043996,
+      "500": 74084854,
+      "1000": 74089965,
+      "5000": 74096720
+    },
+    "clock_not_independently_calibrated": true
+  },
+  "spread_quality": {
+    "observed_book_seconds": 7409293,
+    "fraction_second_average_le005_bps": 0.996078033356219,
+    "histogram_upper_bounds": {
+      "0.05": 7380234,
+      "0.1": 18453,
+      "0.25": 9727,
+      "0.5": 662,
+      "1": 158,
+      "10": 2,
+      "2": 45,
+      "5": 12
+    }
+  },
+  "research_profiles": {
+    "candidate_freshness_ms": 1000,
+    "max_book_gap_seconds": 5,
+    "reset_at_session_change": true,
+    "causal_clock": "received_ts_ns",
+    "old_second_buckets": "Rebuild from accepted raw events when applying a freshness profile; do not silently use aggregates containing excluded delayed events",
+    "missing_execution_data": "Intent remains in denominator with explicit unavailable/unknown execution; never invent fill across gap"
+  },
+  "limits": [
+    "No alpha,return,label,markout,trade simulation or sealed economic evaluation calculated",
+    "Raw size units need contemporaneous instrument metadata before conversion to BTC or USDT depth",
+    "No maker queue position/order-level cancels in L5 aggregated snapshots",
+    "Payload hashes can be syntax checked but raw exchange payloads are not preserved for independent reconstruction",
+    "Capture latency is observed exchange-to-receive clock difference; no calibrated end-to-end execution latency",
+    "New data qualification does not reopen rejected strategy families or authorize a paper account",
+    "All historical snapshot outcomes are diagnostic reuse for a new hypothesis; no universal untouched holdout inferred",
+    "This copy is not the old scientific freeze whose command requires a stopped collector",
+    "Current data qualification does not establish a profitable strategy; no account activated"
+  ],
+  "cost_diagnostic": {
+    "fee_assumption_bps_per_fill": 6,
+    "adverse_slippage_assumption_bps_per_fill": 1,
+    "roundtrip_floor_bps_before_spread_depth_funding": 14,
+    "provenance": "Frozen prior research cost assumptions, not verified fee tier or real order admissibility"
+  },
+  "source_files": {
+    "octobot/ai_strategy_lab/scalping_archive_qualification.py": "e06491ef7a5f4dc1a9e7b8eaf08ddf3c7c1049704c177a8bc0e432147c5f1950",
+    "scripts/scalping_archive_checks.py": "f877907865acd847890faf2465cbef63fa8f52f497063e005be81e86593cf70a",
+    "tests/unit_tests/ai_strategy_lab/test_scalping_archive_qualification.py": "5bac9fb317aba193e8a7ca04d4bd2172eb5e42d60b35c3366552f155103c905b",
+    "tests/unit_tests/ai_strategy_lab/test_scalping_archive_checks.py": "f685ccb97a50f22833c6a700c672bc3b6add7bc4c44a28f7699d60854bd8f425"
+  },
+  "executed_artifacts": {
+    "auditor.py": "a8a01b24da96f0077c3e36a28f1b3f8762155140d3755f5356f7678dc1ae5727",
+    "checks.py": "f877907865acd847890faf2465cbef63fa8f52f497063e005be81e86593cf70a",
+    "run-integrity.py": "36cc98217797f03e6e151c7acc65e03792ae78296104d44c0940f3eb84800e0c"
+  },
+  "tests": "10 snapshot/quality synthetic tests +3 chronology tests; author verification only",
+  "delivery_code_note": "Executed frozen auditor preserved by digest. Delivery code adds an independently tested capacity-guard helper without changing the executed audit algorithm."
+}

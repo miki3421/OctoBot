@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "status": "PROPOSAL_NOT_PREREGISTRATION_OR_ACTIVATION",
+  "based_on_snapshot": "1141375eb2945a09c261e9f1d7b64972d532e2debd4e8543121734d9b739e678",
+  "objective": "Use qualified BTC L5 to study executable intraday trading in a separate research account, with an independent signal source",
+  "recommendation": "Prioritize BTC-only execution research driven by the existing M1 cross-asset condition; qualify this as a new protocol, never reuse closed book-only direction models",
+  "signal_scope": "M1 definition is a candidate independent driver: BTC1h<=-1% and12/18 declining; recompute from causally available original market inputs rather than inherit previous account outcomes",
+  "data_joins": [
+    "Qualified L5 received timestamps and fresh quotes",
+    "Independent18-symbol source for M1 breadth, time-aligned; not present in BTC-only L5 archive",
+    "Contemporaneous instrument multiplier/quantity semantics and fee assumptions",
+    "Funding rates and defensible mark at settlement if holding across funding"
+  ],
+  "comparison": "Same future signal/intent and risk budget; compare deterministic benchmark vs proposed execution policy. Account for unfilled/missing-data intents. Execution shortfall and missed fills separated from directional PnL.",
+  "needed_before_account": [
+    "Reconstruct causal second features from raw after exclusions and declare gap/session resets",
+    "Bind size units to metadata; keep real min_quantity/min_notional UNKNOWN without authoritative evidence",
+    "Preregister exact entry,exit,holding,size,risk policy,costs,latency,funding and evaluation gates before economic outcomes",
+    "Use a new account namespace and journal, no access to active strategy ledgers for writing",
+    "Keep Original,FAST,HALF,M1 paper and scientific M1 unchanged"
+  ],
+  "historical_guardrails": "Prior single-venue L5 directional and cross-venue V4 results remain rejected; changing names or thresholds is not a new experiment. Snapshot qualification does not promote them.",
+  "implementation_order": [
+    "Cost/liquidity benchmark using snapshot and accepted metadata",
+    "Frozen candidate and future evaluation protocol",
+    "Adversarial simulator and restart/storage verification",
+    "Separate paper account only after its complete contract and required gates are resolved"
+  ],
+  "readiness": {
+    "data": "Qualified with explicit exclusions",
+    "directional_edge": "UNASSESSED for proposed combined study",
+    "new_account": "NOT_CREATED",
+    "existing_accounts_changed": false
+  },
+  "automatic_promotion": false
+}
