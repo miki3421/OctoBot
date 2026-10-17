@@ -53,8 +53,8 @@ I commit tardivi sono incidenti di integrità e non risultati validi di ingresso
 
 ## Funding e dati incompleti
 
-Calendario effettivamente annunciato, nessun intervallo fisso inventato. Rate
-finale firmato e mark exchange ricevuto strettamente prima dell'evento, età
+Calendario effettivamente annunciato, nessun intervallo fisso inventato. Tasso
+finale con segno e mark exchange ricevuto strettamente prima dell'evento, età
 massima 60s; nessun book mid sostitutivo. Attesa minima di riconciliazione fino
 alla chiusura della finestra ±60s per includere le eventuali uscite protettive e
 usare il cashflow meno favorevole tra le quantità ai confini. Non si ritarda

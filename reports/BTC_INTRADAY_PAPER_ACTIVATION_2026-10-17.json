@@ -105,5 +105,67 @@
   "real_min_quantity": "UNKNOWN",
   "real_min_notional": "UNKNOWN",
   "scientific_validity": "UNASSESSED",
-  "evidence_alias": "btc-intraday-activation-20261017-v1"
+  "evidence_alias": "btc-intraday-activation-20261017-v1",
+  "work_cards": {
+    "implementation": {
+      "id": "work-card-1a999de7-c39e-42ad-9929-e8bfda7fa708",
+      "status": "done"
+    },
+    "tests": {
+      "id": "work-card-5c75e0d0-417b-4a62-8256-dec10ac39e12",
+      "status": "done"
+    },
+    "probe": {
+      "id": "work-card-0437e0c4-ea01-46cb-93e6-b601ec49ff09",
+      "status": "done"
+    },
+    "delivery": {
+      "id": "work-card-a655a24c-cd27-44f1-969a-85636065c41f",
+      "status": "done"
+    },
+    "simulator": {
+      "id": "work-card-f20d8837-a539-4394-859b-ba75b94ed3a8",
+      "status": "done"
+    },
+    "readiness": {
+      "id": "work-card-312947f2-47cd-44da-b475-b185e71c70a6",
+      "status": "done"
+    },
+    "ui": {
+      "id": "work-card-3ddeda4e-baaa-41cd-b82e-4e68ca0d2276",
+      "status": "done"
+    },
+    "runtime": {
+      "id": "work-card-ff93500c-0d27-40c7-9425-a65c46c85395",
+      "status": "done"
+    },
+    "simulator_tests": {
+      "id": "work-card-b8a049f7-cefc-4ef8-b393-07bb5ff45f70",
+      "status": "done"
+    },
+    "admin": {
+      "id": "work-card-a966e5da-e0a9-4163-8e55-51b26f3c06b9",
+      "status": "done"
+    },
+    "browser": {
+      "id": "work-card-a8a086fc-d97d-470f-9d75-04038e02e339",
+      "status": "done"
+    },
+    "monitor": {
+      "id": "work-card-40ad5039-3d64-4601-9174-77d1a656e6b1",
+      "status": "done"
+    },
+    "stress": {
+      "id": "work-card-10bec2ef-0d25-407e-a2f2-810c8127028c",
+      "status": "done"
+    },
+    "stress_tests": {
+      "id": "work-card-21414709-e0b7-4a00-b698-9aa76957df0a",
+      "status": "done"
+    },
+    "scientific_future": {
+      "id": "work-card-3d0610f3-0313-4788-8ea9-9585d99d1c28",
+      "status": "todo"
+    }
+  }
 }

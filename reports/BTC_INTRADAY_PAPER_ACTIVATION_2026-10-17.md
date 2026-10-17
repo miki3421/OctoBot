@@ -83,3 +83,5 @@ I minuti attivi non sono stati misurati separatamente dalle attese e dai nuovi
 indirizzi dell'utente: non viene inventato un consuntivo temporale.
 Schedine di riferimento: 1a999de7, f20d8837, b8a049f7, 312947f2,
 5c75e0d0, 0437e0c4, a655a24c, a966e5da, a8a086fc, 10bec2ef, 21414709.
+
+Riesame futuro visibile To-do: `work-card-3d0610f3-0313-4788-8ea9-9585d99d1c28`.
