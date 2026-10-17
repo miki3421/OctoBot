@@ -1,0 +1,51 @@
+# Isolated research simulator. Never mount approvals, admin controls or credentials.
+# Card work-card-e09c6b2f-6229-4ccb-9b02-2e14d9c99bd1.
+version: '3.8'
+services:
+  v13-m1-paper:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    container_name: octobot-v13-m1-paper
+    user: '30943:30910'
+    read_only: true
+    network_mode: none
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    environment:
+      PYTHONPATH: /workspace
+      PYTHONDONTWRITEBYTECODE: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    working_dir: /workspace
+    entrypoint: [python3, -B, -m, octobot.ai_strategy_lab.v13_m1_paper]
+    command: [--config, /configuration/config.json]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=268435456,mode=1777
+      - /octobot/user:rw,nosuid,nodev,size=1048576
+      - /octobot/backtesting:rw,nosuid,nodev,size=1048576
+      - /octobot/logs:rw,nosuid,nodev,size=1048576
+      - /octobot/tentacles:rw,nosuid,nodev,size=1048576
+    volumes:
+      - /opt/v13-m1-paper-runtime-v1:/workspace:ro
+      - ../octobot-local/v13-m1-paper-v1/configuration:/configuration:ro
+      - ../octobot-local/v13-m1-paper-v1/seed:/seed:ro
+      - ../octobot-local/v13-m1-paper-v1/state:/state:rw
+      - ../octobot-local/v13-paper/m1-paper-ui:/projection:rw
+      - ../octobot-local/v13-paper/forks-ui:/comparators:ro
+      - ../octobot-local/v13-paper/research/source:/source:ro
+      - ../octobot-local/v13-paper/research/proposals:/proposals:ro
+      - ../octobot-local/v13-paper/research/execution:/original:ro
+      - ../octobot-local/v13-paper/research/baseline/research:/research:ro
+      - ../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro
+      - ../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro
+    healthcheck:
+      test: [CMD, python3, -c, "import json,datetime,pathlib;v=json.loads(pathlib.Path('/projection/account.json').read_text());a=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(v['health']['checked_at'])).total_seconds();assert 0<=a<180 and v['health']['status']!='BLOCKED'"]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '3'}

@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "delivered_at": "2026-10-17T09:16:32.355439+00:00",
+  "experiment": "v13-m1-autonomous-paper-v1",
+  "scope": "RESEARCH_SIMULATION_ONLY_NO_EXECUTOR_LINK",
+  "state": "ACTIVE_FUTURE_PAPER_ONLY",
+  "clone": {
+    "account": "v13-m1-short-paper-v1-5e761f0cedac",
+    "equity": 9907.300219710369,
+    "open_positions": 15,
+    "historical_orders": 199,
+    "economic_t0": "2026-10-17T09:09:06.762912+00:00",
+    "seed_sha256": "5e761f0cedacca24b18da36ae97a767e2a7827dba299c73524ff237e01c1e4c4",
+    "all_tables_verified": true,
+    "accounting_reconstructed": true,
+    "risk_counters_preserved": true
+  },
+  "policy": "Dedicated M1 policy explicitly selected by user: 2% daily loss, 10% drawdown, .315 asset/.90 gross; max3 risk batches/day, max1 M1 episode/day, six-hour hold and cooldown; ordinary 22-hour clock preserved",
+  "derivation": {
+    "source": "Real locally archived public snapshots; independently rederived frozen V13 targets for all 18 symbols",
+    "proposal_id": "e374ee23a1067f0023c4368e98e9962fa98712c858e3fe2ebb182bc0fde1f1e3",
+    "day": "2026-10-16",
+    "new_downloads": false
+  },
+  "validation": {
+    "unit_tests": 58,
+    "browser": "Desktop/mobile comparison and four detail pages; existing charts and scientific M1; fixture-only failure display",
+    "real_restart": "New account identity and inherited prefix preserved",
+    "sqlite_integrity": [
+      "seed",
+      "new account",
+      "original account",
+      "paired account"
+    ],
+    "existing_strategy_containers": "All five IDs, start times and images unchanged",
+    "existing_M1_scientific_bundle": "All 12 file pins unchanged",
+    "review": "Author verification; no independent review claimed",
+    "existing_paired_financial_pins_unchanged": 8,
+    "first_future_slot": {
+      "detail": {
+        "feature": {
+          "btc_60m": -3.390607674014223e-05,
+          "negative_breadth": 0.5555555555555556,
+          "new_24h_low": false
+        },
+        "recorded_at": "2026-10-17T09:15:06.467378+00:00"
+      },
+      "kind": "M1",
+      "slot": "2026-10-17T09:15:00+00:00",
+      "status": "NO_SIGNAL"
+    }
+  },
+  "ui": [
+    "/v13_variants",
+    "/v13_variants/m1"
+  ],
+  "limits": {
+    "scientific_status": "UNASSESSED",
+    "minimum_quantity": "UNKNOWN",
+    "minimum_notional": "UNKNOWN",
+    "kucoin_faithful_new_entries": "BLOCKED",
+    "real_orders": false,
+    "operational_grants": false,
+    "existing_M1_observation_mutated": false
+  },
+  "comparison": {
+    "reference": "First available common five-minute observation bucket after activation; max120s timestamp skew; fixed by availability, not outcome",
+    "normalization": "10000 points at per-arm reference observations; actual account equities separately displayed",
+    "risk": "Not risk matched against Original/FAST/HALF",
+    "timing": "New ordinary daily decision 00:15 UTC; Original retains its existing schedule",
+    "fixed_reference": {
+      "bucket_utc": "2026-10-17T09:15:00+00:00",
+      "maximum_skew_seconds": 0.0,
+      "method": "FIRST_AVAILABLE_COMMON_5MIN_BUCKET_NO_OUTCOME_SELECTION",
+      "points": {
+        "FAST": {
+          "at": "2026-10-17T09:15:23.728513+00:00",
+          "equity": 9936.242808891187
+        },
+        "HALF": {
+          "at": "2026-10-17T09:15:23.728513+00:00",
+          "equity": 9938.138974261788
+        },
+        "M1": {
+          "at": "2026-10-17T09:15:23.728513+00:00",
+          "equity": 9907.989019710369
+        },
+        "ORIGINAL": {
+          "at": "2026-10-17T09:15:23.728513+00:00",
+          "equity": 9907.989019710369
+        }
+      }
+    }
+  },
+  "evidence_alias": "audit-evidence/v13-m1-fourth-paper-20261017",
+  "work_cards": [
+    "work-card-8cb121eb-9ea8-4456-a289-3c1bf87390f4",
+    "work-card-418e6bfc-83ca-4516-8b58-c6f4d9007aff",
+    "work-card-af5139fb-d6e9-420b-bc80-706fcb5256e4",
+    "work-card-b6960087-e232-4049-a132-24f34bc70672",
+    "work-card-e09c6b2f-6229-4ccb-9b02-2e14d9c99bd1"
+  ],
+  "activation": {
+    "first_signal_slot": "2026-10-17T09:15:00+00:00",
+    "recorded_at": "2026-10-17T09:10:35.529806+00:00"
+  },
+  "runtime": {
+    "container": "octobot-v13-m1-paper",
+    "network": "none",
+    "identity": "30943:30910",
+    "health": {
+      "checked_at": "2026-10-17T09:16:26.780732+00:00",
+      "reason": null,
+      "status": "OBSERVING"
+    },
+    "missing_continuation": "Fail closed; never initialize or restore seed over a missing working account",
+    "historical_prefix": "Sealed seed, all copied claims archival only",
+    "new_fills_at_delivery": 0
+  }
+}
