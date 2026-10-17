@@ -11,8 +11,10 @@ tpl=args.source/'packages/tentacles/Services/Interfaces/web_interface/templates/
 errors=[];blocked=[];checks=[]
 with sync_playwright() as pw:
  browser=pw.chromium.launch(headless=True,args=['--no-sandbox'])
- def context(variant='comparison',v=None,i=None,fail=False,preview=True):
+ def context(variant='comparison',v=None,i=None,fail=False,preview=True,now=None):
   ctx=browser.new_context(viewport={'width':1440,'height':1100})
+  if now is not None:
+   ctx.add_init_script('Date.now=()=>'+str(now)+';const interval=window.setInterval;window.setInterval=(fn,ms,...args)=>{if(ms===60000)window.__testRefresh=fn;return interval(fn,ms,...args);};')
   # Trace only drawing commands, to verify that incomplete points break the orange line.
   ctx.add_init_script("""window.paths=[];{const p=CanvasRenderingContext2D.prototype;for(const n of ['beginPath','moveTo','lineTo','stroke']){const f=p[n];p[n]=function(...a){if(n==='beginPath')this._p=[];if(n==='moveTo'||n==='lineTo')(this._p??=[]).push(n);if(n==='stroke')window.paths.push({color:this.strokeStyle,path:this._p});return f.apply(this,a);};}}""")
   def gate(route):
@@ -45,11 +47,17 @@ with sync_playwright() as pw:
  assert page.locator('#history').get_attribute('class')=='active'
  assert page.locator('#equity').get_attribute('aria-label')=='Equity reale dei conti in USDT virtuali'
  assert page.locator('#legend .swatch').count()==5
+ for period in ['range-24','range-7','range-all']:
+  page.locator('#'+period).click()
+  assert page.locator('#'+period).get_attribute('aria-pressed')=='true'
+  assert page.locator('#equity').get_attribute('aria-label')=='Equity reale dei conti in USDT virtuali'
+ checks.append('live three period buttons retain actual USDT view')
  page.screenshot(path=str(args.evidence/('live-desktop.png' if args.live else 'preview-desktop.png')),full_page=True)
  page.locator('#history').click();assert 'Equity reale dei conti' in page.locator('#chart-title').inner_text()
  page.locator('#future').click();assert 'Rendimento percentuale · V13' in page.locator('#chart-title').inner_text()
  page.locator('#all').click()
  page.locator('#history').click()
+ page.locator('#range-24').click()
  page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(250)
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
  page.screenshot(path=str(args.evidence/('live-mobile.png' if args.live else 'preview-mobile.png')),full_page=True)
@@ -109,6 +117,39 @@ with sync_playwright() as pw:
    page.locator('#all').click()
    assert 'In attesa della finestra comune' in page.locator('#chart-title').inner_text()
    checks.append(name+': shared comparison withheld');ctx.close()
+ if not args.live:
+  fixed=int(datetime.now(timezone.utc).timestamp()*1000);hour=3600000;day=24*hour
+  fv=copy.deepcopy(v);fi=copy.deepcopy(i);ages=[8*day,7*day+1,7*day,day+1,day,hour]
+  iso=lambda at:datetime.fromtimestamp(at/1000,timezone.utc).isoformat()
+  fv['common_history']=[]
+  for k,variant in fv['variants'].items():
+   variant['inherited_curve']=[];variant['equity_curve']=[[iso(fixed-age),10100+100*n] for n,age in enumerate(ages)]
+   variant['metrics']['equity']=10600;variant['observed_at']=iso(fixed-hour)
+  fi['equity']=[[(fixed-age)*1000000,10100+100*n,None,1] for n,age in enumerate(ages)]
+  fi['metrics']['equity']=10600;fi['state']['activation_at']=(fixed-9*day)*1000000
+  ctx,page=context(v=fv,i=fi,now=fixed)
+  def count(color):return page.evaluate("color=>window.paths.filter(p=>p.color===color&&p.path.length).at(-1)?.path.length??0",color)
+  before=page.locator('#cards').inner_text();table=page.locator('#comparison-rows').inner_text()
+  assert count('#8abfff')==6
+  for button,n,amount in [('range-24',2,'10.500,00 USDT'),('range-7',4,'10.300,00 USDT'),('range-all',6,'10.100,00 USDT')]:
+   page.evaluate('window.paths=[]');page.locator('#'+button).click();assert count('#8abfff')==n
+   page.locator('#equity').hover(position={'x':74,'y':50});assert amount in page.locator('#hover').inner_text()
+   assert page.locator('#cards').inner_text()==before and page.locator('#comparison-rows').inner_text()==table
+  checks.append('inclusive 24h/7-day cutoffs exclude earlier points and preserve exact raw values and card/table data')
+  page.locator('#range-24').click();page.evaluate('window.__testRefresh()')
+  assert page.locator('#range-24').get_attribute('aria-pressed')=='true' and count('#8abfff')==2
+  checks.append('automatic data refresh preserves selected period and USDT mode');ctx.close()
+  recent=copy.deepcopy(fi);recent['equity']=recent['equity'][-1:]
+  ctx,page=context(v=fv,i=recent,now=fixed);page.locator('#range-24').click();assert count('#ffab80')==1
+  checks.append('recent intraday account is never extended to fill the selected period');ctx.close()
+  empty=copy.deepcopy(fv);empty_i=copy.deepcopy(fi)
+  for variant in empty['variants'].values():variant['equity_curve']=variant['equity_curve'][:1];variant['observed_at']=iso(fixed-8*day)
+  empty_i['equity']=empty_i['equity'][:1]
+  ctx,page=context(v=empty,i=empty_i,now=fixed);page.evaluate('window.paths=[]');page.locator('#range-24').click()
+  assert 'Nessuna osservazione disponibile' in page.locator('#chart-note').inner_text() and count('#8abfff')==0
+  assert page.locator('#hover').inner_text()==''
+  page.locator('#range-all').click();assert count('#8abfff')==1
+  checks.append('empty period clears chart and tooltip without zero balances; all-history restores actual point');ctx.close()
  for variant in ['original','fast','half','m1']:
   ctx,page=context(variant=variant,preview=not args.live)
   assert page.locator('#cards .card').count()==1
