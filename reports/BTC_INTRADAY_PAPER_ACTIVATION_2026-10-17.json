@@ -1,0 +1,109 @@
+{
+  "date": "2026-10-17",
+  "delivery": "ACTIVE_RESEARCH_PAPER_AND_LIVE_DASHBOARD",
+  "account": "btc-intraday-m1-l5-paper-v1",
+  "status": "ACTIVE_WARMUP",
+  "ui": "http://localhost:5001/btc_intraday",
+  "metrics": {
+    "equity": 10000.0,
+    "pnl": 0.0,
+    "stress_equity": 10000.0
+  },
+  "stress": {
+    "accounting_complete": true,
+    "equity": 10000.0,
+    "fills": 0,
+    "method": "PROTOCOL_V2_INDEPENDENT_1000MS_OWN_RISK_EXITS",
+    "q": 0.0,
+    "reason": "PRIMARY_NOT_ADMITTED"
+  },
+  "protocol_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+  "runtime_code_pins": {
+    "btc_intraday_paper.py": "52e2d6843527c3ef1bdffc32ffef982a0e06adf7eea7fe8f1335f0480282e555",
+    "btc_intraday_availability.py": "d50662a08de4eb733e1743b103fb957f9cb352ffc89849cdd180bb76af44e476",
+    "btc_intraday_source_qualification.py": "bf882704a6d5bb75b6feaa5bb768197bbd175a3794d191a4dfc15e2bcaee0082",
+    "btc_intraday_admin.py": "ef632288635d95aa4c1fe97fde1e1c97512bbf6357204c0552d2a641fcfbe665"
+  },
+  "runtime_source_commit": "315471fe148624268116e24aaeaf01fec40a7abf",
+  "initial_activation_sha256": "3cbf01e0b06f18852eb7d80fecab644a4e7ed7cd1bc33e68976e76ba1e66de28",
+  "continuation_scope": "PRE_T0_ZERO_FILL_PROTOCOL_CONFORMANCE_FIX",
+  "primary_identity_preserved": true,
+  "ledgers": {
+    "account.sqlite": {
+      "bytes": 3502080,
+      "sha256": "1ba316c3c7f6a2d72ceceed87648d24b00f8edc07bc800b33c815ced2a6302a6",
+      "identity": {
+        "account": "btc-intraday-m1-l5-paper-v1",
+        "bundle_sha": "1c96def7755552ed1bea6ef9d1c798b5842bdd039760874a94b7ee6f71c453d4",
+        "protocol": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+        "scope": "SYNTHETIC_RESEARCH_PAPER_NOT_KUCOIN_ORDER_ADMISSIBILITY",
+        "t0": 1792281600000000000
+      },
+      "activation_at_ns": 1792256510189474270,
+      "t0_ns": 1792281600000000000,
+      "t1_ns": 1800057600000000000,
+      "cash": 10000.0,
+      "q": 0.0,
+      "fills": 0
+    },
+    "stress.sqlite": {
+      "bytes": 589824,
+      "sha256": "0f36b0021a792151bcdc1a6ba0c1864c38632d999c1e35553269572a3f0d05f4",
+      "identity": {
+        "account": "btc-intraday-m1-l5-paper-v1",
+        "bundle_sha": "1c96def7755552ed1bea6ef9d1c798b5842bdd039760874a94b7ee6f71c453d4",
+        "protocol": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+        "scenario": "PROTOCOL_V2_STRESS_INDEPENDENT",
+        "scope": "SYNTHETIC_RESEARCH_PAPER_NOT_KUCOIN_ORDER_ADMISSIBILITY",
+        "t0": 1792281600000000000
+      },
+      "activation_at_ns": 1792257947481372971,
+      "t0_ns": 1792281600000000000,
+      "t1_ns": 1800057600000000000,
+      "cash": 10000.0,
+      "q": 0.0,
+      "fills": 0
+    }
+  },
+  "tests": {
+    "availability": 23,
+    "primary": 33,
+    "stress": 10,
+    "continuation": 4,
+    "view": 3,
+    "routes": 4,
+    "source_qualification": 21,
+    "l5_adapter": 21,
+    "total": 119,
+    "independent_review_claimed": false
+  },
+  "browser": {
+    "label": "live",
+    "read_only": true,
+    "page_errors": [],
+    "blocked_requests": [],
+    "account": "btc-intraday-m1-l5-paper-v1",
+    "status": "ACTIVE_WARMUP",
+    "equity": 10000.0,
+    "fills": 0,
+    "warmup_rows": 5,
+    "mobile_no_overflow": true
+  },
+  "isolation": {
+    "network": "none",
+    "persistent_writes": [
+      "/state",
+      "/projection"
+    ],
+    "ten_containers_healthy": true,
+    "eight_prior_strategy_services_unchanged": true,
+    "web_restart_explicitly_approved": true,
+    "real_orders": false,
+    "operational_grants": false,
+    "exchange_credentials": false
+  },
+  "real_min_quantity": "UNKNOWN",
+  "real_min_notional": "UNKNOWN",
+  "scientific_validity": "UNASSESSED",
+  "evidence_alias": "btc-intraday-activation-20261017-v1"
+}
