@@ -41,12 +41,15 @@ with sync_playwright() as pw:
  assert 'BTC intraday' in page.locator('#cards').inner_text()
  assert page.locator('#cards a[href="/btc_intraday"]').count()==1
  assert '10.000 USDT' in page.locator('[data-account="BTC"]').first.inner_text()
- assert 'Andamento nella finestra comune' in page.locator('#chart-title').inner_text(),page.locator('#chart-note').inner_text()
+ assert 'Equity reale dei conti' in page.locator('#chart-title').inner_text()
+ assert page.locator('#history').get_attribute('class')=='active'
+ assert page.locator('#equity').get_attribute('aria-label')=='Equity reale dei conti in USDT virtuali'
  assert page.locator('#legend .swatch').count()==5
  page.screenshot(path=str(args.evidence/('live-desktop.png' if args.live else 'preview-desktop.png')),full_page=True)
- page.locator('#history').click();assert 'Storico conservato' in page.locator('#chart-title').inner_text()
- page.locator('#future').click();assert 'Andamento dalla finestra comune' in page.locator('#chart-title').inner_text()
+ page.locator('#history').click();assert 'Equity reale dei conti' in page.locator('#chart-title').inner_text()
+ page.locator('#future').click();assert 'Rendimento percentuale · V13' in page.locator('#chart-title').inner_text()
  page.locator('#all').click()
+ page.locator('#history').click()
  page.set_viewport_size({'width':390,'height':844});page.wait_for_timeout(250)
  assert page.evaluate('document.documentElement.scrollWidth<=innerWidth+1')
  page.screenshot(path=str(args.evidence/('live-mobile.png' if args.live else 'preview-mobile.png')),full_page=True)
@@ -56,39 +59,54 @@ with sync_playwright() as pw:
   start=1792260000000 # 18:00 UTC
   for k,values in {'ORIGINAL':[100,105,110],'FAST':[200,190,180],'HALF':[50,50,50],'M1':[10,11,12]}.items():
    v['variants'][k]['equity_curve']=[[datetime.fromtimestamp((start+n*900000+10000)/1000,timezone.utc).isoformat(),value] for n,value in enumerate(values)]
+   v['variants'][k]['metrics']['equity']=values[-1]
+   v['variants'][k]['observed_at']=datetime.fromtimestamp((start+1800000+10000)/1000,timezone.utc).isoformat()
   v['stale']=False;v['fourth_stale']=False
   i['stale']=False;i['accounting_complete']=True;i['equity']=[[(start+n*900000+20000)*1000000,value,None,1] for n,value in enumerate([10000,10050,10100])]
   i['metrics']['equity']=10100;i['metrics']['pnl']=100
   ctx,page=context(v=v,i=i)
+  canvas=page.locator('#equity');box=canvas.bounding_box();page.locator('#equity').hover(position={'x':box['width']-10,'y':50})
+  hover=page.locator('#hover').inner_text()
+  assert all(x in hover for x in ['110,00 USDT','180,00 USDT','50,00 USDT','12,00 USDT','10.100,00 USDT']),hover
+  assert '%' not in hover
+  checks.append('default raw equity tooltip preserves the five actual account values')
+  page.locator('#all').click()
+  box=page.locator('#equity').bounding_box();page.locator('#equity').hover(position={'x':box['width']-10,'y':50})
+  assert '+10,00%' in page.locator('#hover').inner_text() and ' USDT' not in page.locator('#hover').inner_text()
   cells=page.locator('#comparison-rows tr td:nth-child(2)').all_inner_texts()
   assert cells==['+10,00%','-10,00%','0,00%','+20,00%','+1,00%'],cells
   assert 'non è un benchmark scientifico fissato' in page.locator('#chart-note').inner_text()
   checks.append('different seeds: exact returns 10%, -10%, 0%, 20%, 1% on common observations');ctx.close()
   incomplete=copy.deepcopy(i);incomplete['equity'][1][3]=0
   ctx,page=context(v=v,i=incomplete)
+  page.locator('#all').click()
   orange=page.evaluate("window.paths.filter(p=>p.color==='#ffab80'&&p.path.length)")[-1]['path']
   assert orange==['moveTo','moveTo'],orange
   checks.append('incomplete intermediate point breaks intraday line');ctx.close()
   for name,payload,fail in [('unavailable',None,True),('stale',dict(i,stale=True),False),('accounting',dict(i,accounting_complete=False),False),('wrong_identity',dict(i,account='wrong'),False)]:
    ctx,page=context(v=v,i=payload,fail=fail)
    assert page.locator('#cards .card').count()==5
+   page.locator('#all').click()
    assert 'In attesa della finestra comune' in page.locator('#chart-title').inner_text()
    assert page.locator('#comparison-rows tr').count()==5
    assert all(x=='In attesa' for x in page.locator('#comparison-rows tr td:nth-child(2)').all_inner_texts()[:4])
    if name=='accounting':assert 'Equity provvisoria' in page.locator('[data-account="BTC"]').first.inner_text()
-   page.locator('#future').click();assert 'Andamento dalla finestra comune' in page.locator('#chart-title').inner_text()
+   page.locator('#future').click();assert 'Rendimento percentuale · V13' in page.locator('#chart-title').inner_text()
    assert page.locator('#comparison-rows tr td:nth-child(2)').all_inner_texts()[-1]=='Non disponibile'
    checks.append(name+': no fake return, V13 fallback works');ctx.close()
   shifted=copy.deepcopy(i);shifted['equity']=[[p[0]+86400000000000,*p[1:]] for p in i['equity']]
   ctx,page=context(v=v,i=shifted)
+  page.locator('#all').click()
   assert 'In attesa della finestra comune' in page.locator('#chart-title').inner_text()
   checks.append('non-overlapping histories never interpolated');ctx.close()
   shifted=copy.deepcopy(i);shifted['equity']=[[p[0]+300000000000,*p[1:]] for p in i['equity']]
   ctx,page=context(v=v,i=shifted)
+  page.locator('#all').click()
   assert 'In attesa della finestra comune' in page.locator('#chart-title').inner_text()
   checks.append('different 5-minute buckets never matched');ctx.close()
   for name,patch in [('V13 funding debt',{'funding_debt':{'reason':'fixture_missing_rate'}}),('V13 valuation gap',{'valuation_gap':{'reason':'fixture_missing_mark'}}),('V13 stale',{'stale':True})]:
    ctx,page=context(v=dict(v,**patch),i=i)
+   page.locator('#all').click()
    assert 'In attesa della finestra comune' in page.locator('#chart-title').inner_text()
    checks.append(name+': shared comparison withheld');ctx.close()
  for variant in ['original','fast','half','m1']:
@@ -96,7 +114,7 @@ with sync_playwright() as pw:
   assert page.locator('#cards .card').count()==1
   assert page.locator('#all').is_hidden()
   assert page.locator('#positions tr').count()>0
-  page.locator('#history').click();assert 'Storico conservato' in page.locator('#chart-title').inner_text()
+  page.locator('#history').click();assert 'Equity reale dei conti' in page.locator('#chart-title').inner_text()
   ctx.close()
  checks.append('all four V13 detail pages preserved; no intraday API required')
  browser.close()
