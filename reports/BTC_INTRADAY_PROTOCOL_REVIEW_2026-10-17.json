@@ -1,0 +1,64 @@
+{
+  "scope": "DOCUMENT_CONSISTENCY_AND_SYNTHETIC_ARITHMETIC_ONLY",
+  "runtime_tests_executed": false,
+  "new_account_created": false,
+  "old_strategies_changed": false,
+  "lineage_valid": true,
+  "source_pins_verified": true,
+  "unknown_real_minima_preserved": true,
+  "permissions_inactive": true,
+  "sizing_grid_cases": 24,
+  "sizing_examples": [
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_TRADE",
+      "equity": "10000",
+      "price": "80000",
+      "quantity_btc": "0.010",
+      "notional_usdt": "800.000",
+      "planned_stop_and_cost_reserve_usdt": "10.2400000"
+    },
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_TRADE",
+      "equity": "1000",
+      "price": "80000",
+      "quantity_btc": "0.001",
+      "notional_usdt": "80.000",
+      "planned_stop_and_cost_reserve_usdt": "1.0240000"
+    },
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_TRADE",
+      "equity": "500",
+      "price": "80000",
+      "quantity_btc": "0.000",
+      "notional_usdt": "0.000",
+      "planned_stop_and_cost_reserve_usdt": "0E-7"
+    }
+  ],
+  "funding_sign_examples": [
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_SETTLEMENT",
+      "quantity": ".01",
+      "mark": "80000",
+      "rate": ".001",
+      "cashflow": "-0.80000"
+    },
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_SETTLEMENT",
+      "quantity": "-.01",
+      "mark": "80000",
+      "rate": ".001",
+      "cashflow": "0.80000"
+    },
+    {
+      "type": "SYNTHETIC_ARITHMETIC_NOT_SETTLEMENT",
+      "quantity": "-.01",
+      "mark": "80000",
+      "rate": "-.001",
+      "cashflow": "-0.80000"
+    }
+  ],
+  "limitations": [
+    "No runtime implementation, causal source join, replay/storage fault or funding coverage qualification executed here",
+    "No new market outcomes read, scientific validity remains UNASSESSED"
+  ]
+}
