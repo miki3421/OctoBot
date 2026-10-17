@@ -11,7 +11,8 @@
     "octobot-v13-research-executor",
     "octobot-market-observer",
     "octobot-scalping-observer",
-    "octobot-v13-forks"
+    "octobot-v13-forks",
+    "octobot-btc-intraday-paper"
   ],
   "collectors": {
     "market": {

@@ -26,6 +26,8 @@ risorse. Riusiamo l'identità numerica di runtime già presente 30943:30910;
 non viene inventato né approvato un nuovo roster o utente del sistema. Questa
 scelta non costituisce isolamento tra UID: la separazione concreta è data dai
 mount del container. Nessun altro conto o approval store viene montato.
+I quattro volumi impliciti dell’immagine sono sovrascritti da directory vuote RO,
+così non costituiscono ulteriori aree persistenti scrivibili.
 Fonti raw e scalping sono RO; soltanto stato proprio e proiezione pubblica sono RW.
 
 Unico writer del nuovo ledger e delle ricevute è il runner deterministico. Non
@@ -74,7 +76,9 @@ L'uscita usa nuovi prezzi e profondità dopo 500ms; può essere parziale e non
 inverte mai la posizione. Se lo storage fallisce, nessun claim o fill è finto.
 Non esiste un pulsante o endpoint UI che invia ordini.
 
-Per fermare, arrestare soltanto il servizio `btc-intraday-paper` del suo Compose.
+Per fermare, arrestare soltanto il servizio `btc-intraday-paper` del suo Compose,
+con il project name dedicato `btc-intraday`; non usare il progetto Compose degli
+altri servizi.
 Conservare stato, ricevute, configurazione e proiezioni; mai rimuovere volumi o
 inizializzare una seconda volta il ledger. Un riavvio verifica le identità e la
 catena, conserva high-water, halt, posizione e pending; intenti d'ingresso senza
