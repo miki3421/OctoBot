@@ -22,8 +22,9 @@ with sync_playwright() as pw:
    if req.method!='GET' or not req.url.startswith(base+'/'):blocked.append(req.url);route.abort();return
    path=req.url[len(base):].split('?')[0]
    if preview and path==('/v13_variants'+('' if variant=='comparison' else '/'+variant)):
-    text=tpl.read_text();text=re.sub(r'{% if variant in .*?{% endif %}', '',text,flags=re.S).replace('{{ variant }}',variant)
+    text=tpl.read_text().replace('{% include "components/lab_sidebar.html" %}',(args.source/'packages/tentacles/Services/Interfaces/web_interface/templates/components/lab_sidebar.html').read_text());text=re.sub(r'{% if variant in .*?{% endif %}', '',text,flags=re.S).replace('{{ variant }}',variant)
     route.fulfill(status=200,content_type='text/html',body=text)
+   elif preview and path in ['/static/css/lab_navigation.css','/static/js/common/lab_navigation.js']:route.fulfill(status=200,content_type='text/css' if path.endswith('.css') else 'application/javascript',body=(args.source/'packages/tentacles/Services/Interfaces/web_interface'/path.lstrip('/')).read_text())
    elif preview and path=='/static/js/common/v13_variants.js':route.fulfill(status=200,content_type='text/javascript',body=js.read_text())
    elif v is not None and path=='/v13_variants/data':route.fulfill(status=200,content_type='application/json',body=json.dumps(v))
    elif (i is not None or fail) and path=='/btc_intraday/data':route.fulfill(status=503 if fail else 200,content_type='application/json',body=json.dumps(i or {'error':'unavailable'}))

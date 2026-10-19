@@ -16,7 +16,8 @@ with sync_playwright() as pw:
    req=route.request
    if req.method!='GET' or not req.url.startswith(base+'/'):blocked.append(req.url);route.abort();return
    path=req.url[len(base):].split('?')[0]
-   if not args.live and path=='/btc_intraday':route.fulfill(status=200,content_type='text/html',body=tpl.read_text())
+   if not args.live and path=='/btc_intraday':route.fulfill(status=200,content_type='text/html',body=tpl.read_text().replace('{% include "components/lab_sidebar.html" %}',(args.source/'packages/tentacles/Services/Interfaces/web_interface/templates/components/lab_sidebar.html').read_text()))
+   elif not args.live and path in ['/static/css/lab_navigation.css','/static/js/common/lab_navigation.js']:route.fulfill(status=200,content_type='text/css' if path.endswith('.css') else 'application/javascript',body=(args.source/'packages/tentacles/Services/Interfaces/web_interface'/path.lstrip('/')).read_text())
    elif not args.live and path=='/static/js/common/btc_intraday.js':route.fulfill(status=200,content_type='text/javascript',body=js.read_text())
    elif value is not None and path=='/btc_intraday/data':route.fulfill(status=200,content_type='application/json',body=json.dumps(value))
    else:route.continue_()
