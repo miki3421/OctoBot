@@ -1,0 +1,13 @@
+[Unit]
+Description=Trading AI Lab persistent containerd store on large filesystem
+RequiresMountsFor=/var/lib/libvirt/container-runtime/containerd
+Before=containerd.service
+
+[Mount]
+What=/var/lib/libvirt/container-runtime/containerd
+Where=/var/lib/containerd
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

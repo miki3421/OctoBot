@@ -1,0 +1,13 @@
+[Unit]
+Description=Trading AI Lab persistent docker store on large filesystem
+RequiresMountsFor=/var/lib/libvirt/container-runtime/docker
+Before=docker.service
+
+[Mount]
+What=/var/lib/libvirt/container-runtime/docker
+Where=/var/lib/docker
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target
