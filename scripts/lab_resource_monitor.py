@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import shutil
 import sqlite3
+import stat
 import subprocess
 import time
 
@@ -66,6 +67,8 @@ def assess(sample, previous=None):
             if item['state'] != 'running' or item['health'] != 'healthy':
                 alerts.append('CONTAINER_NOT_HEALTHY:' + item['name'])
     alerts.extend(sample.get('forks', {}).get('issues', []))
+    for result in sample.get('paper_accounts', {}).values():
+        alerts.extend(result['issues'])
     sample['alerts'] = alerts
     # Retain immediate raw visibility of failed checks. Only monitor blindness
     # needs two consecutive samples for email; confirmed unhealthy containers
@@ -226,6 +229,63 @@ def read_forks(item, now=None):
         result['issues'] = ['FORK_PROJECTION_UNAVAILABLE']
     return result
 
+def read_paper_account(name, item, now=None):
+    """Bounded read of owned UI projections; never open the execution stores."""
+    now = time.time() if now is None else now
+    result = dict(issues=[])
+    try:
+        path = Path(item['path'])
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), 'rb') as f:
+            info = os.fstat(f.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_uid != item['uid'] or info.st_mode & 0o022:
+                raise ValueError('custody')
+            raw = f.read(8*1024*1024+1)
+        if len(raw) > 8*1024*1024:
+            raise ValueError('size')
+        v = json.loads(raw)
+        if name == 'm1':
+            if v['scope'] != 'AUTONOMOUS_M1_PAPER_RESEARCH_ONLY' or v['arm'] != 'M1':
+                raise ValueError('scope')
+            at = dt.datetime.fromisoformat(v['health']['checked_at'])
+            account = v['variant']; mark = dt.datetime.fromisoformat(account['observed_at'])
+            if v['health']['status'] != 'OBSERVING' or v['health'].get('reason'):
+                result['issues'].append('PAPER_ACCOUNT_BLOCKED:'+name)
+            current = dt.datetime.fromtimestamp(now, dt.timezone.utc)
+            due = current.replace(hour=0, minute=15, second=0, microsecond=0)
+            if now <= due.timestamp()+120:
+                due -= dt.timedelta(days=1)
+            first = dt.datetime.fromisoformat(v['activation']['first_signal_slot'])
+            if due >= first:
+                rows = [s for s in v.get('daily_slots', v['slots']) if s['kind'] == 'DAILY' and dt.datetime.fromisoformat(s['slot']) == due]
+                result['daily_status'] = rows[0]['status'] if len(rows) == 1 else 'MISSING'
+                if result['daily_status'] in {'MISSED','DENIED','MISSING','PENDING'}:
+                    result['issues'].append('PAPER_DAILY_NOT_EXECUTED:'+name)
+            equity = account['metrics']['equity']
+        elif name == 'intraday':
+            if v['scope'] != 'SYNTHETIC_RESEARCH_PAPER_NOT_KUCOIN_ORDER_ADMISSIBILITY':
+                raise ValueError('scope')
+            at = dt.datetime.fromtimestamp(v['checked_at_ns']/1e9, dt.timezone.utc)
+            mark = dt.datetime.fromtimestamp(v['state']['last_market_received']/1e9, dt.timezone.utc)
+            equity = v['metrics']['equity']
+            if not v['accounting_complete'] or v['state']['integrity_halt'] or v['state']['drawdown_halt']:
+                result['issues'].append('PAPER_ACCOUNT_BLOCKED:'+name)
+            # A remembered PRICE_MISSING reason is not the current slot outcome.
+            result['last_slot_status'] = v['slots'][0]['status'] if v['slots'] else None
+        else:
+            raise ValueError('unsupported_account')
+        if at.tzinfo is None or mark.tzinfo is None or max(at.timestamp(),mark.timestamp()) > now:
+            raise ValueError('clock')
+        if type(equity) not in (float,int) or not math.isfinite(equity) or equity <= 0:
+            raise ValueError('equity')
+        result.update(heartbeat_age_seconds=now-at.timestamp(), valuation_age_seconds=now-mark.timestamp())
+        if result['heartbeat_age_seconds'] > item['heartbeat_warn_after_seconds'] or result['valuation_age_seconds'] > item['valuation_warn_after_seconds']:
+            result['issues'].append('PAPER_ACCOUNT_STALE:'+name)
+        result['status'] = 'attention' if result['issues'] else 'healthy'
+    except (OSError,ValueError,KeyError,TypeError,OverflowError,IndexError):
+        result.update(status='unavailable',issues=['PAPER_ACCOUNT_UNAVAILABLE:'+name])
+    return result
+
+
 def collect(config):
     now = time.time()
     m = counters('/proc/meminfo')
@@ -257,6 +317,7 @@ def collect(config):
         sample['collectors'][name] = result
     if 'forks' in config:
         sample['forks'] = read_forks(config['forks'])
+    sample['paper_accounts'] = {name:read_paper_account(name,item,now) for name,item in config.get('paper_accounts',{}).items()}
     sample.update(inspect_containers(config['containers']))
     return sample
 

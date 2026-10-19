@@ -23,6 +23,7 @@ OUTPUT = Path('/qwen-observer/analysis-v1/status.json')
 SECTIONS = ('summary', 'strengths', 'weaknesses', 'watch')
 ATTEMPT_CONTRACT = 'qwen-v13-analysis-attempt-v1'
 REJECTED_REASONS = {'invalid_comment_schema', 'invalid_comment_sections', 'invalid_evidence_ids',
+    'unsupported_exclusivity',
     'unsafe_or_invented_text', 'uncited_symbol', 'uncited_coverage', 'overstated_concentration',
     'unknown_symbol', 'invalid_text', 'incomplete_output', 'model_response_invalid'}
 KNOWN_REASONS = REJECTED_REASONS | {'analysis_unavailable', 'shared_model_busy',
@@ -45,6 +46,7 @@ MESSAGES = {
     'ready': 'Controlli del rapporto superati; i dati collegati appartengono allo snapshot indicato.',
 }
 REASON_MESSAGES = {
+    'unsupported_exclusivity': 'La risposta attribuisce contributi esclusivi che non coincidono con i dati misurati.',
     'shared_model_busy': 'Il modello locale era occupato durante il tentativo.',
     'model_timeout': 'Il modello non ha completato la risposta nel tempo disponibile.',
     'model_unavailable': 'Il modello locale non era raggiungibile durante il tentativo.',
@@ -83,6 +85,8 @@ Nessuna previsione certa, diagnosi causale non provata, nuovo dato o consiglio o
 Non calcolare né scrivere cifre, percentuali, date o numeri nel testo: i riferimenti
 mostreranno i valori originali. Usa nomi dei simboli presenti nei fatti quando utile.
 Non nominare simboli estranei. Non proporre acquisti, vendite o cambi di peso/parametri.
+Non dichiarare che i simboli citati siano gli unici o i soli contributi positivi:
+puoi descrivere un sottoinsieme di contributi, senza escludere quelli non citati.
 Il rapporto include evidence_ids globali ai fatti correlati all’interpretazione.
 Le cose da osservare sono domande/ipotesi, non conclusioni. Se non emergono punti
 positivi, strengths può essere vuoto. Le lacune e il campione limitato vanno discussi.
@@ -203,6 +207,13 @@ def validate_comment(value, source):
         for symbol in cited_symbols:
             if not any(source['evidence'][i].startswith(symbol + ':') for i in ids):
                 raise ValueError('uncited_symbol')
+        # A citation does not justify omitting other measured positive contributors.
+        # This bounded check is not a general semantic proof of arbitrary prose.
+        exclusive = re.search(r'\bunic[oaie]\b|\bsol[oi]\s+(?:simboli|contributi)|\bsoltanto\b', text, re.I)
+        if exclusive and re.search(r'positiv|guadagn|profit', text, re.I):
+            positive = {r['symbol'] for r in source['metrics']['symbols'] if r['net_pnl'] > 0}
+            if not positive or cited_symbols != positive:
+                raise ValueError('unsupported_exclusivity')
         # Values are rendered from evidence, not parsed from model prose.
         prose = text
         for symbol in cited_symbols:
@@ -364,8 +375,10 @@ def public_view(path=OUTPUT, now=None):
                       'evidence': r['source']['evidence'], 'report_hash': r['report_hash']}
     except FileNotFoundError:
         pass
-    except (OSError, ValueError, TypeError, KeyError, AttributeError):
-        result = view_state('unverifiable')
+    except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+        result = (view_state('rejected', 'unsupported_exclusivity')
+                  if isinstance(error, ValueError) and str(error) == 'unsupported_exclusivity'
+                  else view_state('unverifiable'))
         try:
             if path.is_symlink() or path.stat().st_size > 262144:
                 raise ValueError('unsafe_cache')

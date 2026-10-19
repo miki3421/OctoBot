@@ -12,7 +12,8 @@
     "octobot-market-observer",
     "octobot-scalping-observer",
     "octobot-v13-forks",
-    "octobot-btc-intraday-paper"
+    "octobot-btc-intraday-paper",
+    "octobot-v13-m1-paper"
   ],
   "collectors": {
     "market": {
@@ -48,5 +49,19 @@
     "path": "/root/auto_trading_sys/octobot-local/v13-paper/forks-ui/comparison.json",
     "heartbeat_warn_after_seconds": 180,
     "valuation_warn_after_seconds": 420
+  },
+  "paper_accounts": {
+    "m1": {
+      "path": "/root/auto_trading_sys/octobot-local/v13-paper/m1-paper-ui/account.json",
+      "uid": 30943,
+      "heartbeat_warn_after_seconds": 180,
+      "valuation_warn_after_seconds": 300
+    },
+    "intraday": {
+      "path": "/root/auto_trading_sys/octobot-local/v13-paper/intraday-ui/account.json",
+      "uid": 30943,
+      "heartbeat_warn_after_seconds": 180,
+      "valuation_warn_after_seconds": 300
+    }
   }
 }

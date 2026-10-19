@@ -233,8 +233,27 @@ class Runner:
                                         normal_day=risk['daily_day'] if risk['daily_entries'] else None,
                                         last_normal_at=risk['last_increase_at'], baseline_targets=None, last_seen=now.isoformat()))
         elif self.meta('identity') != identity:
-            raise ValueError('continuation_identity_changed')
+            self.authorized_runtime_upgrade(identity)
         self.activation = self.meta('activation')
+
+    def authorized_runtime_upgrade(self, identity):
+        """Root-pinned correction; retain the initial identity and all prior events."""
+        path = Path(self.c.get('runtime_upgrade', '/runtime-upgrade-not-configured'))
+        if path.is_symlink() or not path.is_file() or path.stat().st_uid != 0 or path.stat().st_mode & 0o022:
+            raise ValueError('continuation_identity_changed')
+        upgrade = shared.read(path)
+        if (set(upgrade) != {'scope', 'account', 'from_identity', 'to_identity', 'authorized_at', 'owner_reference', 'backup_sha256'}
+                or upgrade['scope'] != 'M1_CANONICAL_WEIGHT_DECODE_CORRECTION'
+                or upgrade['account'] != self.account or upgrade['from_identity'] != self.meta('identity')
+                or upgrade['to_identity'] != identity
+                or not upgrade['owner_reference'] or p.timestamp(upgrade['authorized_at']) > source.now()):
+            raise ValueError('runtime_upgrade_binding')
+        p.require_hash(upgrade['backup_sha256'])
+        # The root-owned record is explicit authority, never inferred from a
+        # passing test or from the strategy. The initial identity is not rewritten.
+        key = 'runtime_upgrade:' + p.digest(upgrade)
+        with self.db:
+            self.db.execute('INSERT OR IGNORE INTO m1_meta VALUES(?,?)', (key, shared.dump(upgrade)))
 
     def meta(self, key):
         row = self.db.execute('SELECT payload FROM m1_meta WHERE key=?', (key,)).fetchone()
@@ -251,6 +270,15 @@ class Runner:
         if control.get('baseline_day') != day:
             item = self.prepare_input(now)
             control.update(baseline_day=day, baseline_targets=item['targets'], proposal_id=item['proposal_id'])
+        # The verified proposal encodes weights canonically as strings. Decode
+        # at this boundary, also for an already cached pre-correction baseline.
+        control['baseline_targets'] = self.decode_targets(control['baseline_targets'])
+
+    def decode_targets(self, targets):
+        if not isinstance(targets, dict) or set(targets) != set(self.universe):
+            raise ValueError('target_universe')
+        return {s: p.decode_weight(w) if isinstance(w, str) else exposure.number(w, 'target weight')
+                for s, w in targets.items()}
 
     def funding(self, state, record):
         """Verified settlements use actual fork orders and a prior observed mark."""
@@ -313,7 +341,7 @@ class Runner:
             target = control['entry_quantities'] if kind == 'M1_ENTRY' else {s:(0. if s in control['overlay_symbols'] and (kind=='EXIT' or state['positions'][s]['quantity']>0) else state['positions'][s]['quantity']) for s in self.universe}
             weights = self.weights_from_quantities(state, target)
         else:
-            weights = pending['weights'];target=None
+            weights = self.decode_targets(pending['weights']);target=None
         updated, fills, outcome = apply_weights(state, record['quotes'], weights, at, kind, self.policy, control, debt, kind in {'EXIT','PROTECTIVE_REMAINDER'},target)
         if pending['deadline'] and source.now() > p.timestamp(pending['deadline']):
             raise ValueError('execution_deadline_expired')

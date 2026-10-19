@@ -75,11 +75,13 @@ def publish(runner):
         except (OSError,ValueError,KeyError,TypeError):pass
     slots=[dict(r) for r in db.execute('SELECT kind,slot,status,payload FROM m1_slots ORDER BY slot DESC LIMIT 100')]
     for row in slots:row['detail']=json.loads(row.pop('payload'))
+    daily_slots=[dict(r) for r in db.execute("SELECT kind,slot,status FROM m1_slots WHERE kind='DAILY' ORDER BY slot DESC LIMIT 7")]
     episodes=[dict(r) for r in db.execute('SELECT id,signal_at,entry_due,exit_due,status FROM m1_episodes ORDER BY signal_at DESC')]
     result=dict(schema=1,scope='AUTONOMOUS_M1_PAPER_RESEARCH_ONLY',arm='M1',available=True,generated_at=source.now().isoformat(),
                 variant=variant,inherited_fills=inherited,activation=runner.activation,
                 receipt={k:runner.receipt[k] for k in ('account_id','seed_sha256','economic_t0','scope')},
-                control=runner.meta('control'),health=runner.meta('health'),slots=slots,episodes=episodes,
+                control=runner.meta('control'),health=runner.meta('health'),slots=slots,daily_slots=daily_slots,
+                daily_missed_count=db.execute("SELECT COUNT(*) FROM m1_slots WHERE kind='DAILY' AND status IN ('MISSED','DENIED')").fetchone()[0],episodes=episodes,
                 comparison_reference=reference,risk_policy=runner.protocol['risk_policy'],scientific_status='UNASSESSED',real_kucoin_minimums='UNKNOWN')
     # Consumed signal rows, source bytes and copied authorizations never enter this view.
     if result['control']:

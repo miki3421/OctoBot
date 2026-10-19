@@ -120,6 +120,25 @@ class MetricsTests(unittest.TestCase):
 
 
 class WorkerTests(unittest.TestCase):
+    def test_exclusive_positive_claim_requires_all_measured_positive_symbols(self):
+        bad=good();bad['summary']='BTCUSDT offre gli unici contributi positivi netti.'
+        with self.assertRaisesRegex(ValueError,'unsupported_exclusivity'):
+            q.validate_comment(bad,source())
+        bad['summary']='BTCUSDT e ETHUSDT offrono gli unici contributi positivi netti.'
+        self.assertEqual(q.validate_comment(q.link_references(bad,source()),source())['summary'],bad['summary'])
+        bad['summary']='BTCUSDT sostiene alcuni contributi positivi osservati.'
+        q.validate_comment(bad,source())
+
+    def test_old_cached_exclusive_claim_is_hidden_without_rewriting_evidence(self):
+        comment=good();comment['summary']='BTCUSDT offre gli unici contributi positivi netti.'
+        record=dict(contract=q.CONTRACT,model=q.MODEL,status='ready',generated_at=NOW.isoformat(),source=source(),comment=comment)
+        record['report_hash']=a.digest({k:record[k] for k in ['contract','model','generated_at','source','comment']})
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d)/'status.json';p.write_text(json.dumps(record));before=p.read_bytes()
+            result=q.public_view(p,NOW)
+            self.assertEqual(result['status'],'rejected');self.assertEqual(result['reason_code'],'unsupported_exclusivity')
+            self.assertEqual(p.read_bytes(),before)
+
     def reader(self, kind, body=None):
         return {'snapshot':source(),'slots':[{'is_processing':False}],
                 'completion':{'choices':[{'finish_reason':'stop','message':{'content':json.dumps(good())}}]}}[kind]

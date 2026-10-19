@@ -28,7 +28,7 @@ services:
       - /octobot/logs:rw,nosuid,nodev,size=1048576
       - /octobot/tentacles:rw,nosuid,nodev,size=1048576
     volumes:
-      - /opt/v13-m1-paper-runtime-v1:/workspace:ro
+      - /opt/v13-m1-paper-runtime-v2:/workspace:ro
       - ../octobot-local/v13-m1-paper-v1/configuration:/configuration:ro
       - ../octobot-local/v13-m1-paper-v1/seed:/seed:ro
       - ../octobot-local/v13-m1-paper-v1/state:/state:rw

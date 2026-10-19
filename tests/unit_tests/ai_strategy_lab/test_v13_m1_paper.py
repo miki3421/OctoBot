@@ -31,6 +31,42 @@ def original(path):
     db.commit();db.close()
 
 class M1Tests(unittest.TestCase):
+    def test_real_canonical_weights_and_cached_baseline_are_decoded(self):
+        weights={s:'0.1' for s in SYMS}
+        control={'baseline_day':(T.date()-dt.timedelta(days=1)).isoformat(),'baseline_targets':weights}
+        self.runner.baseline(control,T)
+        self.assertEqual(control['baseline_targets'],{s:.1 for s in SYMS})
+        for invalid in ('NaN','0.10','Infinity'):
+            with self.assertRaises(ValueError):self.runner.decode_targets({s:invalid for s in SYMS})
+
+    def test_runtime_upgrade_is_explicit_preserves_initial_identity_and_restarts(self):
+        old=self.runner.meta('identity');proto=json.loads(self.proto.read_text());proto['runtime_note']='canonical decoding correction'
+        self.proto.write_text(json.dumps(proto));self.runner.close()
+        with self.assertRaisesRegex(ValueError,'continuation_identity_changed'):m.Runner(self.config)
+        target=dict(seed=old['seed'],protocol=m.shared.sha(self.proto),runner=m.shared.sha(m.__file__))
+        upgrade=dict(scope='M1_CANONICAL_WEIGHT_DECODE_CORRECTION',account=self.receipt['account_id'],from_identity=old,to_identity=target,
+                     authorized_at=T.isoformat(),owner_reference='synthetic explicit approval fixture',backup_sha256='a'*64)
+        f=self.root/'upgrade.json';f.write_text(json.dumps(upgrade));self.config['runtime_upgrade']=str(f)
+        self.runner=m.Runner(self.config)
+        self.assertEqual(self.runner.meta('identity'),old)
+        self.assertEqual(self.runner.db.execute("select count(*) from m1_meta where key like 'runtime_upgrade:%'").fetchone()[0],1)
+        self.runner.close();self.runner=m.Runner(self.config)
+        self.assertEqual(self.runner.db.execute("select count(*) from m1_meta where key like 'runtime_upgrade:%'").fetchone()[0],1)
+        bad=dict(upgrade,account='other-account');f.write_text(json.dumps(bad))
+        with self.assertRaisesRegex(ValueError,'runtime_upgrade_binding'):m.Runner(self.config)
+
+    def test_canonical_daily_intent_executes_once_before_deadline(self):
+        s=self.current();control=self.runner.meta('control')
+        self.runner.intent(control,'DAILY',{s:'0.05' for s in SYMS},T,T,T+dt.timedelta(seconds=120))
+        at=T+dt.timedelta(seconds=40)
+        r=self.market(at)
+        with patch.object(m.source,'now',return_value=at),self.runner.db:
+            updated=self.runner.execute_pending(s,control,r,at,None)
+        self.assertIsNone(control['pending']);self.assertEqual(control['last_action']['status'],'FILLED')
+        n=self.runner.db.execute('select count(*) from m1_fills').fetchone()[0]
+        self.runner.execute_pending(updated,control,r,at,None)
+        self.assertEqual(self.runner.db.execute('select count(*) from m1_fills').fetchone()[0],n)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.original=self.root/'original.sqlite';original(self.original)
         self.clock=patch.object(m.source,'now',return_value=T);self.clock.start()

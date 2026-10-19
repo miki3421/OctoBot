@@ -18,6 +18,10 @@ import time
 COOLDOWN = 1800
 REMINDER = 86400
 LABELS = {
+    'PAPER_ACCOUNT_UNAVAILABLE': 'Conto paper: proiezione non verificabile',
+    'PAPER_ACCOUNT_STALE': 'Conto paper: stato o valorizzazione non aggiornati',
+    'PAPER_ACCOUNT_BLOCKED': 'Conto paper: errore corrente di esecuzione o contabilita',
+    'PAPER_DAILY_NOT_EXECUTED': 'M1 paper: ribilanciamento giornaliero non eseguito',
     'SWAP_OCCUPANCY_HIGH_NOT_PROOF_OF_THRASHING': 'Swap quasi pieno; questo dato da solo non dimostra rallentamenti.',
     'SWAP_ACTIVITY_OVER_1_MIB_PER_SECOND': 'Attivita di swap superiore a 1 MiB/s.',
     'MEMORY_AVAILABLE_BELOW_10_PERCENT': 'Memoria RAM disponibile inferiore al 10%.',
