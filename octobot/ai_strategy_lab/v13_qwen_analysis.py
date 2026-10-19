@@ -306,9 +306,9 @@ def read_record(path):
             or record.get('status') != 'ready' or record.get('source') is None):
         raise ValueError('invalid_cache')
     validate_source(record['source'], require_fresh=False)
-    validate_comment(record['comment'], record['source'])
     if record.get('report_hash') != analytics.digest({k: record[k] for k in ['contract', 'model', 'generated_at', 'source', 'comment']}):
         raise ValueError('cache_hash_mismatch')
+    validate_comment(record['comment'], record['source'])
     return record
 
 
@@ -383,6 +383,10 @@ def public_view(path=OUTPUT, now=None):
             if path.is_symlink() or path.stat().st_size > 262144:
                 raise ValueError('unsafe_cache')
             r = json.loads(path.read_text())
+            if result.get('reason_code') == 'unsupported_exclusivity':
+                # Keep the verified report clock: its earlier ready attempt must
+                # not conceal the newly detected content rejection.
+                result.update(generated_at=r['generated_at'], as_of=r['source']['as_of'])
             if (r.get('contract') == CONTRACT and r.get('model') == MODEL and r.get('status') == 'unavailable'
                     and analytics.timestamp(r['generated_at']) <= now):
                 reason = r.get('reason')

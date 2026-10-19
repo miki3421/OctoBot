@@ -135,6 +135,9 @@ class WorkerTests(unittest.TestCase):
         record['report_hash']=a.digest({k:record[k] for k in ['contract','model','generated_at','source','comment']})
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'status.json';p.write_text(json.dumps(record));before=p.read_bytes()
+            p.with_name('attempt.json').write_text(json.dumps(dict(contract=q.ATTEMPT_CONTRACT,attempt_id='a'*32,
+                started_at=(NOW-dt.timedelta(seconds=60)).isoformat(),updated_at=NOW.isoformat(),
+                state='ready',stage='complete',reason=None,elapsed_seconds=60)))
             result=q.public_view(p,NOW)
             self.assertEqual(result['status'],'rejected');self.assertEqual(result['reason_code'],'unsupported_exclusivity')
             self.assertEqual(p.read_bytes(),before)
