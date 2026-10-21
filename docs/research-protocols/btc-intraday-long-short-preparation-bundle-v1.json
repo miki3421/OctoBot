@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "status": "OFFLINE_CANDIDATE_NOT_ACTIVATED",
+  "scientific_validity": "UNASSESSED",
+  "research_only": true,
+  "orders_authorized": false,
+  "paper_orders_authorized": false,
+  "activation_authorized": false,
+  "source_base_commit": "e0caa394ad76750f83949a04380b43b510f5104b",
+  "files": {
+    "docs/BTC_INTRADAY_LONG_SHORT_COMPARISON_CANDIDATE_V1.md": "953e6c4b462f9125332d11b5f6edb101571de3e49b20de574154dd1e71331a72",
+    "docs/research-protocols/btc-intraday-long-short-comparison-candidate-v1.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "octobot/ai_strategy_lab/btc_intraday_long_short_candidate.py": "d215af3bce3369709a89a9697c0f0f5df49d52cf8cf2389313bf39802601ab78",
+    "tests/unit_tests/ai_strategy_lab/test_btc_intraday_long_short_candidate.py": "9233bd221df924866b2fbb1d7ff2ae1ab13aff754c92f81a78f432f9dc7df2b7",
+    "tests/unit_tests/ai_strategy_lab/fixtures/btc_intraday_ls_cost_reference_v1.json": "041dba073a52a7cd294ae95a8522ca02d46674c9762ce99134a1559e72457f99"
+  },
+  "test_summary": {
+    "candidate": 19,
+    "reference_account": 33,
+    "reference_stress": 10,
+    "reference_continuation": 4,
+    "total": 66
+  },
+  "unchanged_live_containers": 10,
+  "existing_source_and_config_pins_unchanged": true
+}

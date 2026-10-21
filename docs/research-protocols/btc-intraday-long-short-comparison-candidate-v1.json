@@ -1,0 +1,243 @@
+{
+  "schema": 1,
+  "protocol_id": "btc-intraday-long-short-comparison-candidate-v1",
+  "created_on": "2026-10-21",
+  "status": "PREPARED_NOT_ACTIVATED",
+  "scientific_validity": "UNASSESSED",
+  "research_only": true,
+  "issuable": false,
+  "orders_authorized": false,
+  "paper_orders_authorized": false,
+  "scope": "INERT_PROTOCOL_AND_PURE_OFFLINE_KERNELS_ONLY",
+  "reference": {
+    "protocol_id": "btc-intraday-m1-l5-paper-candidate-v2",
+    "protocol_sha256": "bbc19094ac23b8b13a0d82919802f2ede3787add5eda2e13f0f2d8489861493b",
+    "runner_sha256": "52e2d6843527c3ef1bdffc32ffef982a0e06adf7eea7fe8f1335f0480282e555",
+    "existing_account_id": "btc-intraday-m1-l5-paper-v1",
+    "existing_account_mutation": false
+  },
+  "arms": {
+    "control": {
+      "id": "btc-intraday-short-control-v1",
+      "directions": [
+        "SHORT"
+      ]
+    },
+    "candidate": {
+      "id": "btc-intraday-long-short-v1",
+      "directions": [
+        "LONG",
+        "SHORT"
+      ]
+    },
+    "initial_equity_usdt": 10000,
+    "initial_position_btc": 0,
+    "inherit_positions": false,
+    "inherit_pnl": false,
+    "inherit_approvals": false
+  },
+  "signal": {
+    "universe": [
+      "AAVEUSDT",
+      "ADAUSDT",
+      "ATOMUSDT",
+      "AVAXUSDT",
+      "BCHUSDT",
+      "BTCUSDT",
+      "DOGEUSDT",
+      "DOTUSDT",
+      "ETHUSDT",
+      "HBARUSDT",
+      "LINKUSDT",
+      "LTCUSDT",
+      "NEARUSDT",
+      "SOLUSDT",
+      "UNIUSDT",
+      "XLMUSDT",
+      "XRPUSDT",
+      "ZECUSDT"
+    ],
+    "grid_seconds": 300,
+    "required_contiguous_grid_rows": 289,
+    "maximum_price_age_seconds": 120,
+    "decision_commit_deadline_seconds": 30,
+    "return_window_seconds": 3600,
+    "short": {
+      "btc_return_lte": "-0.01",
+      "strictly_negative_symbols_gte": 12
+    },
+    "long": {
+      "btc_return_gte": "0.01",
+      "strictly_positive_symbols_gte": 12
+    },
+    "breadth_denominator": 18,
+    "zero_return_counts_as_neither": true,
+    "assumption": "Symmetric LONG threshold is an unvalidated hypothesis fixed before future outcomes; not selected from returns.",
+    "causality": "exchange_ns <= received_ns <= available_ns <= grid_slot_ns; all 289 rows and all 18 symbols; maximum quote age 120s; missing data invalidates slot; ignore rows after decision slot; no retroactive entry.",
+    "identity": "Price-only causal input digest distinct from raw receipt provenance; arm, slot, producer version and causal digest identify the decision."
+  },
+  "execution": {
+    "entry_delay_seconds": 300,
+    "latency_ms": 500,
+    "arrival_wait_ms": 1000,
+    "warmup_l5_completed_seconds": 10,
+    "max_book_age_ms": 1000,
+    "max_session_gap_ms": 5000,
+    "maximum_levels": 5,
+    "full_entry_depth_required": true,
+    "protective_partial_exits": true,
+    "same_book_liquidity_reuse": false,
+    "long_entry_side": "ASK_BUY",
+    "long_exit_side": "BID_SELL",
+    "short_entry_side": "BID_SELL",
+    "short_exit_side": "ASK_BUY",
+    "adverse_tick_rounding": "BUY rounds up; SELL rounds down",
+    "costs": {
+      "taker_fee_bps_per_fill": 6,
+      "adverse_slippage_bps_per_fill": 1,
+      "entry": "VWAP over at most five visible levels, then adverse slippage and price-tick rounding; fee on executed notional.",
+      "short_price_rounding": "SELL proceeds round downward after adverse slippage; BUY close cost rounds upward.",
+      "stress": {
+        "execution_latency_ms": 1000,
+        "taker_fee_bps_per_fill": 12,
+        "adverse_slippage_bps_per_fill": 2,
+        "funding_debit_multiplier": 2,
+        "funding_credit_multiplier": 0,
+        "comparison": "Same primary admitted opportunity times and frozen intended quantities, no new or retrospectively selected opportunity. No daily cap or cooldown in either scenario. Stress recomputes depth/freshness, its own exposure/loss caps and exits. Prior stress position or pending intent still open suppresses that opportunity. Report divergence, missing entries and realized exposure separately; no stress PnL for unobserved inputs."
+      },
+      "budget_exclusion": "The 28bps planning stress allowance excludes observed spread/depth, adverse price movement and funding; it is a sizing convention, not an all-in bound."
+    },
+    "stress": "Independent exposure and exits per arm, primary admitted opportunities of that arm only; 1000ms latency, 12bps fee and 2bps slippage; debit funding x2, credit zero. No forced matched fills.",
+    "end_of_horizon": "Both arms require latest modeled entry plus six-hour hold and own entry/exit latency and wait to fit before T1. No new risk after T1; protective residual exits continue and remain reported."
+  },
+  "sizing": {
+    "max_notional_fraction_of_equity": "0.10",
+    "estimated_stop_risk_fraction": "0.0025",
+    "stop_fraction": "0.01",
+    "planning_roundtrip_stress_cost_fraction": "0.0028",
+    "max_native_quantity": 10,
+    "btc_per_native_unit_assumed": "0.001",
+    "formula": "N=min(0.10*E,0.0025*E/0.0128,0.010*P); abs(q)=floor(N/P/0.001)*0.001; LONG positive, SHORT negative",
+    "entry_revalidation": "Only reduce frozen quantity, including post-fee equity cap; never increase to meet minima; same formula in both arms."
+  },
+  "research_contract": {
+    "id": "synthetic-linear-btc-l5-v1",
+    "mode": "EXPLICIT_SYNTHETIC_NOT_KUCOIN_ADMISSIBILITY",
+    "symbol_label": "XBTUSDTM / BTC-USDT research proxy",
+    "btc_per_raw_native_unit_assumed": 0.001,
+    "quantity_step_btc": 0.001,
+    "simulated_min_quantity_btc": 0.001,
+    "simulated_min_notional_usdt": 1,
+    "simulated_price_tick_usdt": 0.1,
+    "real_min_quantity": "UNKNOWN",
+    "real_min_notional": "UNKNOWN",
+    "historical_unit_conversion": "UNQUALIFIED; the assumed mapping is part of the synthetic simulator, not a finding about July-October raw sizes.",
+    "real_metadata_switch": "No silent conversion to exchange-faithful mode. Verified applicable metadata would require a new explicit contract/version.",
+    "margin": "Virtual fully cash-backed linear exposure; gross<=10% equity, no leverage, no exchange liquidation emulation."
+  },
+  "risk": {
+    "state": "CANDIDATE_INERT_NO_OPERATIONAL_POLICY",
+    "max_notional_fraction": "0.10",
+    "daily_loss_fraction": "0.02",
+    "drawdown_fraction": "0.10",
+    "max_positions": 1,
+    "max_entries_per_day": null,
+    "cooldown_seconds": 0,
+    "pyramiding": false,
+    "instant_reversal": false,
+    "opposite_signal": "Log and suppress while position or intent exists; do not close or reverse solely on opposite signal. Next strictly later grid slot after confirmed flat may enter.",
+    "accounting": "Fees, signed open PnL and funding included; missing data or funding blocks entries. Daily UTC baseline and persistent all-time high water; daily halt clears only natural UTC rollover with complete accounting; drawdown halt persists pending review.",
+    "priority": [
+      "ADMIN_CLOSE",
+      "INTEGRITY_OR_ACCOUNTING_HALT",
+      "RISK_LIMIT",
+      "STOP_LOSS",
+      "TIME_EXIT",
+      "TAKE_PROFIT"
+    ]
+  },
+  "exits": {
+    "stop_fraction": "0.01",
+    "take_profit_fraction": "0.02",
+    "hold_seconds": 21600,
+    "long": "Fresh bid <= entry*0.99: stop; bid >= entry*1.02: take profit; SELL later book after latency.",
+    "short": "Fresh ask >= entry*1.01: stop; ask <= entry*0.98: take profit; BUY later book after latency.",
+    "time": "Six hours from actual fill; stop has precedence over time; time over take profit.",
+    "latching": "Exit intent remains pending through recovery or missing book; partial protective reductions preserve remainder and generation; never increase or invert."
+  },
+  "funding": {
+    "formula": "-signed_quantity_btc * preceding_exchange_mark * final_signed_rate",
+    "positive_rate": "LONG pays; SHORT receives; negative rate reverses cashflow",
+    "mark_max_age_seconds": 60,
+    "calendar_max_age_seconds": 300,
+    "entry_boundary_veto_seconds": 60,
+    "pending_exit_after_seconds": 900,
+    "final_rate_required": true,
+    "missing_amount": null,
+    "unknown_is_not_zero": true,
+    "calendar": "Observed contract events, no fixed eight-hour assumption; receipt availability must precede use.",
+    "boundary": "Within +/-60s of settlement, compute signed cashflows over quantities before and after ALL protective fills, including negative SELL fills closing LONG; select least favourable and preserve bounds. Never delay exits to avoid funding.",
+    "reconciliation": "Preserve effective_at and observed_at, no rewriting old curve points; once per account, contract and settlement; no new entry with unresolved exposure."
+  },
+  "comparison": {
+    "state": "PROPOSED_NOT_STARTED",
+    "start_utc": null,
+    "end_utc": null,
+    "duration_days": 90,
+    "t0_rule": "Next UTC midnight after explicit activation and qualification of exact paired runtime bundle; both new arms start flat together. No backdated PnL. Existing SHORT account remains running and read-only context.",
+    "primary": "Difference in total net account PnL (LONG_SHORT minus SHORT_CONTROL) across the complete identical 90-day window including zero-trade weeks; no selection of jointly filled trades.",
+    "secondary": [
+      "net PnL per direction",
+      "fees, spread/slippage, funding",
+      "exposure time and turnover",
+      "max drawdown",
+      "signal count, blocked/missed/filled and reasons per direction",
+      "LONG occupancy suppressing later SHORT opportunities",
+      "weekly paired return differences including partial and zero-trade weeks"
+    ],
+    "fairness": "Same raw causal receipts, cutoffs, costs, initial equity and risk formulas, independent state and exits. Equal cost schedule does not imply equal total costs, exposure or realised risk.",
+    "existing_account_context": "May show its net return over same window with explicit starting equity and positions; different legacy state/halt/T1 prevents treating it as flat control. Its pre-T0 history is not candidate performance.",
+    "minimums": {
+      "closed_episodes_per_arm": 20,
+      "distinct_entry_days_per_arm": 20,
+      "entry_iso_weeks_per_arm": 8,
+      "valid_slot_fraction_per_arm": "0.95"
+    },
+    "positive_review_requires": "Both arms satisfy minimums, no unresolved exposure/funding/integrity faults; candidate base and stress net gain positive and maximum drawdown <=10%; base and stress total PnL differences positive; unilateral 95% lower bound of weekly paired base-return differences >0.",
+    "bootstrap": {
+      "unit": "UTC weekly sums including partial and zero-trade weeks",
+      "resamples": 10000,
+      "seed": 20261021,
+      "lower_bound": "5th percentile nearest rank"
+    },
+    "classifications": [
+      "CANDIDATE_FOR_FURTHER_REVIEW_ONLY",
+      "FAILED_FROZEN_CRITERIA",
+      "INCONCLUSIVE_NO_PROMOTION"
+    ],
+    "no_automatic_promotion": true,
+    "parameter_change": "New version and future boundary; previous observed window consumed for new variant, never repaired into a new holdout.",
+    "weekly_return_definition": "End-minus-start equity divided by start equity for each UTC week (partial weeks retained); difference candidate minus control. Bootstrap means of these paired weekly differences."
+  },
+  "implementation_readiness": {
+    "available": [
+      "causal signal kernel",
+      "directional pricing and sizing primitives",
+      "exit trigger and signed funding primitives",
+      "strict aligned-equity comparison helper",
+      "synthetic tests and parity against pinned reference execution"
+    ],
+    "not_implemented": [
+      "durable dual-arm state machine and witness fanout",
+      "LONG-aware primary and independent stress ledgers",
+      "restart/storage failure and administrative close both directions",
+      "funding reconciliation over LONG protective SELL fills",
+      "runtime manifest and activation receipt",
+      "scheduled service, UI and monitoring integration",
+      "bootstrap evaluator and end-of-window scientific classification"
+    ],
+    "activation_authorized": false,
+    "new_collection_required_now": false,
+    "existing_accounts_changed": false
+  }
+}

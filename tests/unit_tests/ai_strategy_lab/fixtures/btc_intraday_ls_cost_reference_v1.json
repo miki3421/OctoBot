@@ -1,0 +1,287 @@
+{
+  "scope": "SYNTHETIC_FIXTURES_NOT_KUCOIN_ADMISSIBILITY",
+  "reference_sha256": "52e2d6843527c3ef1bdffc32ffef982a0e06adf7eea7fe8f1335f0480282e555",
+  "generation": "Pure execution function extracted from pinned existing runner, without importing or executing its runtime.",
+  "cases": [
+    {
+      "book": {
+        "bid_price_1": 99999,
+        "bid_size_1": 100,
+        "bid_price_2": 99998,
+        "bid_size_2": 100,
+        "bid_price_3": 99997,
+        "bid_size_3": 100,
+        "bid_price_4": 99996,
+        "bid_size_4": 100,
+        "bid_price_5": 99995,
+        "bid_size_5": 100,
+        "ask_price_1": 100001,
+        "ask_size_1": 100,
+        "ask_price_2": 100002,
+        "ask_size_2": 100,
+        "ask_price_3": 100003,
+        "ask_size_3": 100,
+        "ask_price_4": 100004,
+        "ask_size_4": 100,
+        "ask_price_5": 100005,
+        "ask_size_5": 100
+      },
+      "quantity": "0.005",
+      "stress": false,
+      "partial": false,
+      "expected": [
+        "0.005",
+        "100011.1",
+        "0.3000333"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 99999,
+        "bid_size_1": 100,
+        "bid_price_2": 99998,
+        "bid_size_2": 100,
+        "bid_price_3": 99997,
+        "bid_size_3": 100,
+        "bid_price_4": 99996,
+        "bid_size_4": 100,
+        "bid_price_5": 99995,
+        "bid_size_5": 100,
+        "ask_price_1": 100001,
+        "ask_size_1": 100,
+        "ask_price_2": 100002,
+        "ask_size_2": 100,
+        "ask_price_3": 100003,
+        "ask_size_3": 100,
+        "ask_price_4": 100004,
+        "ask_size_4": 100,
+        "ask_price_5": 100005,
+        "ask_size_5": 100
+      },
+      "quantity": "-0.005",
+      "stress": false,
+      "partial": false,
+      "expected": [
+        "-0.005",
+        "99989.0",
+        "0.299967"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 79999,
+        "bid_size_1": 1,
+        "bid_price_2": 79998,
+        "bid_size_2": 1,
+        "bid_price_3": 79997,
+        "bid_size_3": 1,
+        "bid_price_4": 79996,
+        "bid_size_4": 1,
+        "bid_price_5": 79995,
+        "bid_size_5": 1,
+        "ask_price_1": 80001,
+        "ask_size_1": 1,
+        "ask_price_2": 80002,
+        "ask_size_2": 1,
+        "ask_price_3": 80003,
+        "ask_size_3": 1,
+        "ask_price_4": 80004,
+        "ask_size_4": 1,
+        "ask_price_5": 80005,
+        "ask_size_5": 1
+      },
+      "quantity": "0.009",
+      "stress": false,
+      "partial": false,
+      "expected": null
+    },
+    {
+      "book": {
+        "bid_price_1": 79999,
+        "bid_size_1": 1,
+        "bid_price_2": 79998,
+        "bid_size_2": 1,
+        "bid_price_3": 79997,
+        "bid_size_3": 1,
+        "bid_price_4": 79996,
+        "bid_size_4": 1,
+        "bid_price_5": 79995,
+        "bid_size_5": 1,
+        "ask_price_1": 80001,
+        "ask_size_1": 1,
+        "ask_price_2": 80002,
+        "ask_size_2": 1,
+        "ask_price_3": 80003,
+        "ask_size_3": 1,
+        "ask_price_4": 80004,
+        "ask_size_4": 1,
+        "ask_price_5": 80005,
+        "ask_size_5": 1
+      },
+      "quantity": "-0.009",
+      "stress": false,
+      "partial": true,
+      "expected": [
+        "-0.005",
+        "79989.0",
+        "0.239967"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 79999,
+        "bid_size_1": 1,
+        "bid_price_2": 79998,
+        "bid_size_2": 1,
+        "bid_price_3": 79997,
+        "bid_size_3": 1,
+        "bid_price_4": 79996,
+        "bid_size_4": 1,
+        "bid_price_5": 79995,
+        "bid_size_5": 1,
+        "ask_price_1": 80001,
+        "ask_size_1": 1,
+        "ask_price_2": 80002,
+        "ask_size_2": 1,
+        "ask_price_3": 80003,
+        "ask_size_3": 1,
+        "ask_price_4": 80004,
+        "ask_size_4": 1,
+        "ask_price_5": 80005,
+        "ask_size_5": 1
+      },
+      "quantity": "0.009",
+      "stress": false,
+      "partial": true,
+      "expected": [
+        "0.005",
+        "80011.1",
+        "0.2400333"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 79999,
+        "bid_size_1": 1,
+        "bid_price_2": 79998,
+        "bid_size_2": 1,
+        "bid_price_3": 79997,
+        "bid_size_3": 1,
+        "bid_price_4": 79996,
+        "bid_size_4": 1,
+        "bid_price_5": 79995,
+        "bid_size_5": 1,
+        "ask_price_1": 80001,
+        "ask_size_1": 1,
+        "ask_price_2": 80002,
+        "ask_size_2": 1,
+        "ask_price_3": 80003,
+        "ask_size_3": 1,
+        "ask_price_4": 80004,
+        "ask_size_4": 1,
+        "ask_price_5": 80005,
+        "ask_size_5": 1
+      },
+      "quantity": "0.005",
+      "stress": true,
+      "partial": false,
+      "expected": [
+        "0.005",
+        "80019.1",
+        "0.4801146"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 79999,
+        "bid_size_1": 1,
+        "bid_price_2": 79998,
+        "bid_size_2": 1,
+        "bid_price_3": 79997,
+        "bid_size_3": 1,
+        "bid_price_4": 79996,
+        "bid_size_4": 1,
+        "bid_price_5": 79995,
+        "bid_size_5": 1,
+        "ask_price_1": 80001,
+        "ask_size_1": 1,
+        "ask_price_2": 80002,
+        "ask_size_2": 1,
+        "ask_price_3": 80003,
+        "ask_size_3": 1,
+        "ask_price_4": 80004,
+        "ask_size_4": 1,
+        "ask_price_5": 80005,
+        "ask_size_5": 1
+      },
+      "quantity": "-0.005",
+      "stress": true,
+      "partial": false,
+      "expected": [
+        "-0.005",
+        "79981.0",
+        "0.479886"
+      ]
+    },
+    {
+      "book": {
+        "bid_price_1": 99,
+        "bid_size_1": 100,
+        "bid_price_2": 98,
+        "bid_size_2": 100,
+        "bid_price_3": 97,
+        "bid_size_3": 100,
+        "bid_price_4": 96,
+        "bid_size_4": 100,
+        "bid_price_5": 95,
+        "bid_size_5": 100,
+        "ask_price_1": 101,
+        "ask_size_1": 100,
+        "ask_price_2": 102,
+        "ask_size_2": 100,
+        "ask_price_3": 103,
+        "ask_size_3": 100,
+        "ask_price_4": 104,
+        "ask_size_4": 100,
+        "ask_price_5": 105,
+        "ask_size_5": 100
+      },
+      "quantity": "0.005",
+      "stress": false,
+      "partial": false,
+      "expected": null
+    }
+  ],
+  "sizing_cases": [
+    {
+      "equity": "10000",
+      "price": "80000",
+      "expected": "0.01"
+    },
+    {
+      "equity": "10000",
+      "price": "200000",
+      "expected": "0.005"
+    },
+    {
+      "equity": "1250",
+      "price": "80000",
+      "expected": "0.001"
+    },
+    {
+      "equity": "100",
+      "price": "100000",
+      "expected": "0.0"
+    },
+    {
+      "equity": "0",
+      "price": "80000",
+      "expected": "0.0"
+    },
+    {
+      "equity": "-1",
+      "price": "80000",
+      "expected": "0.0"
+    }
+  ]
+}
