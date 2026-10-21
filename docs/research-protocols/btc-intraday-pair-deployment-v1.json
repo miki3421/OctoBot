@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "scope": "AUTHORIZED_SYNTHETIC_PAPER_PAIR_DEPLOYMENT",
+  "qualified_runner_bundle_sha256": "92a5b4d1c23e2373ce7ce3e858e01c8646a3c3797d7021e4bdd409da3f38dc31",
+  "protocol_sha256": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+  "qualified_runtime_pins": {
+    "receipts.py": "e4153a6e74fd551ac3e8abe80048408eb901b2596eeca0abff44bcf391ec91be",
+    "__init__.py": "2ece0d62d77370fbdebfc6f028dc694c2ee1c7494feb42dae41be351363a3707",
+    "protocol.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "engine.py": "87a2a31ee639975256969f3db3da6711b42c4e13352dd5176a656aa7be23375b",
+    "service.py": "352c358ba02f2622c916019584b90fd89e9826fc1a1355884f50cae60682deb9",
+    "probe.py": "6d3278534e2f170324f88a5ec0a76589641995e2e4143bb91347735417e8080c",
+    "evaluation.py": "89bfb035077a7926bcc77a7635ecfb895297463ff494cb0015d89e76fe3515df",
+    "runner.py": "4d2ff93fdfb927db6497c690ed0a57a612a550aeade20caa201b58fc057e79f1",
+    "source.py": "35e0cc1c52be15401c2665c36f1b2b58a750c3503c8e09e038ad7d12a4d01fa0"
+  },
+  "files": {
+    "octobot/ai_strategy_lab/btc_intraday_pair_live.py": "f2538f354d107dd2c2bcc9b2b1def961877b0f72e295222c853aea9ec4faeef8",
+    "octobot/ai_strategy_lab/btc_intraday_pair_view.py": "c1072a2db0ba9e2a72b664b6b2c298948f6dd2d5a5a5bdb2f84778f0379af0f2",
+    "scripts/lab_resource_monitor.py": "cfd21ca6d44dd6e63f8e0b92d81c901891cd56746aa163a67105c03f1aa0f1d3",
+    "docker-compose.btc-intraday-pair.yml": "2cba2aef9bda26c024d1fe456362d2ea24f63d26a50e8ee2924125fb0ae04236",
+    "packages/tentacles/Services/Interfaces/web_interface/templates/btc_intraday_pair.html": "8f4ecaa624a839567b6ad4fd76738bbdccb003a0fdd69789f28f695eaa0576aa",
+    "packages/tentacles/Services/Interfaces/web_interface/static/js/common/btc_intraday_pair.js": "736e3f4fd83dbed9c2a6d52c58ebba0ce731591a7ecfa1776b2c9a1bcd7f9fa4"
+  },
+  "real_min_quantity": "UNKNOWN",
+  "real_min_notional": "UNKNOWN",
+  "scientific_validity": "UNASSESSED",
+  "real_orders": false,
+  "operational_grants": false
+}

@@ -15,6 +15,7 @@
 #  License along with this library.
 import time
 import flask
+from octobot.ai_strategy_lab import btc_intraday_pair_view
 import json
 import gzip
 import pathlib
@@ -32,6 +33,30 @@ import octobot_commons.enums
 
 
 def register(blueprint):
+    @blueprint.route("/btc_intraday_pair")
+    @login.login_required_when_activated
+    def btc_intraday_pair_dashboard():
+        if not models.accepted_terms():
+            return flask.redirect(flask.url_for("terms"))
+        if models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(404)
+        response = flask.make_response(flask.render_template("btc_intraday_pair.html"))
+        response.cache_control.no_store = True
+        return response
+
+    @blueprint.route("/btc_intraday_pair/data")
+    @login.login_required_when_activated
+    def btc_intraday_pair_data():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        try:
+            response = flask.jsonify(btc_intraday_pair_view.public())
+        except (OSError, ValueError, KeyError, TypeError):
+            response = flask.jsonify(dict(available=False, message="Confronto intraday non disponibile o non verificabile."))
+            response.status_code = 503
+        response.cache_control.no_store = True
+        return response
+
     @blueprint.route("/")
     @blueprint.route("/home")
     @login.login_required_when_activated

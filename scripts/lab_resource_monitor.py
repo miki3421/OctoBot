@@ -313,6 +313,35 @@ def read_paper_account(name, item, now=None):
     return result
 
 
+def read_intraday_pair(item, now=None):
+    """Only the new public projection; reuse existing email alert contracts."""
+    result = dict(issues=[], status='healthy')
+    try:
+        from btc_intraday_pair_view import public
+        v = public(item['path'], now_ns=None if now is None else int(now*1e9), uid=item['uid'])
+        checked = time.time() if now is None else now
+        result.update(phase=v['phase'], heartbeat_age_seconds=v['age_seconds'])
+        if v['age_seconds'] > item['heartbeat_warn_after_seconds']:
+            result['issues'].append('PAPER_ACCOUNT_STALE:intraday-pair')
+        if v['phase'] == 'BLOCKED':
+            result['issues'].append('PAPER_ACCOUNT_BLOCKED:intraday-pair')
+        else:
+            for name, a in v['arms'].items():
+                if (a['cursor'] != v['input_seq'] or a['input_sha'] != v['input_sha']
+                        or a['integrity_halt'] or not a['complete']):
+                    result['issues'].append('PAPER_ACCOUNT_BLOCKED:intraday-pair-'+name)
+                if v['phase'] != 'COMPLETED' and any(a[k] is None or
+                        checked-a[k]/1e9 > item[limit] for k, limit in
+                        (('last_market_ns', 'market_warn_after_seconds'),
+                         ('last_book_ns', 'book_warn_after_seconds'))):
+                    result['issues'].append('PAPER_ACCOUNT_STALE:intraday-pair-'+name)
+        if result['issues']:
+            result['status'] = 'attention'
+    except (ImportError, OSError, ValueError, KeyError, TypeError, OverflowError):
+        result.update(status='unavailable', issues=['PAPER_ACCOUNT_UNAVAILABLE:intraday-pair'])
+    return result
+
+
 def collect(config):
     now = time.time()
     m = counters('/proc/meminfo')
@@ -345,6 +374,8 @@ def collect(config):
     if 'forks' in config:
         sample['forks'] = read_forks(config['forks'])
     sample['paper_accounts'] = {name:read_paper_account(name,item) for name,item in config.get('paper_accounts',{}).items()}
+    if 'intraday_pair' in config:
+        sample['paper_accounts']['intraday_pair'] = read_intraday_pair(config['intraday_pair'])
     sample.update(inspect_containers(config['containers']))
     return sample
 
