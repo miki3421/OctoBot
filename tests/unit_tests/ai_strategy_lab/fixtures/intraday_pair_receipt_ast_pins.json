@@ -1,0 +1,29 @@
+{
+  "source.py": {
+    "reference_sha256": "bf882704a6d5bb75b6feaa5bb768197bbd175a3794d191a4dfc15e2bcaee0082",
+    "definitions": {
+      "canonical": "dd7f29e300f911baf309593ddccab6535a71b2b5d3b217317a534f48203fb089",
+      "digest": "d6571d96c0844d3653ec1d3bb66940f90a04562cf5f4040ef03b87c201da7e60",
+      "strict": "9da7c0c06a6f7e4395b8a7f8ce8c5525a5e4612936cea455ba5681f6f5c78e9b",
+      "timestamp": "949f536a0f4e5e3c328b592fd739050c95f4f79b91de136c7797a43dbb885c27",
+      "read_blob": "9aaf9af3dbfed0e1110b75d9fb18b489a28525b235cad33b529cfffe175dea5f",
+      "hashed": "f29b37856c4ff16317d9aea131bc4003adc49003985640d2c6a6dc4adda8dfa5",
+      "remote": "3922744a237edd67ef40c583e874780d38913fb23063cef4c2507c016ad8f538",
+      "validate_receipt": "ffa1d5e757aa02819b011a2828e9d33e85c154650799cb43f46d826913fd663a",
+      "normalize": "56d5e6a81911e7676ec8bc8322ec26c95224bab73b487ee2867c774ccf17a592",
+      "selected": "086fc17f01f4867e27ee4892cd255f43cfc31fdf8d1ef0305d346ad462cd6c79"
+    }
+  },
+  "receipts.py": {
+    "reference_sha256": "d50662a08de4eb733e1743b103fb957f9cb352ffc89849cdd180bb76af44e476",
+    "definitions": {
+      "Denied": "8e23462e00d1fdb31040c254dcff1bdf41cdd8f1447832f7d1b5d5b9f4811844",
+      "Clock": "959cb9a417cd470c888ff17652ad37396139cdec0d209dbc71462aae49295a5e",
+      "ro": "c3c9b1d14201c3f6b0626ed92d8d15a7842b8fd8703a58795492bf49173d8d12",
+      "verify": "b16650a4f652d72e1070032b4885d0f51eaf9f5d6972c931ec7121a95d66ade5",
+      "Witness": "9f6325c4e359d12706b7515317359f7924993bf9555cbfa4664a47eddf107b1b",
+      "read_market": "53df050a433b3d12d8ec22ad5bc2c7d52fcfe38ff88f8022848c2ebc825159d0",
+      "BookReader": "a32f6e5f6759be50d2778442bcfa9c697f8a6d72bbd38c5b93a1d2c7a91b8a38"
+    }
+  }
+}

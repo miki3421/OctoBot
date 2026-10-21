@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "status": "TECHNICALLY_QUALIFIED_CANDIDATE_NOT_ACTIVATED",
+  "scientific_validity": "UNASSESSED",
+  "activation_authorized": false,
+  "orders_authorized": false,
+  "paper_orders_authorized": false,
+  "protocol_sha256": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+  "base_commit": "22a99eb5d5d09da4ac3e14ec6d9595f4446f8159",
+  "runtime_pins": {
+    "receipts.py": "e4153a6e74fd551ac3e8abe80048408eb901b2596eeca0abff44bcf391ec91be",
+    "__init__.py": "2ece0d62d77370fbdebfc6f028dc694c2ee1c7494feb42dae41be351363a3707",
+    "protocol.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "engine.py": "87a2a31ee639975256969f3db3da6711b42c4e13352dd5176a656aa7be23375b",
+    "service.py": "352c358ba02f2622c916019584b90fd89e9826fc1a1355884f50cae60682deb9",
+    "probe.py": "6d3278534e2f170324f88a5ec0a76589641995e2e4143bb91347735417e8080c",
+    "evaluation.py": "89bfb035077a7926bcc77a7635ecfb895297463ff494cb0015d89e76fe3515df",
+    "runner.py": "4d2ff93fdfb927db6497c690ed0a57a612a550aeade20caa201b58fc057e79f1",
+    "source.py": "35e0cc1c52be15401c2665c36f1b2b58a750c3503c8e09e038ad7d12a4d01fa0"
+  },
+  "files": {
+    "octobot/ai_strategy_lab/intraday_pair/receipts.py": "e4153a6e74fd551ac3e8abe80048408eb901b2596eeca0abff44bcf391ec91be",
+    "octobot/ai_strategy_lab/intraday_pair/__init__.py": "2ece0d62d77370fbdebfc6f028dc694c2ee1c7494feb42dae41be351363a3707",
+    "octobot/ai_strategy_lab/intraday_pair/protocol.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "octobot/ai_strategy_lab/intraday_pair/engine.py": "87a2a31ee639975256969f3db3da6711b42c4e13352dd5176a656aa7be23375b",
+    "octobot/ai_strategy_lab/intraday_pair/service.py": "352c358ba02f2622c916019584b90fd89e9826fc1a1355884f50cae60682deb9",
+    "octobot/ai_strategy_lab/intraday_pair/probe.py": "6d3278534e2f170324f88a5ec0a76589641995e2e4143bb91347735417e8080c",
+    "octobot/ai_strategy_lab/intraday_pair/evaluation.py": "89bfb035077a7926bcc77a7635ecfb895297463ff494cb0015d89e76fe3515df",
+    "octobot/ai_strategy_lab/intraday_pair/runner.py": "4d2ff93fdfb927db6497c690ed0a57a612a550aeade20caa201b58fc057e79f1",
+    "octobot/ai_strategy_lab/intraday_pair/source.py": "35e0cc1c52be15401c2665c36f1b2b58a750c3503c8e09e038ad7d12a4d01fa0",
+    "docs/BTC_INTRADAY_PAIRED_RUNNER_V1.md": "d035c8c684e38f567e39f120a5c328f0d8b60638349df2dd2f0becab5b722e16",
+    "tests/unit_tests/ai_strategy_lab/test_intraday_pair_runner.py": "579ddbeea15ca602e3c457b6ce0c785af9d09e1076698735749f78ac6776c7a0",
+    "tests/unit_tests/ai_strategy_lab/fixtures/btc_intraday_short_runner_reference_v1.txt": "52e2d6843527c3ef1bdffc32ffef982a0e06adf7eea7fe8f1335f0480282e555",
+    "tests/unit_tests/ai_strategy_lab/fixtures/intraday_pair_receipt_ast_pins.json": "d2a272c7aece44fcbb6520029232c5710e564c63ec6bb4859bc2d9786d2d312a"
+  },
+  "qualification": {
+    "tests_passed": 103,
+    "new_runner_tests": 37,
+    "existing_tests": 66,
+    "source_probe": {
+      "status": "PUBLIC_INPUT_FANOUT_QUALIFIED_PRESTART_ONLY",
+      "seconds": 15,
+      "inputs": 73,
+      "book_rows": 151,
+      "fresh_book_rows": 134,
+      "cold_databases": 6,
+      "fills": 0
+    },
+    "existing_containers_unchanged": 10
+  },
+  "real_min_quantity": "UNKNOWN",
+  "real_min_notional": "UNKNOWN",
+  "operational_t0": null,
+  "operational_t1": null
+}

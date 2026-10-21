@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "status": "TEMPLATE_NOT_APPROVAL",
+  "scope": "AUTHORIZED_SYNTHETIC_PAPER_PAIR",
+  "paper_pair_activation_authorized": false,
+  "real_orders": false,
+  "exchange_credentials": false,
+  "operational_grants": false,
+  "protocol_sha256": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+  "operator_acceptance_reference": null,
+  "directory": null,
+  "t0_ns": null,
+  "t1_ns": null,
+  "account_ids": [
+    "btc-intraday-short-control-v1",
+    "btc-intraday-long-short-v1"
+  ],
+  "code_pins": {
+    "receipts.py": "e4153a6e74fd551ac3e8abe80048408eb901b2596eeca0abff44bcf391ec91be",
+    "__init__.py": "2ece0d62d77370fbdebfc6f028dc694c2ee1c7494feb42dae41be351363a3707",
+    "protocol.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "engine.py": "87a2a31ee639975256969f3db3da6711b42c4e13352dd5176a656aa7be23375b",
+    "service.py": "352c358ba02f2622c916019584b90fd89e9826fc1a1355884f50cae60682deb9",
+    "probe.py": "6d3278534e2f170324f88a5ec0a76589641995e2e4143bb91347735417e8080c",
+    "evaluation.py": "89bfb035077a7926bcc77a7635ecfb895297463ff494cb0015d89e76fe3515df",
+    "runner.py": "4d2ff93fdfb927db6497c690ed0a57a612a550aeade20caa201b58fc057e79f1",
+    "source.py": "35e0cc1c52be15401c2665c36f1b2b58a750c3503c8e09e038ad7d12a4d01fa0"
+  }
+}
