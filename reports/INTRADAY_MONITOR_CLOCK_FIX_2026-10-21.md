@@ -1,8 +1,9 @@
 # Monitor intraday — correzione del riferimento temporale
 
-**21 ottobre 2026: patch implementata e verificata, attivazione manuale ancora
-da effettuare.** Il servizio live rimane sul bundle v2. Strategie, conti,
-collector, soglie, grant e notificatore SMTP non sono modificati.
+**21 ottobre 2026: monitor v3 attivato manualmente su autorizzazione esplicita
+dell’utente.** Primo avvio completato alle 08:35:52 UTC (10:35:52 italiane);
+ciclo naturale delle 08:40 UTC verificato con successo. Strategie, conti, collector, soglie, grant
+e notificatore SMTP non sono modificati. Il bundle v2 resta disponibile per rollback.
 
 ## Diagnosi ed evidenza
 
@@ -63,9 +64,9 @@ correnti, ma con output e database di telemetria **isolati** dalle directory
 del monitor operativo. Esito: nessun alert, intraday healthy, riferimento
 uguale al clock di fine lettura. Questa prova non è un deploy né l'accettazione
 live. `systemd-analyze verify` accetta l'unità candidata; nessun servizio
-è stato riavviato. Nessuna scansione di integrità sui journal live.
+era stato riavviato durante quella prova. Nessuna scansione di integrità sui journal live.
 
-## Candidato pronto e gate operatore
+## Pacchetto congelato e procedura di attivazione
 
 Pacchetto locale nell'archivio delle evidenze:
 
@@ -89,6 +90,9 @@ cambia soltanto `WorkingDirectory` da v2 a v3.
 La [regola MMTech pubblicata il 19 ottobre](https://control-plane.mmtech.website/v1/kb/documents/company-kb-abffa3c0-0268-4e0d-9177-ef4e0b04bfef)
 richiede: “The operator performs the manual deploy and acceptance.”
 L'attivazione e l'accettazione non sono sostituite dai test locali o dal push.
+In questa sessione l’utente ha delegato espressamente l’attivazione manuale
+del solo monitor v3 e la verifica. L’accettazione finale dell’operatore resta
+distinta dal collaudo tecnico svolto dall’autore.
 
 Procedura per il solo monitor, da eseguire al gate manuale:
 
@@ -133,5 +137,36 @@ base: Git registra il file completo; il confronto con il live v2 riguarda
 solo i blocchi modificati descritti sopra. La base esistente e il lavoro
 locale estraneo sono conservati, senza merge a main o riscrittura della storia.
 Test d'autore SINGLE_AGENT; nessuna review indipendente o accettazione
-post-deploy rivendicata. Fonte operativa della diagnosi: bundle live v2
+finale dell’utente rivendicata. Fonte operativa della diagnosi: bundle live v2
 verificato per hash, non stato presunto del branch.
+
+
+## Attivazione autorizzata e verifiche operative
+
+Evidenze di questa fase, separate dal pacchetto precedente immutabile:
+`audit-evidence/intraday-monitor-activation-20261021/` nella radice del workspace.
+
+- Hash iniziali e dei quattro artefatti candidati verificati; backup dell’unità
+  v2 conservato prima del cambio. Nessun drift rilevato.
+- Installato esattamente il bundle congelato in `/opt/trading-lab-resource-monitor-v3`.
+  Sospeso brevemente solo il timer monitor, sostituita la sola unità prevista,
+  ricaricato systemd, avviato il monitor e ripristinato il timer.
+- Primo campione v3: 08:35:51.655182 UTC; servizio terminato con successo
+  alle 08:35:52 UTC, codice zero. M1 e intraday healthy, nessun alert;
+  `validation_at == read_completed_at` per entrambi, senza clock regressivo.
+- Notificatore naturale delle 08:36 UTC riuscito: `DEDUPLICATO`, zero alert
+  attivi; nessuna mail di prova. Configurazione SMTP e deduplicazione conservate.
+- Ciclo naturale avviato alle 08:40:04 UTC, terminato alle 08:40:05 UTC:
+  codice zero, nuovi timestamp diagnostici coerenti, M1 e intraday healthy,
+  zero alert e tutti i collector freschi. Il timer mantiene la cadenza di cinque minuti.
+- Confronto dei dieci container prima/dopo: ID, immagine, avvio, stato,
+  health e numero di riavvii identici. Nessun conto, collector o strategia riavviato.
+- Hash di configurazione, timer, notificatore e bundle v2 identici al baseline;
+  pagine V13, confronto e BTC intraday raggiungibili con HTTP 200.
+- Telemetria e stato di deduplicazione riutilizzati senza reset; nessuna
+  scansione pesante o scrittura ai journal paper.
+
+Le verifiche post-deploy sono una fase tecnica separata dai test offline,
+ma sono eseguite dallo stesso agente: non costituiscono QA indipendente.
+La scheda produzione resta in Test dopo la verifica tecnica fino
+all’accettazione finale dell’utente; nessun merge a main eseguito.
