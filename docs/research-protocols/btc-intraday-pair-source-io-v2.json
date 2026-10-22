@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "scope": "IO_ONLY_CONTINUATION_CANDIDATE",
+  "qualified_runner_bundle_sha256": "92a5b4d1c23e2373ce7ce3e858e01c8646a3c3797d7021e4bdd409da3f38dc31",
+  "protocol_sha256": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+  "frozen_runtime_pins": {
+    "receipts.py": "e4153a6e74fd551ac3e8abe80048408eb901b2596eeca0abff44bcf391ec91be",
+    "__init__.py": "2ece0d62d77370fbdebfc6f028dc694c2ee1c7494feb42dae41be351363a3707",
+    "protocol.json": "06c8fa9aa85ecb5ea9fae49fd1b9cbe81178f14b85a033bb2b3dda4e8413caeb",
+    "engine.py": "87a2a31ee639975256969f3db3da6711b42c4e13352dd5176a656aa7be23375b",
+    "service.py": "352c358ba02f2622c916019584b90fd89e9826fc1a1355884f50cae60682deb9",
+    "probe.py": "6d3278534e2f170324f88a5ec0a76589641995e2e4143bb91347735417e8080c",
+    "evaluation.py": "89bfb035077a7926bcc77a7635ecfb895297463ff494cb0015d89e76fe3515df",
+    "runner.py": "4d2ff93fdfb927db6497c690ed0a57a612a550aeade20caa201b58fc057e79f1",
+    "source.py": "35e0cc1c52be15401c2665c36f1b2b58a750c3503c8e09e038ad7d12a4d01fa0"
+  },
+  "files": {
+    "octobot/ai_strategy_lab/btc_intraday_pair_live.py": "3b142f002008f7607b9f4707a24bcae6054d5b6d2d27fb6b112f2087e0f16c80",
+    "octobot/ai_strategy_lab/btc_intraday_pair_io.py": "b4b7719a5638f3b616df0405b81dee0c6307f5d5526982d87f8bf19d31121270",
+    "docker-compose.btc-intraday-pair-io-v2.yml": "b426c0fee0d0ae6c5aad8477d1012075d296e3d44cdcf8e1fb69cbe479e4f173"
+  },
+  "strategy_unchanged": true,
+  "state_reset_allowed": false,
+  "real_orders": false,
+  "exchange_credentials": false,
+  "operational_grants": false,
+  "real_min_quantity": "UNKNOWN",
+  "real_min_notional": "UNKNOWN"
+}

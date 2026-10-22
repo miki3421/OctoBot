@@ -118,17 +118,15 @@ class ActivationTests(unittest.TestCase):
         self.write(); target=self.path.with_suffix('.target'); self.path.rename(target);self.path.symlink_to(target)
         with self.assertRaises(OSError): self.read()
 
-    def test_live_wrapper_requires_own_exact_hash_and_separate_projection(self):
+    def test_live_wrapper_requires_explicit_continuation_without_initialization(self):
         out=Path(self.tmp.name)/'publish';out.mkdir(mode=0o750)
         c=dict(directory=str(self.pair.path),source=str(Path(self.tmp.name)/'source'),
                book=str(Path(self.tmp.name)/'book/data.sqlite'),projection=str(out/'comparison.json'))
         approval=dict(live_wrapper_sha256=hashlib.sha256(Path(live.__file__).read_bytes()).hexdigest())
         with patch.object(live, 'authority', return_value=approval):
-            self.assertEqual(live.authorized(c), approval)
-            c['projection']=str(self.pair.path/'leak.json')
             with self.assertRaises(ValueError): live.authorized(c)
-        with patch.object(live, 'authority', return_value={}):
-            with self.assertRaises(ValueError): live.authorized(c)
+            with self.assertRaisesRegex(ValueError, 'cannot_initialize'):
+                live.authorized(c, initialize=True)
 
     def test_ui_routes_have_existing_profile_and_login_guards(self):
         import ast

@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 import time
 
-from intraday_pair import receipts
+from btc_intraday_pair_io import RecoveringBookReader, append_event
 from intraday_pair.runner import Pair
 from intraday_pair.service import authority, atomic, root_document
 from intraday_pair.source import NS, digest, strict
@@ -17,7 +17,7 @@ from intraday_pair.source import NS, digest, strict
 SCOPE = 'SYNTHETIC_RESEARCH_PAPER_NOT_KUCOIN_ORDER_ADMISSIBILITY'
 
 
-def projection(pair):
+def projection(pair, reader=None):
     """Bounded observations from this writer's own databases, never a source scan."""
     now = pair.clock.sample()['utc_ns']
     accounts = {}
@@ -48,13 +48,46 @@ def projection(pair):
         activation_sha=pair.identity['bundle_sha'], checked_at_ns=checked,
         t0_ns=pair.t0, t1_ns=pair.t0+90*86400*NS, phase=phase,
         input_seq=pair.seq, input_sha=pair.previous if pair.seq else None, arms=accounts,
-        real_min_quantity='UNKNOWN', real_min_notional='UNKNOWN', scientific_validity='UNASSESSED')
+        real_min_quantity='UNKNOWN', real_min_notional='UNKNOWN', scientific_validity='UNASSESSED',
+        source_io=reader.status() if reader is not None else None)
 
 
 def authorized(config, initialize=False):
+    # A code-only continuation must retain the original activation digest used
+    # by every account identity. Never rewrite that receipt or reinitialize.
+    if initialize:
+        raise ValueError('io_continuation_cannot_initialize')
+    if not all(config.get(k) for k in ('continuation', 'predecessor_configuration', 'source_io_log')):
+        raise ValueError('explicit_io_continuation_required')
     approval = authority(config, initialize=initialize)
-    if approval.get('live_wrapper_sha256') != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
-        raise ValueError('exact_live_wrapper_required')
+    continuation = root_document(config['continuation'])
+    predecessor = Path(config['predecessor_configuration'])
+    prior_config = root_document(predecessor)
+    names = {'btc_intraday_pair_live.py', 'btc_intraday_pair_io.py'}
+    if (continuation.get('scope') != 'AUTHORIZED_PAPER_PAIR_IO_CONTINUATION'
+            or continuation.get('prior_activation_sha256') != digest(approval)
+            or continuation.get('predecessor_configuration_sha256') != hashlib.sha256(predecessor.read_bytes()).hexdigest()
+            or continuation.get('protocol_sha256') != approval.get('protocol_sha256')
+            or continuation.get('directory') != config['directory']
+            or continuation.get('strategy_unchanged') is not True
+            or continuation.get('state_reset_allowed') is not False
+            or continuation.get('real_orders') is not False
+            or continuation.get('exchange_credentials') is not False
+            or continuation.get('operational_grants') is not False
+            or not isinstance(continuation.get('operator_acceptance_reference'), str)
+            or not continuation['operator_acceptance_reference'].strip()
+            or set(continuation.get('runtime_files', {})) != names
+            or any(config.get(k) != prior_config.get(k) for k in
+                   ('activation', 'directory', 'source', 'book', 'control', 'projection'))):
+        raise ValueError('exact_io_continuation_required')
+    for name, sha in continuation['runtime_files'].items():
+        if hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() != sha:
+            raise ValueError('io_runtime_pin_mismatch')
+    io = Path(config['source_io_log'])
+    if (io != Path(config['directory']).parent/'source-read-events.jsonl'
+            or io.is_symlink() or io.parent.is_symlink()
+            or io.parent.stat().st_uid != os.geteuid() or io.parent.stat().st_mode & 0o077):
+        raise ValueError('private_io_log_destination')
     out = Path(config['projection'])
     if out.is_symlink() or out.parent.is_symlink() or not out.parent.is_dir():
         raise ValueError('projection_destination')
@@ -77,7 +110,8 @@ def run(config, initialize=False):
         atomic(Path(config['projection']), projection(pair))
         if initialize:
             return
-        reader = receipts.BookReader(config['book'], pair.clock)
+        reader = RecoveringBookReader(config['book'], pair.clock,
+            lambda event: append_event(config['source_io_log'], event))
         last_projection = 0
         last_grid = None
         while True:
@@ -93,7 +127,7 @@ def run(config, initialize=False):
                 pair.observe_grid(slot)
                 last_grid = slot
             if now-last_projection >= 5*NS:
-                atomic(Path(config['projection']), projection(pair))
+                atomic(Path(config['projection']), projection(pair, reader))
                 last_projection = now
             time.sleep(.05)
     except BaseException as error:
