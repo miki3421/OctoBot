@@ -20,7 +20,7 @@ Gli episodi di attesa/ripresa vengono aggiunti a un file diagnostico privato dis
 
 Il package qualificato `intraday_pair/`, incluso motore, reader originale, witness, protocollo e statistiche, resta identico per hash. Originale, FAST, HALF, M1 e intraday iniziale restano invariati.
 
-La ricevuta di attivazione originale e il suo digest rimangono immutati nelle sei identità SQLite esistenti. Il nuovo wrapper richiede una ricevuta root-owned di continuazione I/O separata, fissata al digest originale, al file di configurazione precedente e ai due nuovi file runtime. Verifica che percorsi, sorgenti e destinazioni siano gli stessi. Il comando initialize è vietato. Nuova ricevuta e codice non concedono ordini reali, credenziali exchange o grant operativi.
+La ricevuta di attivazione originale e il suo digest rimangono immutati nelle identità dei database esistenti. Il nuovo wrapper richiede una ricevuta root-owned di continuazione I/O separata, fissata al digest originale, al file di configurazione precedente e ai due nuovi file runtime. Verifica che percorsi, sorgenti e destinazioni siano gli stessi. Il comando initialize è vietato. Nuova ricevuta e codice non concedono ordini reali, credenziali exchange o grant operativi.
 
 Il runtime v1 resta inalterato per rollback; la versione I/O viene installata in un percorso distinto. Si arresta soltanto il vecchio container della coppia, se ne conservano log e container fermo e si copia a freddo lo stato. Poi si avvia la nuova versione con gli stessi mount di stato e proiezione, senza inizializzazione. Tutti gli altri container continuano a operare. La copia fredda viene controllata separatamente: nessuna scansione di integrità dei database live di sorgente o conto.
 
