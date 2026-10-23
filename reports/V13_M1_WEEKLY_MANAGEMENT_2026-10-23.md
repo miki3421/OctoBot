@@ -6,7 +6,7 @@
 
 Implementati selettore settimanale, collector pubblico separato, broker autenticato delle approvazioni, continuazione del runner M1 sul medesimo ledger, esclusioni LONG persistenti, budget SHORT indipendenti e UI con approvazione/rifiuto, costi, scadenze e risultato dell'esecuzione. Proposta, intenzione e fill sono collegati. I nuovi simboli sono pubblicati nei grafici solo dai prezzi osservati dopo l'ammissione.
 
-Pagina destinataria: `/v13_variants/m1/review`. Il codice è pronto ma **non caricato sui servizi operativi in questa consegna**. La UI pubblicata in precedenza continua a mostrare le metriche storiche; non dichiarare già applicata la selezione. Nessuna proposta reale approvata dall'agente.
+Pagina destinataria: `/v13_variants/m1/review`. Il codice è pronto ma **il backend di gestione non è attivato sui servizi operativi in questa consegna**. I template sono condivisi con la UI: la nuova sezione può già comparire come non disponibile, accanto alle metriche storiche. Il controller operativo non è stato sostituito o ricaricato; non dichiarare già applicata la selezione. Nessuna proposta reale approvata dall'agente.
 
 Specifica: `docs/V13_M1_WEEKLY_MANAGEMENT_V1.md`. Candidato Compose: `docker-compose.v13-m1-managed.yml`. Preparatore ripetibile che rifiuta la sovrascrittura e non avvia servizi: `scripts/prepare_m1_weekly_release.py`.
 
