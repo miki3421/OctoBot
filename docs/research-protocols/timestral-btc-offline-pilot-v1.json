@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "study": "timestral-5m-btc-offline-pilot-v1",
+  "scope": "EXPLORATORY_RETROSPECTIVE_SIGNAL_COMPARISON_NOT_ACCOUNT_OR_KUCOIN_ADMISSIBILITY",
+  "frozen_at": "2026-10-23T19:40:21.147453+00:00",
+  "source_commit": "a534bdbd244d64f3d9d743f46c7bf6fc330ed4ff",
+  "model_revision": "bdd20cfc15a3fea0e4cb5ccef37f8d3ca7aa335f",
+  "model_repository": "mistralai/Timestral-5M",
+  "model_weights_sha256": "7ace108c4987e7f2a99a75a445240019d1d31c2117139d1bd05ffdfd25aca738",
+  "period": {
+    "warmup_start": "2026-09-29T00:00:00+00:00",
+    "start": "2026-10-01T00:00:00+00:00",
+    "end_exclusive": "2026-10-15T00:00:00+00:00",
+    "reason": "Fixed 14 UTC days before existing prospective M1 observation; no sealed study journal or interim outcomes accessed"
+  },
+  "input": {
+    "grid_seconds": 300,
+    "context_points": 289,
+    "source_age_seconds": 120,
+    "target": "log BTC public mark",
+    "past_covariate": "fraction of original 18 assets with negative trailing 1h return; first 12 context values missing",
+    "known_future_covariates": false,
+    "model_horizon_steps": 73,
+    "batch_size": 16,
+    "torch_threads": 4
+  },
+  "rules": {
+    "timestral": "SHORT if median predicted return from current BTC mark to step73 is at most -1 percent",
+    "m1": "SHORT if actual unchanged M1 momentum_breadth detector is true",
+    "simple": "SHORT if observed BTC trailing1h return is at most -1 percent, without breadth",
+    "forecast_reference": "persistence forecast: future log BTC equals current log BTC",
+    "longs": false
+  },
+  "execution": {
+    "own_synthetic_contract": true,
+    "initial_reference_equity": 10000,
+    "fixed_notional_per_episode": 1000,
+    "quantity_step_btc": 0.001,
+    "synthetic_base_per_native_unit": 0.001,
+    "real_quantity_mapping": "UNQUALIFIED_FOR_HISTORICAL_PERIOD",
+    "real_min_quantity": "UNKNOWN",
+    "real_min_notional": "UNKNOWN",
+    "entry_delay_seconds": 300,
+    "holding_seconds": 21600,
+    "cooldown_after_exit_seconds": 21600,
+    "maximum_entries_per_UTC_day": 1,
+    "maximum_open_positions": 1,
+    "quote_wait_seconds": 1,
+    "maximum_capture_latency_ms": 1000,
+    "book": "first accepted raw L5 observed at or after execution due time",
+    "fee_bps_per_fill": 6,
+    "adverse_slippage_bps_per_fill": 2,
+    "stress_multiplier_fee_and_slippage": 2,
+    "funding": "Actual BTC settlement rates and preceding marks from Original journal, used only as outcomes; complete 8h settlement coverage required",
+    "missing": "Keep censored episode and do not invent fill/PnL; unresolved trade halts that method subsequent entries",
+    "account_semantics": "Fixed-notional non-overlapping BTC sleeve event study, not a replay of actual V13 multiasset account or live M1 basket"
+  },
+  "metrics": [
+    "forecast MAE/RMSE in log-return bps vs persistence",
+    "80 percent quantile coverage and interval width",
+    "per-UTC-day paired forecast errors; no iid significance claim",
+    "all raw signals, admissions, censored and completed episodes",
+    "sum of hypothetical fixed-size episode net PnL, fees, funding and stress"
+  ],
+  "limitations": [
+    "Historical reuse; not an untouched holdout",
+    "Model post-training data and cutoff unknown: no claim of out-of-training historical prices",
+    "Only Timestral-5M zero-shot, no fine tuning or model/threshold selection",
+    "M1 formula compared on identical BTC sleeve, not live account returns",
+    "Retrospective result does not establish ability to anticipate future crashes",
+    "Paper research synthetic contract, no real exchange admissibility"
+  ],
+  "permissions": {
+    "network_during_inference": false,
+    "live_strategy_changes": false,
+    "orders": false,
+    "grants": false,
+    "quarantine_changes": false
+  },
+  "resources": {
+    "cpus": 4,
+    "memory_gib": 4,
+    "qwen_stop_only_if_needed_and_dependencies_verified": true
+  },
+  "protocol_id": "a7776028076c2a4838dcb0b5e14970abb7b12396763507ebfbd6c27ca4f92c81"
+}

@@ -1,0 +1,192 @@
+{
+  "study": "timestral-5m-btc-offline-pilot-v1",
+  "status": "COMPLETED_EXPLORATORY_NO_PROMOTION",
+  "protocol_id": "a7776028076c2a4838dcb0b5e14970abb7b12396763507ebfbd6c27ca4f92c81",
+  "period": {
+    "start": "2026-10-01T00:00:00Z",
+    "end_exclusive": "2026-10-15T00:00:00Z"
+  },
+  "model_revision": "bdd20cfc15a3fea0e4cb5ccef37f8d3ca7aa335f",
+  "source_commit": "a534bdbd244d64f3d9d743f46c7bf6fc330ed4ff",
+  "dataset": {
+    "expected_decision_slots": 4032,
+    "valid_contexts": 3740,
+    "invalid_contexts": 292,
+    "complete_labels": 3663,
+    "missing_or_tail_labels": 77,
+    "book_points": 4033,
+    "missing_book_points": 5
+  },
+  "forecast": {
+    "complete_labels": 3663,
+    "missing_or_tail_labels": 77,
+    "mae_bps": 58.71787770371961,
+    "persistence_mae_bps": 55.95325429715911,
+    "rmse_bps": 83.107941314325,
+    "persistence_rmse_bps": 79.82283946735942,
+    "coverage_80": 0.7523887523887524,
+    "mean_interval_width_bps": 166.421122737117,
+    "mae_ratio_to_persistence": 1.0494095194513264
+  },
+  "per_day": {
+    "2026-10-01": {
+      "timestral_mae_bps": 67.73256932252009,
+      "persistence_mae_bps": 63.65365945554115,
+      "samples": 288
+    },
+    "2026-10-02": {
+      "timestral_mae_bps": 107.65961966700618,
+      "persistence_mae_bps": 100.83714945477496,
+      "samples": 288
+    },
+    "2026-10-03": {
+      "timestral_mae_bps": 13.601649723033768,
+      "persistence_mae_bps": 13.865428159640093,
+      "samples": 288
+    },
+    "2026-10-04": {
+      "timestral_mae_bps": 63.98868854276725,
+      "persistence_mae_bps": 57.13686042959878,
+      "samples": 288
+    },
+    "2026-10-05": {
+      "timestral_mae_bps": 39.84972730353709,
+      "persistence_mae_bps": 52.92762464024146,
+      "samples": 221
+    },
+    "2026-10-06": {
+      "timestral_mae_bps": 160.6723148064437,
+      "persistence_mae_bps": 149.41630132156638,
+      "samples": 59
+    },
+    "2026-10-07": {
+      "timestral_mae_bps": 60.34460904990633,
+      "persistence_mae_bps": 54.542772078963125,
+      "samples": 288
+    },
+    "2026-10-08": {
+      "timestral_mae_bps": 79.95507492719933,
+      "persistence_mae_bps": 79.58812206486569,
+      "samples": 288
+    },
+    "2026-10-09": {
+      "timestral_mae_bps": 41.466132306902345,
+      "persistence_mae_bps": 41.35598860728531,
+      "samples": 288
+    },
+    "2026-10-10": {
+      "timestral_mae_bps": 18.192756442210992,
+      "persistence_mae_bps": 15.192807384527057,
+      "samples": 288
+    },
+    "2026-10-11": {
+      "timestral_mae_bps": 40.251796498437855,
+      "persistence_mae_bps": 31.450646436156795,
+      "samples": 288
+    },
+    "2026-10-12": {
+      "timestral_mae_bps": 69.75190413767602,
+      "persistence_mae_bps": 69.6665814335594,
+      "samples": 288
+    },
+    "2026-10-13": {
+      "timestral_mae_bps": 47.20691928261917,
+      "persistence_mae_bps": 49.82354396174825,
+      "samples": 288
+    },
+    "2026-10-14": {
+      "timestral_mae_bps": 98.01597390596551,
+      "persistence_mae_bps": 84.816272281999,
+      "samples": 215
+    }
+  },
+  "methods": {
+    "timestral": {
+      "raw_signals": 0,
+      "admitted": 0,
+      "complete": 0,
+      "censored": 0,
+      "suppressed": {},
+      "base_net_observed": 0,
+      "base_fees": 0,
+      "funding": 0,
+      "stress_net_observed": 0,
+      "wins": 0,
+      "interpretation": "EXPLORATORY_FIXED_SIZE_EPISODE_PNL_NOT_A_LIVE_ACCOUNT"
+    },
+    "m1": {
+      "raw_signals": 46,
+      "admitted": 6,
+      "complete": 6,
+      "censored": 0,
+      "suppressed": {
+        "COOLDOWN": 40
+      },
+      "base_net_observed": 5.271298303496087,
+      "base_fees": 6.821081989224,
+      "funding": 0.27627485272,
+      "stress_net_observed": -3.8234748641757434,
+      "wins": 2,
+      "interpretation": "EXPLORATORY_FIXED_SIZE_EPISODE_PNL_NOT_A_LIVE_ACCOUNT"
+    },
+    "simple": {
+      "raw_signals": 46,
+      "admitted": 6,
+      "complete": 6,
+      "censored": 0,
+      "suppressed": {
+        "COOLDOWN": 40
+      },
+      "base_net_observed": 5.271298303496087,
+      "base_fees": 6.821081989224,
+      "funding": 0.27627485272,
+      "stress_net_observed": -3.8234748641757434,
+      "wins": 2,
+      "interpretation": "EXPLORATORY_FIXED_SIZE_EPISODE_PNL_NOT_A_LIVE_ACCOUNT"
+    }
+  },
+  "runtime": {
+    "model_parameters": 5208960,
+    "torch": "2.14.0+cpu",
+    "cpu_threads": 4,
+    "model_load_seconds": 0.04857139475643635,
+    "total_seconds": 17.477364646736532,
+    "peak_rss_kib": 327744,
+    "network": "none",
+    "device": "cpu"
+  },
+  "validation": {
+    "independent_metric_recalculation": "PASS",
+    "m1_reference_AST_equal_to_original": true,
+    "m1_and_simple_signal_vectors_equal": true,
+    "inference_windows": 3740,
+    "forecast_labels": 3663,
+    "predicted_return_min": -0.009691425026431593,
+    "predicted_return_max": 0.014487244933063982,
+    "daily_mae_wins": 3
+  },
+  "permissions": {
+    "active_strategy_changes": false,
+    "qwen_stopped": false,
+    "additional_package_or_image_downloads": false
+  },
+  "limitations": [
+    "Historical reuse; not an untouched holdout",
+    "Model post-training data and cutoff unknown: no claim of out-of-training historical prices",
+    "Only Timestral-5M zero-shot, no fine tuning or model/threshold selection",
+    "M1 formula compared on identical BTC sleeve, not live account returns",
+    "Retrospective result does not establish ability to anticipate future crashes",
+    "Paper research synthetic contract, no real exchange admissibility"
+  ],
+  "evidence_hashes": {
+    "predictions.json": "e85558a55d9bc839957c7faef7c0510d9cbeced3b88fa4fc66cd40dd0c793f45",
+    "runtime.json": "c5eaed685154442f5c68029a1d5671cbc298cd3be091bdf99f648aeb6bb6ea1e",
+    "results.json": "61d9319bc4f271c2108389c91209a088d661d40ee97cdf3fc7145e292687f5e7",
+    "forecast-outcomes.json": "50f5aac25f704f73ef2b592f8666d78b5cc476c37d9136f7668849ae96bc208e"
+  },
+  "cards": {
+    "research": "work-card-00bd0cb1-c7c2-4f5e-a2ae-4eb79eedef95",
+    "implementation": "work-card-54f64f8b-68bc-4183-892b-eb73d03165fa",
+    "evaluation": "work-card-1e1f028d-adbc-4dc6-aadf-6aa7700b8408"
+  }
+}
