@@ -1,0 +1,145 @@
+{
+  "scope": "OFFLINE_DESIGN_CANDIDATE_NOT_APPROVABLE_NOT_APPLIED",
+  "candidate_id": "f4946763c9f2f6999638925f81da8c2ec41efb93520633b28898e87c7a005b5f",
+  "parent_proposal_id": "416c2b69344ea67698fdec12f4094b5673c8b6c19b484310482fe9da8b972ada",
+  "as_of": "2026-10-23T20:24:24.697761+00:00",
+  "account": "v13-m1-short-paper-v1-5e761f0cedac",
+  "input_hashes": {
+    "attribution": "20253979ab8394bf3696eb094594ea374efa1fbb035a445f58b264bef7a6ec55",
+    "m1": "c086203eabb460bbc487aedefa50601e3be0b8c1727f6d0c1f71cca2c57b23f3",
+    "seed": "5e761f0cedacca24b18da36ae97a767e2a7827dba299c73524ff237e01c1e4c4",
+    "market": "a42e94cd5cd8c1f7f5d12d2703cb56a1f27d92eae3b16a3dc8adf92c43cf67fc"
+  },
+  "reference_equity": 9907.498675068338,
+  "since_clone_net": 0.1984553579701398,
+  "side_net_since_clone": {
+    "LONG": -37.931989723629805,
+    "SHORT": 38.130445081599945
+  },
+  "preview": {
+    "long_gross_before": 0.25545833343071755,
+    "long_gross_after": 0.2197074429570878,
+    "freed_mark_notional": 354.2019000000001,
+    "estimated_immediate_cost": 0.3954292692359424,
+    "new_entries": 0,
+    "full_closures": 0
+  },
+  "reductions": [
+    {
+      "symbol": "DOTUSDT",
+      "reason": "EXISTING_TWO_WINDOW_LONG_DETERIORATION_RULE",
+      "estimate": {
+        "available": true,
+        "quantity_before": 292.0,
+        "indicative_quantity_after": 146.0,
+        "quantity_to_sell": 146.0,
+        "indicative_fill_price": 1.1122227164383565,
+        "fee": 0.09743070996000001,
+        "estimated_immediate_equity_cost": 0.19631410995995657,
+        "freed_mark_notional": 162.4834
+      }
+    },
+    {
+      "symbol": "AAVEUSDT",
+      "reason": "EXISTING_TWO_WINDOW_LONG_DETERIORATION_RULE",
+      "estimate": {
+        "available": true,
+        "quantity_before": 2.61,
+        "indicative_quantity_after": 1.3,
+        "quantity_to_sell": 1.31,
+        "indicative_fill_price": 146.28577516030535,
+        "fee": 0.114980619276,
+        "estimated_immediate_equity_cost": 0.19911515927598583,
+        "freed_mark_notional": 191.7185
+      }
+    }
+  ],
+  "short_budget_totals": {
+    "reference_total": 0.25545833343071755,
+    "proposed_total": 0.25545833343071755,
+    "parent_v1_total": 0.41705594261144047
+  },
+  "new_symbol_admissions": {
+    "status": "SEPARATE_DECISION_REQUIRED_NOT_INCLUDED",
+    "candidates": [
+      "QNTUSDT",
+      "XMRUSDT"
+    ],
+    "admitted": [],
+    "requires_distinct_version_and_liquidity_review": true,
+    "requires_explicit_short_budget_redistribution_or_increase": true
+  },
+  "cadence": {
+    "ordinary_signal_weights": "REUSE_ORIGINAL_PUBLISHED_BASELINE_UNTIL_NEXT_ORIGINAL_RECALCULATION",
+    "original_seven_day_anchor": "2026-09-01",
+    "weekly_review": "MONDAY_00:15_UTC",
+    "extra_daily_weight_recalculation": false,
+    "intraday_m1_filter_unchanged": true,
+    "contract_change_requires_new_approval": true
+  },
+  "simulator_check": {
+    "scope": "PURE_SIMULATOR_ON_ARCHIVED_BOOK_NOT_A_FILL_OR_PERMISSION",
+    "candidate_id": "f4946763c9f2f6999638925f81da8c2ec41efb93520633b28898e87c7a005b5f",
+    "outcome": {
+      "entry_block": null,
+      "notes": [],
+      "increased": false
+    },
+    "fill_count": 2,
+    "actual_cost": 0.40630480000072566,
+    "fees": 0.21240479999999998,
+    "realized_delta": -2.63574597701146
+  },
+  "current_symbols": [
+    {
+      "symbol": "AAVEUSDT",
+      "quantity": 2.61,
+      "long_net": -14.977746178299977,
+      "long_48h": -21.40177004939999,
+      "short_net": 7.813503386799998
+    },
+    {
+      "symbol": "BCHUSDT",
+      "quantity": 1.13,
+      "long_net": 4.851161313300029,
+      "long_48h": 0.9137603157000055,
+      "short_net": 5.92751405359998
+    },
+    {
+      "symbol": "BTCUSDT",
+      "quantity": 0.01,
+      "long_net": -6.099059862829938,
+      "long_48h": -24.27985229999999,
+      "short_net": 8.360249931199942
+    },
+    {
+      "symbol": "DOTUSDT",
+      "quantity": 292.0,
+      "long_net": -16.280265615399987,
+      "long_48h": -11.735715371000015,
+      "short_net": -4.156896249799991
+    },
+    {
+      "symbol": "LTCUSDT",
+      "quantity": 8.2,
+      "long_net": -13.970000157999882,
+      "long_48h": -19.537677454999983,
+      "short_net": 8.834196323999997
+    },
+    {
+      "symbol": "NEARUSDT",
+      "quantity": 45.2,
+      "long_net": -4.432787850000009,
+      "long_48h": -14.963700660000011,
+      "short_net": 8.074444830000024
+    }
+  ],
+  "limitations": [
+    "Exploratory short account history, not proof of future profitability",
+    "Explicit amendment design uses later diagnostic data; not the frozen original weekly proposal",
+    "Indicative archived-book costs; future approved execution requires fresh inputs",
+    "SHORT reference preserves frozen capacity, not guaranteed future risk or PnL"
+  ],
+  "execution_authorized": false,
+  "live_activation_ready": false
+}
