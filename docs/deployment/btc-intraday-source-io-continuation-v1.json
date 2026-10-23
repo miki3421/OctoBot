@@ -16,5 +16,12 @@
     "btc_intraday_io_continuation.py": "256dd2a4adeb9bf2a06e11e6ca5b5268d424b057c72e1dce9e729e49ec595863",
     "btc_intraday_source_io.py": "56c6905ab62ff88896601d90ad69166d89dcc2c31c18833398df93052c33ea86"
   },
-  "deploy_authorized": false
+  "deploy_authorized": true,
+  "source_commit": "0176c019d0a73614298b6206772498aacade9c22",
+  "release_manifest_sha256": "f72e033e7f2994d0bd129f3a5e58a90dda373032805102953e2254ac56b5d95e",
+  "deployed_started_at": "2026-10-23T08:50:32.0497264Z",
+  "verification": "verified_author_checks_pending_operator_acceptance",
+  "monitor_checked_at": "2026-10-23T08:57:51.455888+00:00",
+  "other_containers_unchanged": 10,
+  "restarts_after_deploy": 0
 }
