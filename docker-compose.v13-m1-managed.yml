@@ -1,0 +1,169 @@
+# Prepared candidate; manual activation required. Card work-card-8f398480-1842-4f8e-88d1-947756d0916c.
+version: '3.8'
+services:
+  v13-m1-paper:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    container_name: octobot-v13-m1-paper
+    user: 30943:30910
+    read_only: true
+    network_mode: none
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1
+    pids_limit: 128
+    environment:
+      PYTHONPATH: /workspace
+      PYTHONDONTWRITEBYTECODE: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    working_dir: /workspace
+    entrypoint:
+    - python3
+    - -B
+    - -m
+    - octobot.ai_strategy_lab.v13_m1_managed
+    command:
+    - --config
+    - /configuration/config.json
+    tmpfs:
+    - /tmp:rw,nosuid,nodev,size=268435456,mode=1777
+    - /octobot/user:rw,nosuid,nodev,size=1048576
+    - /octobot/backtesting:rw,nosuid,nodev,size=1048576
+    - /octobot/logs:rw,nosuid,nodev,size=1048576
+    - /octobot/tentacles:rw,nosuid,nodev,size=1048576
+    volumes:
+    - /opt/v13-m1-paper-runtime-v3:/workspace:ro
+    - ../octobot-local/v13-m1-paper-v1/seed:/seed:ro
+    - ../octobot-local/v13-m1-paper-v1/state:/state:rw
+    - ../octobot-local/v13-paper/m1-paper-ui:/projection:rw
+    - ../octobot-local/v13-paper/forks-ui:/comparators:ro
+    - ../octobot-local/v13-paper/research/source:/source:ro
+    - ../octobot-local/v13-paper/research/proposals:/proposals:ro
+    - ../octobot-local/v13-paper/research/execution:/original:ro
+    - ../octobot-local/v13-paper/research/baseline/research:/research:ro
+    - ../octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro
+    - ../octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro
+    - ../octobot-local/v13-m1-management-v1/source:/management-source:ro
+    - ../octobot-local/v13-m1-management-v1/approvals:/approvals:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/config.json:/configuration/config.json:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/protocol.json:/configuration/protocol.json:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/runtime-upgrade.json:/configuration/runtime-upgrade.json:ro
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import json,datetime,pathlib;v=json.loads(pathlib.Path('/projection/account.json').read_text());a=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(v['health']['checked_at'])).total_seconds();assert
+        0<=a<180 and v['health']['status']!='BLOCKED'
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '3'
+  m1-universe-capture:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    restart: unless-stopped
+    pids_limit: 128
+    environment:
+      PYTHONPATH: /workspace
+      PYTHONDONTWRITEBYTECODE: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    working_dir: /workspace
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '3'
+    container_name: octobot-m1-universe-capture
+    user: 30944:30910
+    mem_limit: 512m
+    cpus: 1
+    tmpfs:
+    - /tmp:rw,nosuid,nodev,size=67108864,mode=1777
+    entrypoint:
+    - python3
+    - -B
+    - -m
+    - octobot.ai_strategy_lab.v13_m1_universe_capture
+    command:
+    - --config
+    - /configuration/capture.json
+    volumes:
+    - /opt/v13-m1-paper-runtime-v3:/workspace:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/capture.json:/configuration/capture.json:ro
+    - ../octobot-local/v13-m1-management-v1/source:/capture:rw
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import json,datetime,pathlib;v=json.loads(pathlib.Path('/capture/health.json').read_text());a=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(v['checked_at'])).total_seconds();assert
+        0<=a<180 and v['status']=='HEALTHY'
+      interval: 60s
+      timeout: 10s
+      start_period: 180s
+      retries: 3
+  m1-approval-broker:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    restart: unless-stopped
+    pids_limit: 128
+    environment:
+      PYTHONPATH: /workspace
+      PYTHONDONTWRITEBYTECODE: '1'
+      OPENBLAS_NUM_THREADS: '1'
+    working_dir: /workspace
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '3'
+    container_name: octobot-m1-approval-broker
+    user: 30945:30910
+    mem_limit: 256m
+    cpus: 0.5
+    tmpfs:
+    - /tmp:rw,nosuid,nodev,size=67108864,mode=1777
+    entrypoint:
+    - python3
+    - -B
+    - -m
+    - octobot.ai_strategy_lab.v13_m1_approval_broker
+    command:
+    - --config
+    - /configuration/broker.json
+    volumes:
+    - /opt/v13-m1-paper-runtime-v3:/workspace:ro
+    - ../octobot-local/v13-m1-management-v1/approvals:/approvals:rw
+    - ../octobot-local/v13-paper/m1-management-control/socket:/control:rw
+    - ../octobot-local/v13-paper/m1-paper-ui:/projection:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/broker.json:/configuration/broker.json:ro
+    - ../octobot-local/v13-m1-management-v1/configuration/verifier.json:/configuration/verifier.json:ro
+    network_mode: none
+    healthcheck:
+      test:
+      - CMD
+      - python3
+      - -c
+      - import json,socket; s=socket.socket(socket.AF_UNIX);s.settimeout(3);s.connect('/control/approval.sock');s.sendall(b'{"operation":"status"}\n');v=json.loads(s.recv(8192));assert
+        v['ok'] and v['decision']['scope']=='M1_APPROVAL_WRITER_STATUS_V1'
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

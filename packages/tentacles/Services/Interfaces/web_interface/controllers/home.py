@@ -17,6 +17,7 @@ import time
 import flask
 from octobot.ai_strategy_lab import btc_intraday_pair_view
 from octobot.ai_strategy_lab import v13_m1_review_view
+from octobot.ai_strategy_lab import v13_m1_management_web
 import json
 import gzip
 import pathlib
@@ -34,6 +35,37 @@ import octobot_commons.enums
 
 
 def register(blueprint):
+    @blueprint.route("/v13_variants/m1/review/weekly")
+    @login.login_required_when_activated
+    def v13_m1_weekly_data():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        import flask_wtf.csrf
+        value=v13_m1_management_web.public_view()
+        value['csrf_token']=flask_wtf.csrf.generate_csrf()
+        response=flask.jsonify(value);response.cache_control.no_store=True
+        return response
+
+    @blueprint.route("/v13_variants/m1/review/decision",methods=['POST'])
+    @login.login_required_when_activated
+    def v13_m1_weekly_decision():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        if flask.request.headers.get('Origin') != flask.request.host_url.rstrip('/') or not flask.request.is_json:
+            flask.abort(403)
+        import flask_wtf.csrf
+        from wtforms.validators import ValidationError
+        try:flask_wtf.csrf.validate_csrf(flask.request.headers.get('X-CSRFToken'))
+        except ValidationError:flask.abort(403)
+        try:
+            decision=v13_m1_management_web.decide(flask.request.get_json())
+            response=flask.jsonify(dict(ok=True,decision=decision))
+        except (OSError,ValueError,KeyError,TypeError):
+            response=flask.jsonify(dict(ok=False,error='Approvazione non registrata. Verificare password, scadenza e versione della proposta.'))
+            response.status_code=409
+        response.cache_control.no_store=True
+        return response
+
     @blueprint.route("/v13_variants/m1/review")
     @login.login_required_when_activated
     def v13_m1_review():
