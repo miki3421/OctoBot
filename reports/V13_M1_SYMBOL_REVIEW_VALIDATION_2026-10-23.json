@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "date_utc": "2026-10-23T12:14:15.799290+00:00",
+  "card": "work-card-3ed5dd7b-b2d4-4791-a643-4e60c20e3bf7",
+  "test_count": 14,
+  "test_result": "PASS",
+  "runtime_image": "sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575",
+  "runtime_network": "none",
+  "runtime_input_mounts": "read_only_offline_snapshots",
+  "runtime_host_results_equal": true,
+  "csv_rows": 216,
+  "equity_and_symbol_reconciliation": "PASS",
+  "input_sha256_unchanged": true,
+  "diff_check": "PASS",
+  "orders_applied": false,
+  "production_services_restarted": false,
+  "source_sha256": "67455108fa6963249e2941aefd1c915e83f04fb91418853e19ee4682cdbc010b",
+  "test_sha256": "16e6a39f0e508d0147f7425e61751f1fc6153c90a4a387023632517af07c913a",
+  "provenance": {
+    "seed_sha256": "5e761f0cedacca24b18da36ae97a767e2a7827dba299c73524ff237e01c1e4c4",
+    "m1_sha256": "4e8494d864a7276e26fcff155add3a0e76d9aa4d05cf847c19b7bd5cf7887e2c",
+    "original_sha256": "6e226f684b2ee69afdfe7076cc348fcc398922ef9dc344968776eacc061032bc",
+    "market_record_hash": "6179dbbc135c65fbcb901552b88df0f1f3677315f87fb2bec7d1c293b6e44998"
+  },
+  "artifacts": {
+    "V13_M1_SYMBOL_REVIEW_2026-10-23.json": "3d7bdbfb0ba5d60ddca6ccf4457a04e27b61eea705b75ec17501e3a5af8fb2cd",
+    "V13_M1_SYMBOL_REVIEW_2026-10-23.csv": "86f852a88621480abdbb94274c931ef8a9bc1324a4a116c7b6c3669c7488eb7c",
+    "V13_M1_SYMBOL_REVIEW_2026-10-23.md": "a780b077d0a7302fb5e7060e1242ca370c964f2c1e9e1ecba93cb6ae81701cff"
+  },
+  "limitations": [
+    "Exploratory six-day history, two shared M1 episodes",
+    "M1 missed DAILY 18-19 October affects Original comparison",
+    "No execution policy approved; no UI or runtime integration",
+    "Funding logged simulator estimate; exchange minima UNKNOWN"
+  ],
+  "runtime_full_report_hashes_equal": true
+}
