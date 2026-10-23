@@ -1,0 +1,46 @@
+# Separate synthetic research account, explicitly authorized by the owner.
+# Cards f20d8837 / 312947f2; no exchange access, grants or existing account mounts.
+version: '3.8'
+services:
+  btc-intraday-paper:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    container_name: octobot-btc-intraday-paper
+    user: '30943:30910'
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 64
+    environment:
+      PYTHONDONTWRITEBYTECODE: '1'
+    working_dir: /runtime
+    entrypoint: [python3, -B, /runtime/btc_intraday_io_continuation.py]
+    command: [--config, /configuration/config-io-v1.json]
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=33554432,mode=1777
+    volumes:
+      - /opt/btc-intraday-paper-io-v1:/runtime:ro
+      - /opt/btc-intraday-paper-io-v1/empty:/octobot/user:ro
+      - /opt/btc-intraday-paper-io-v1/empty:/octobot/backtesting:ro
+      - /opt/btc-intraday-paper-io-v1/empty:/octobot/logs:ro
+      - /opt/btc-intraday-paper-io-v1/empty:/octobot/tentacles:ro
+      - ../octobot-local/btc-intraday-m1-l5-paper-v1/configuration:/configuration:ro
+      - ../octobot-local/btc-intraday-m1-l5-paper-v1/control:/control:ro
+      - ../octobot-local/btc-intraday-m1-l5-paper-v1/state:/state:rw
+      - ../octobot-local/v13-paper/intraday-ui:/projection:rw
+      - ../octobot-local/v13-paper/research/source:/source:ro
+      - ../octobot-local/scalping:/book:ro
+    healthcheck:
+      test: [CMD, python3, -c, "import json,time,pathlib;v=json.loads(pathlib.Path('/projection/account.json').read_text());assert v['account']=='btc-intraday-m1-l5-paper-v1' and v['no_real_orders'] and 0<=time.time_ns()-v['checked_at_ns']<30000000000 and v['book_age_seconds'] is not None and v['book_age_seconds']<5 and v['market_age_seconds'] is not None and v['market_age_seconds']<120 and not v['status'].startswith('BLOCKED')"]
+      interval: 20s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '3'}
+    labels:
+      com.centurylinklabs.watchtower.enable: 'false'

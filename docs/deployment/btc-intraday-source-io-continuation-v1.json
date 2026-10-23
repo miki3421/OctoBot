@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "scope": "INITIAL_INTRADAY_IO_ONLY",
+  "main_card": "work-card-d0b2e5a9-508b-4419-8393-0498500f0011",
+  "strategy_unchanged": true,
+  "real_min_quantity": "UNKNOWN",
+  "real_min_notional": "UNKNOWN",
+  "candidate_manifest_sha256": "7e5f8cc3e86cd22328cfed50d471c613b83caaaf68c709dc5f515baf203a7a0d",
+  "frozen_files": {
+    "btc_intraday_availability.py": "d50662a08de4eb733e1743b103fb957f9cb352ffc89849cdd180bb76af44e476",
+    "btc_intraday_admin.py": "ef632288635d95aa4c1fe97fde1e1c97512bbf6357204c0552d2a641fcfbe665",
+    "btc_intraday_paper.py": "52e2d6843527c3ef1bdffc32ffef982a0e06adf7eea7fe8f1335f0480282e555",
+    "btc_intraday_source_qualification.py": "bf882704a6d5bb75b6feaa5bb768197bbd175a3794d191a4dfc15e2bcaee0082"
+  },
+  "new_runtime_files": {
+    "btc_intraday_io_continuation.py": "256dd2a4adeb9bf2a06e11e6ca5b5268d424b057c72e1dce9e729e49ec595863",
+    "btc_intraday_source_io.py": "56c6905ab62ff88896601d90ad69166d89dcc2c31c18833398df93052c33ea86"
+  },
+  "deploy_authorized": false
+}
