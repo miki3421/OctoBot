@@ -33,6 +33,7 @@ def main():
     runtime.chmod(0o555)
     folder(target,0);folder(target/'configuration',0)
     for name,uid in [('source',30944),('approvals',30945)]:folder(target/name,uid)
+    for name in ('raw','science','market'):folder(target/'source'/name,30944)
     control=root/'octobot-local/v13-paper/m1-management-control';folder(control,0);folder(control/'socket',30945)
     pins={str(x.relative_to(runtime)):sha(x) for x in runtime.rglob('*') if x.is_file()}
     code={f'octobot/ai_strategy_lab/{name}':pins[f'octobot/ai_strategy_lab/{name}'] for name in NEW}

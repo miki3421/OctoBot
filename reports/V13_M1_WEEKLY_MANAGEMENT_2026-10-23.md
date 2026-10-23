@@ -1,5 +1,7 @@
 # M1 — selezione settimanale collegata: candidato pronto, attivazione pendente
 
+Aggiornamento successivo: passaggio autorizzato ed eseguito; vedere `reports/V13_M1_WEEKLY_ACTIVATION_2026-10-23.md`. Le sezioni seguenti descrivono il candidato prima del consenso operativo.
+
 23 ottobre 2026. SINGLE_AGENT; lenti Supervisor, Developer e QA applicate in sequenza, senza rivendicare revisione indipendente. Skills: `mmtech-company-baseline`, `software-house-project-manager` per pianificazione/stato. Progetto `project-tranding-ai-lab`, roster approved, nessun cambiamento al roster o alla policy aziendale.
 
 ## Risultato concreto
