@@ -16,6 +16,7 @@
 import time
 import flask
 from octobot.ai_strategy_lab import btc_intraday_pair_view
+from octobot.ai_strategy_lab import v13_m1_review_view
 import json
 import gzip
 import pathlib
@@ -33,6 +34,26 @@ import octobot_commons.enums
 
 
 def register(blueprint):
+    @blueprint.route("/v13_variants/m1/review")
+    @login.login_required_when_activated
+    def v13_m1_review():
+        if not models.accepted_terms():
+            return flask.redirect(flask.url_for("terms"))
+        if models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(404)
+        response = flask.make_response(flask.render_template("v13_m1_review.html"))
+        response.cache_control.no_store = True
+        return response
+
+    @blueprint.route("/v13_variants/m1/review/data")
+    @login.login_required_when_activated
+    def v13_m1_review_data():
+        if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+            flask.abort(403)
+        response = flask.jsonify(v13_m1_review_view.public_view())
+        response.cache_control.no_store = True
+        return response
+
     @blueprint.route("/btc_intraday_pair")
     @login.login_required_when_activated
     def btc_intraday_pair_dashboard():
