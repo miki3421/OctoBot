@@ -1,8 +1,10 @@
 # BTC intraday: technical latency continuation
 
-Prepared on 24 October 2026 for the existing SHORT control and LONG + SHORT pair.
+Prepared and explicitly authorized/deployed on 24 October 2026 for the existing
+SHORT control and LONG + SHORT pair. See the dated report for live evidence.
 This is a technical correction, not a new strategy or a new account. Production
 deployment and operator acceptance remain separate from local qualification.
+Technical verification passed; the delivery remains in Test for operator acceptance.
 
 ## Fixed scope
 

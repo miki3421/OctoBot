@@ -1,6 +1,7 @@
 # Coppia BTC intraday: diagnosi e correzione della pipeline
 
-**Stato: candidato preparato, passaggio operativo manuale ancora da autorizzare.**
+**Stato: passaggio tecnico esplicitamente autorizzato, applicato e verificato;
+consegna in Test per il riscontro dell'operatore.**
 SHORT controllo e LONG + SHORT mantengono conti, T0/T1, equity, posizioni, storico,
 segnali, soglie, quantità, costi, funding e protezioni. Nessun ingresso retroattivo.
 
@@ -79,7 +80,7 @@ Il lock è stato rilasciato al termine della copia. Il riavvio automatico ha per
 incontrato il limite RAM di 512 MiB durante la verifica dell'intero storico:
 il kernel ha registrato OOM nel cgroup della coppia, per esempio alle 15:57:32,
 16:01:07 e 16:04:36 UTC. Il nuovo pacchetto non era ancora applicato. Il servizio
-precedente è quindi in riavvio, con proiezione BLOCKED, non healthy.
+precedente era quindi in riavvio, con proiezione BLOCKED, non healthy.
 
 Tutti i quattro conti risultano flat e senza intent pendenti, con 2 fill nei
 due scenari primari e 4 nei due stress. Non sono stati cancellati, ripristinati
@@ -92,16 +93,47 @@ solo a writer fermo: non mantenere transazioni RO lunghe sul live.
 ## Consegna
 
 Manifest `e08c51daef896bbaeb16d3b34eb6c52b57b1d07852eeba442ecd55060466199a`.
-Il comando senza flag operativo ha verificato il pacchetto e confermato
-`activated=false`. I due servizi da riavviare sono il runner della coppia e il
-collector pubblico scalping condiviso. Nessun riavvio della UI o degli altri
-esecutori. Backup a freddo, container precedenti e runtime restano conservati.
+Codice qualificato `772cd1e0`, manifest invariato. Dopo il consenso esplicito sul
+pacchetto concreto, il comando operativo ha concluso con `activated=true`.
+Il runner della coppia e il collector pubblico scalping condiviso sono stati
+riavviati; nessun riavvio della UI o degli altri esecutori. Backup a freddo di
+circa 17 GiB, container precedenti e runtime restano conservati. I due container
+precedenti hanno restart automatico disabilitato; nessun volume è stato rimosso.
 
-La verifica dell'intero storico rende il riavvio più lungo di un semplice
-restart di processo. Se manca un punto della griglia, la finestra di 289 punti
-contigui dovrà ricostruirsi, potenzialmente per circa 24 ore: non viene aggirata.
+Il nuovo collector è partito alle **16:25:22 UTC**, il runner alle **16:25:23**;
+il runner è healthy alle **16:33:25**, senza riavvii o OOM. Tutti i **13 container
+del lab sono healthy**; gli altri undici mantengono ID, avvio e contatori esatti.
+I quattro stati finanziari, high-water, latch di rischio, quantità, fill,
+identità e orizzonti sono conservati. Le ancore dei sei book storici usati dai
+fill sono ancora presenti con gli stessi timestamp. Tutti i sei journal della
+seconda copia del backup a freddo superano l'integrità RO; la copia grezza resta
+separata. Nessun ripristino del backup sul live.
+
+Campione live di 25 secondi: **168 pubblicazioni**, ritardo ricezione-visibilità
+mediano **11 ms**, massimo **120 ms**, al massimo due righe per batch. Ulteriore
+campione di 30 secondi sui due conti primari: **117 tick per conto**, età del book
+massima **352 ms** nel controllo e **367 ms** nel candidato; **100% entro 1 s**.
+Sono campioni diagnostici, non garanzie di latenza futura.
+
+Browser desktop/mobile e pagina di confronto verificati in sola lettura, senza
+errori JavaScript o approvazioni. La UI mostra correttamente i conti attivi in
+WARMUP. Il campione naturale del monitor delle **16:35:05 UTC** è healthy per la
+coppia, senza problemi del conto. Restano gli avvisi host di occupazione/attività
+swap; le due VM necessarie al lavoro OPS non sono state fermate o riconfigurate.
+
+La finestra contigua riparte dal punto valido delle **16:35 UTC del 24 ottobre**:
+1/289 al primo controllo. Senza ulteriori buchi il completamento teorico è il
+**25 ottobre alle 16:35 UTC, cioè 17:35 CET in Italia**; un eventuale primo ingresso
+non precede lo slot successivo e richiede segnale e tutti i gate. Lo storico e
+T0/T1 originali restano invariati. Nessun recupero retroattivo degli slot persi.
 Guida e rollback: `docs/BTC_INTRADAY_PAIR_LATENCY_V1.md`.
+
+La verifica integrale dello storico rimane costosa e cresce con l'archivio:
+2 GiB sono qualificati per il volume attuale, non costituiscono una soluzione
+illimitata. Una futura verifica incrementale e a memoria limitata dovrà
+preservare tutte le garanzie crittografiche prima di poterla sostituire.
 
 Evidenze private: `audit-evidence/intraday-pair-latency-20261024/`.
 Schede: `work-card-48fa3a4c-3c6b-44e0-8d70-09bad0722efd` e
 `work-card-c1536bad-3108-40a4-9819-7ba31f89b4ba`.
+La consegna autorizzata descritta sotto ha poi recuperato il runner.
