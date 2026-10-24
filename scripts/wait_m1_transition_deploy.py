@@ -4,6 +4,7 @@ Only reads M1 until NORMAL with no intent. No trading policy or timing changes.
 Company/repository checkpoint changes stop the job for review. Not a collector.
 """
 import argparse
+from contextlib import contextmanager
 import datetime as dt
 import json
 import os
@@ -18,6 +19,27 @@ import time
 ROOT=Path('/root/auto_trading_sys');RELEASE=ROOT/'octobot-local/v13-m1-management-v2-r2'
 SHA='b454f2d0763b349c103dde0baa1a3a83586de34b8c79f45a48192ef8099baa6d'
 PROJECT='project-tranding-ai-lab'
+
+
+@contextmanager
+def ui_target_alias(alias=Path('/workspace'), target=None):
+    """Resolve the approved installer's container asset links on the host.
+
+    Never replace a host path. Only a link created by this invocation is removed.
+    The approved manifest, helper and two UI artifacts remain unchanged.
+    """
+    target=(ROOT/'octobot-source' if target is None else Path(target)).resolve()
+    if not target.is_dir():raise ValueError('canonical_ui_checkout_unavailable')
+    created=False
+    if alias.exists() or alias.is_symlink():
+        if not alias.is_symlink() or alias.resolve()!=target:
+            raise ValueError('workspace_alias_conflicts_with_existing_host_path')
+    else:
+        alias.symlink_to(target,target_is_directory=True);created=True
+    try:
+        yield
+    finally:
+        if created and alias.is_symlink() and alias.resolve()==target:alias.unlink()
 
 
 def status(path,phase,**fields):
@@ -78,7 +100,8 @@ def main():
         status(path,'DEPLOYING_AUTHORIZED_PACKAGE')
         command=[sys.executable,str(ROOT/'octobot-source/scripts/activate_m1_transition_release.py'),'--release',str(RELEASE),'--release-sha256',SHA,
                  '--manual-operator-deploy','--operator-reference','Explicit operator technical-only approval 2026-10-24; deferred until NORMAL; no rebalance approval']
-        with (output/'deploy.log').open('w') as log:subprocess.run(command,stdout=log,stderr=subprocess.STDOUT,check=True)
+        with ui_target_alias():
+            with (output/'deploy.log').open('w') as log:subprocess.run(command,stdout=log,stderr=subprocess.STDOUT,check=True)
         browser=output/'browser';browser.mkdir(exist_ok=True)
         command=['docker','run','--rm','--pull=never','--network','host','--read-only','--memory','1g','--cpus','2','--shm-size','256m','--tmpfs','/tmp:rw,size=256m',
                  '-v',str(probe)+':/live-probe.py:ro','-v',str(browser)+':/evidence:rw','--entrypoint','python3',a.browser_image,

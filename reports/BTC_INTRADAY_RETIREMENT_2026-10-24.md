@@ -54,6 +54,39 @@ di monitoraggio viene brevemente sospeso e ripreso per evitare un campione
 intermedio incoerente. L'accettazione dell'operatore rimane distinta dalle prove
 dell'autore; nessuna QA indipendente è dichiarata.
 
+## Consegna operativa verificata
+
+Ritiro sigillato il **24 ottobre alle 17:27:14 UTC, 19:27 italiane**. Il conto
+principale e lo stress erano flat e senza intent; nessuna operazione è stata
+aggiunta per chiuderli. Il container è conservato fermo, con `restart=no`.
+Sono rimasti **12 container attivi e healthy**. Tranne la dashboard riavviata,
+gli altri undici mantengono gli stessi ID, avvio e contatori di restart; fra
+questi il market observer e i collector condivisi. Le VM OPS sono inalterate.
+
+Saldo principale finale **9.998,6320686 USDT**, P/L **−1,3679314 USDT**, **6 fill**;
+saldo stress indipendente **9.996,7102308 USDT**, anch'esso con 6 fill. I due ledger
+e il witness sono conservati integralmente. I tre journal della seconda copia
+del backup a freddo superano `PRAGMA integrity_check` RO; la copia grezza rimane
+separata e intatta. Stati e proiezione del conto ritirato restano identici dopo
+la pubblicazione dell'archivio.
+
+Browser live desktop/mobile: sei schede attive, archivio distinto e consultabile,
+finestra comune corrente senza conto ritirato, curva storica conservata e nessun
+errore JavaScript. Il riferimento cache del solo script archivio è stato
+aggiornato dopo la distribuzione, senza toccare il sigillo o i dati. La vista
+API espone `RETIRED`, `read_only_archive=true` e l'età reale dei dati; non presenta
+l'archivio come un feed fresco. Il monitor v5 riconosce `status=retired`, verifica
+archivio e container fermo, senza avvisi di heartbeat scaduto per questo conto.
+
+La preparazione della ripresa M1 v2 mantiene il manifest già autorizzato
+`b454f2d0…` invariato. Un preflight ha rilevato che i link degli asset UI usano
+il percorso container `/workspace`: l'orchestratore crea soltanto durante il
+passaggio un alias host temporaneo verso il checkout canonico, senza sostituire
+percorsi esistenti, e rimuove solo l'alias che ha creato. Otto test della ripresa
+verificano anche conflitti e cleanup. I due file UI del pacchetto approvato
+risolvono così ai target corretti; nessun cambio di quel pacchetto, esecuzione M1
+anticipata o approvazione economica è avvenuto.
+
 Evidenze private: `audit-evidence/btc-legacy-retirement-20261024/`.
 Schede `work-card-c75e2256-8f76-400e-ba13-9e742c1a416b` e
 `work-card-10720850-e31f-4edc-85f9-ba981f01dc2e`.

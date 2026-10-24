@@ -43,6 +43,7 @@ class DeferredDeployTests(unittest.TestCase):
             execute = stack.enter_context(patch.object(deploy.subprocess, 'run', side_effect=deploy_error))
             stack.enter_context(patch.object(deploy.time, 'sleep', side_effect=KeyboardInterrupt))
             stack.enter_context(patch.object(deploy.signal, 'signal'))
+            stack.enter_context(patch.object(deploy, 'ui_target_alias', return_value=contextlib.nullcontext()))
             stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
             error = None
             try:
@@ -98,6 +99,32 @@ class DeferredDeployTests(unittest.TestCase):
         self.assertEqual(state['phase'], 'STOPPED_REVIEW_REQUIRED')
         self.assertFalse(state['rebalance_approved'])
         self.assertIsInstance(error, subprocess.CalledProcessError)
+
+
+class HostAssetCompatibilityTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.target=self.root/'checkout';self.target.mkdir();self.alias=self.root/'workspace'
+
+    def test_temporary_link_is_removed_on_success_or_failure(self):
+        with deploy.ui_target_alias(self.alias,self.target):self.assertEqual(self.alias.resolve(),self.target)
+        self.assertFalse(self.alias.is_symlink())
+        with self.assertRaises(RuntimeError):
+            with deploy.ui_target_alias(self.alias,self.target):raise RuntimeError('fixture deploy failed')
+        self.assertFalse(self.alias.is_symlink())
+
+    def test_existing_paths_are_not_replaced_or_removed(self):
+        self.alias.mkdir()
+        with self.assertRaises(ValueError):
+            with deploy.ui_target_alias(self.alias,self.target):self.fail('must deny')
+        self.assertTrue(self.alias.is_dir());self.alias.rmdir()
+        other=self.root/'other';other.mkdir();self.alias.symlink_to(other)
+        with self.assertRaises(ValueError):
+            with deploy.ui_target_alias(self.alias,self.target):self.fail('must deny')
+        self.assertEqual(self.alias.resolve(),other);self.alias.unlink()
+        self.alias.symlink_to(self.target)
+        with deploy.ui_target_alias(self.alias,self.target):self.assertTrue(self.alias.is_symlink())
+        self.assertTrue(self.alias.is_symlink())
 
 
 if __name__ == '__main__':
