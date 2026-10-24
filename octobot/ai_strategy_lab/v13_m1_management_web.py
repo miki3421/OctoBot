@@ -38,7 +38,8 @@ def public_view(path=PROJECTION,control_socket=SOCKET):
 
 
 def decide(payload,control_socket=SOCKET):
-    if not isinstance(payload,dict) or set(payload)!={'proposal_id','action','exclude_short','password','confirmation'}:
+    fields={'proposal_id','action','exclude_short','password','confirmation'}
+    if not isinstance(payload,dict) or set(payload) not in (fields,fields|{'components'}):
         raise ValueError('invalid_approval_request')
     if payload['confirmation']!=payload['proposal_id']:raise ValueError('explicit_confirmation_required')
     if payload['action'] not in ('APPROVE','REJECT') or type(payload['exclude_short']) is not list:

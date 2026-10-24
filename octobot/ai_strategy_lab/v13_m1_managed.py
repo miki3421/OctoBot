@@ -31,6 +31,7 @@ class Runner(base.Runner):
                                  'CREATE TABLE IF NOT EXISTS m1_management_zero_funding(symbol TEXT,from_at TEXT,to_at TEXT,scope TEXT,PRIMARY KEY(symbol,to_at)); '
                                  'CREATE TABLE IF NOT EXISTS m1_management_events(id TEXT PRIMARY KEY,at TEXT NOT NULL,kind TEXT NOT NULL,proposal_id TEXT,payload TEXT NOT NULL);')
             self.db.execute('CREATE INDEX IF NOT EXISTS m1_marks_symbol_time ON marks(symbol,bar)')
+            self.db.execute('CREATE TABLE IF NOT EXISTS m1_transition_reviews(id TEXT PRIMARY KEY,week TEXT NOT NULL,payload TEXT NOT NULL,status TEXT NOT NULL,decision_id TEXT)')
         self.management_code=weekly.digest(self.mc['code_pins'])
         if not self.meta('management_start:'+self.management_code):
             with self.db:
@@ -98,20 +99,43 @@ class Runner(base.Runner):
     def managed_policy(self):
         value=self.meta('management_policy')
         if value is None:return None
-        row=self.db.execute('SELECT payload FROM m1_weekly_reviews WHERE id=?',(value['proposal_id'],)).fetchone()
+        row=self.review_row(value['proposal_id'])
         decision=next((d for d in self.approval_decisions() if d['decision_id']==value['decision_id']),None)
         if not row or not decision:raise ValueError('policy_authority_missing')
-        expected=weekly.approved_policy(json.loads(row[0]),decision,value['revision']-1,value['activated_at'])
+        expected=weekly.approved_policy(json.loads(row['payload']),decision,value['revision']-1,value['activated_at'])
         if any(value.get(k)!=v for k,v in expected.items() if k!='quantity_ceilings'):
             raise ValueError('approved_policy_changed')
         if not set(value['quantity_ceilings'])<=set(weekly.POOL) or any(weekly.num(v)<0 for v in value['quantity_ceilings'].values()):
             raise ValueError('quantity_ceiling_invalid')
+        if 'initial_quantity_ceilings' in expected:
+            initial=expected['initial_quantity_ceilings']
+            if set(value['quantity_ceilings'])!=set(initial) or any(v>initial[s]+1e-10 for s,v in value['quantity_ceilings'].items()):
+                raise ValueError('quantity_ceiling_increased')
+        return value
+
+    def review_table(self,proposal_id):
+        return 'm1_transition_reviews' if self.db.execute('SELECT 1 FROM m1_transition_reviews WHERE id=?',(proposal_id,)).fetchone() else 'm1_weekly_reviews'
+
+    def review_row(self,proposal_id):
+        table=self.review_table(proposal_id)
+        return self.db.execute('SELECT * FROM '+table+' WHERE id=?',(proposal_id,)).fetchone()
+
+    def transition_proposal(self):
+        from . import v13_m1_transition as transition
+        path=safe_file(self.mc['transition_proposal'],0)
+        if base.shared.sha(path)!=self.mc['transition_sha256']:raise ValueError('transition_file_changed')
+        value=json.loads(path.read_text());transition.validate(value)
+        if value['account']!=self.account:raise ValueError('transition_account')
         return value
 
     def baseline(self,control,now):
         policy=self.managed_policy()
         if not policy:return super().baseline(control,now)
         if now>weekly.when(policy['valid_until']):raise ValueError('weekly_review_expired_new_risk_suspended')
+        if policy.get('cadence')=='ORIGINAL_PUBLISHED_BASELINE':
+            base.Runner.baseline(self,control,now)
+            control['managed_reference']=dict(policy['short_caps'])
+            return
         science=self.science()
         selected=policy['selected']
         reference=weekly.weights(science,selected,now.isoformat())
@@ -137,8 +161,11 @@ class Runner(base.Runner):
         return result
 
     def decode_targets(self,targets):
-        if self.managed_policy():
+        policy=self.managed_policy()
+        if policy:
             if not isinstance(targets,dict) or not set(targets)<=set(weekly.POOL):raise ValueError('managed_target_universe')
+            if policy.get('cadence')=='ORIGINAL_PUBLISHED_BASELINE':
+                return {s:base.p.decode_weight(targets[s]) if isinstance(targets.get(s),str) else weekly.num(targets.get(s,0.)) for s in self.universe}
             return {s:weekly.num(targets.get(s,0.)) for s in self.universe}
         return super().decode_targets(targets)
 
@@ -155,7 +182,12 @@ class Runner(base.Runner):
         # Freeze one proposal per calendar week. No silent reselection after
         # looking at the week's subsequent prices or after a rejection.
         label=weekly.week(now.isoformat())
-        if not self.db.execute('SELECT 1 FROM m1_weekly_reviews WHERE week=?',(label,)).fetchone():
+        if self.mc.get('transition_proposal'):
+            proposal=self.transition_proposal()
+            if not self.db.execute('SELECT 1 FROM m1_weekly_reviews WHERE id=?',(proposal['parent_proposal_id'],)).fetchone():
+                raise ValueError('transition_parent_absent')
+            self.db.execute('INSERT OR IGNORE INTO m1_transition_reviews VALUES(?,?,?,\'PROPOSED\',NULL)',(proposal['proposal_id'],proposal['week'],base.shared.dump(proposal)))
+        elif not self.db.execute('SELECT 1 FROM m1_weekly_reviews WHERE week=?',(label,)).fetchone():
             try:
                 proposal=weekly.proposal(self.science(),self.full_market,account=self.account,revision=revision,
                     previous=policy['selected'] if policy else self.signal_symbols,positions=state['positions'],
@@ -167,23 +199,30 @@ class Runner(base.Runner):
                 self.put('management_input_status','WAITING_QUALIFIED_WEEKLY_INPUTS')
         for decision in self.approval_decisions():
             if self.db.execute('SELECT 1 FROM m1_management_consumed WHERE id=?',(decision['decision_id'],)).fetchone():continue
-            row=self.db.execute('SELECT * FROM m1_weekly_reviews WHERE id=?',(decision['proposal_id'],)).fetchone()
+            row=self.review_row(decision['proposal_id']);table=self.review_table(decision['proposal_id'])
             if not row:raise ValueError('approval_unknown_proposal')
+            if self.mc.get('transition_proposal') and table!='m1_transition_reviews':raise ValueError('legacy_approval_not_transition_authority')
             proposal=json.loads(row['payload']);weekly.verify(decision,'decision_id')
             if decision['action']=='REJECT':
-                self.db.execute('UPDATE m1_weekly_reviews SET status=\'REJECTED\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
+                self.db.execute('UPDATE '+table+' SET status=\'REJECTED\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
                 self.db.execute('INSERT INTO m1_management_consumed VALUES(?,?)',(decision['decision_id'],base.shared.dump(decision)));continue
             if now>weekly.when(proposal['expires_at']):
-                self.db.execute('UPDATE m1_weekly_reviews SET status=\'EXPIRED\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
+                self.db.execute('UPDATE '+table+' SET status=\'EXPIRED\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
                 self.db.execute('INSERT INTO m1_management_consumed VALUES(?,?)',(decision['decision_id'],base.shared.dump(decision)));continue
             if control['phase']!='NORMAL' or control.get('pending'):
-                self.db.execute('UPDATE m1_weekly_reviews SET status=\'APPROVED_WAITING_NORMAL_PHASE\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']));continue
+                self.db.execute('UPDATE '+table+' SET status=\'APPROVED_WAITING_NORMAL_PHASE\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']));continue
             next_policy=weekly.approved_policy(proposal,decision,revision,now.isoformat())
             # Missing science/funding/book cannot authorize a new admission.
-            science=self.science();reference=weekly.weights(science,next_policy['selected'],now.isoformat())
+            if next_policy.get('cadence')=='ORIGINAL_PUBLISHED_BASELINE':
+                base.Runner.baseline(self,control,now)
+                reference=control['baseline_targets']
+            else:reference=weekly.weights(self.science(),next_policy['selected'],now.isoformat())
             new={s for s in weekly.POOL if next_policy['long_caps'][s]>0 or next_policy['short_caps'][s]>0}-set(state['positions'])
             if debt or not new<=set(self.full_market['quotes']):
-                self.db.execute('UPDATE m1_weekly_reviews SET status=\'APPROVED_WAITING_INPUTS\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']));continue
+                self.db.execute('UPDATE '+table+' SET status=\'APPROVED_WAITING_INPUTS\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']));continue
+            if next_policy.get('initial_quantity_ceilings') is not None:
+                for s,q in next_policy['quantity_ceilings'].items():
+                    next_policy['quantity_ceilings'][s]=min(q,max(0.,state['positions'][s]['quantity']))
             for symbol in sorted(new):
                 q=self.full_market['quotes'][symbol];at=self.full_market['observed_at_end']
                 base.shared.sanity.structure_and_time(symbol,q,self.full_market,now)
@@ -195,7 +234,7 @@ class Runner(base.Runner):
             control.update(baseline_targets={s:reference.get(s,0.) for s in self.universe},managed_reference=dict(next_policy['short_caps']),baseline_error=None)
             policy=next_policy;revision=policy['revision'];self.put('management_policy',policy)
             self.event('POLICY_ACTIVATED',dict(policy=policy,decision=decision),policy['proposal_id'])
-            self.db.execute('UPDATE m1_weekly_reviews SET status=\'ACTIVE_REBALANCE_PENDING\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
+            self.db.execute('UPDATE '+table+' SET status=\'ACTIVE_REBALANCE_PENDING\',decision_id=? WHERE id=?',(decision['decision_id'],row['id']))
             self.db.execute('INSERT INTO m1_management_consumed VALUES(?,?)',(decision['decision_id'],base.shared.dump(decision)))
         if policy and control['phase']=='NORMAL' and not control.get('pending'):
             closing,_=weekly.targets(state,policy,control['baseline_targets'],record['quotes'],kind='MAINTENANCE_CLOSE')
@@ -228,7 +267,7 @@ class Runner(base.Runner):
             elif pending['kind']=='MAINTENANCE_CLOSE':status='REDUCTIONS_APPLIED_WAITING_DAILY'
             else:status='EXECUTED'
             if action.get('status')=='MISSED':status='APPROVED_WAITING_NEXT_SLOT'
-            self.db.execute('UPDATE m1_weekly_reviews SET status=? WHERE id=?',(status,policy['proposal_id']))
+            self.db.execute('UPDATE '+self.review_table(policy['proposal_id'])+' SET status=? WHERE id=?',(status,policy['proposal_id']))
             self.put('management_last_execution',dict(proposal_id=policy['proposal_id'],decision_id=policy['decision_id'],status=status,at=record['observed_at_end'],action=action))
             self.event('REBALANCE_RESULT',dict(status=status,action=action,intent=pending['id']),policy['proposal_id'])
         return result
@@ -250,6 +289,9 @@ class Runner(base.Runner):
 
     def publish_management(self):
         rows=[dict(r) for r in self.db.execute('SELECT id,week,status,decision_id,payload FROM m1_weekly_reviews ORDER BY week DESC LIMIT 20')]
+        if self.mc.get('transition_proposal'):
+            for row in rows:row['status']='ARCHIVED_V1_NOT_APPROVABLE'
+            rows=[dict(r) for r in self.db.execute('SELECT id,week,status,decision_id,payload FROM m1_transition_reviews ORDER BY rowid DESC LIMIT 20')]+rows
         latest=rows[0] if rows else None;proposal=json.loads(latest['payload']) if latest else None
         for row in rows:row.pop('payload')
         policy=self.managed_policy();state=json.loads(self.db.execute('SELECT payload FROM state WHERE id=1').fetchone()[0])

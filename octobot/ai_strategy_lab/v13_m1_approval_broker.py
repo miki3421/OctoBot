@@ -48,20 +48,27 @@ class Store:
             with self.db:self.db.execute('INSERT INTO identity VALUES(?)',(account,))
         self.account=account
 
-    def record(self,proposal,*,action,exclude_short,at):
+    def record(self,proposal,*,action,exclude_short,at,components=None):
         weekly.verify(proposal,'proposal_id')
-        if proposal['account']!=self.account or proposal['scope']!='M1_RESEARCH_PAPER_WEEKLY_PROPOSAL':raise ValueError('proposal_account')
+        from . import v13_m1_transition as transition
+        is_v2=proposal.get('version')==transition.VERSION
+        if proposal['account']!=self.account or proposal['scope'] not in ('M1_RESEARCH_PAPER_WEEKLY_PROPOSAL',transition.SCOPE):raise ValueError('proposal_account')
+        if is_v2:
+            transition.validate(proposal)
+            if components!=list(transition.COMPONENTS) or exclude_short:raise ValueError('transition_components')
+        elif components is not None:raise ValueError('legacy_components_forbidden')
         if action not in ('APPROVE','REJECT') or not weekly.when(proposal['created_at'])<=weekly.when(at)<=weekly.when(proposal['expires_at']):raise ValueError('decision_action_or_expiry')
         if type(exclude_short) is not list or len(set(exclude_short))!=len(exclude_short):raise ValueError('short_exclusions')
         if not set(exclude_short)<={s for s,v in proposal['short_caps'].items() if v>0}:raise ValueError('short_exclusion_scope')
         decision=dict(account=self.account,proposal_id=proposal['proposal_id'],parent_revision=proposal['parent_revision'],action=action,exclude_short=sorted(exclude_short),decided_at=at,proposal_expires_at=proposal['expires_at'],actor='authenticated_operator',scope='M1_PAPER_MAINTENANCE_ONLY')
+        if is_v2:decision['components']=list(components)
         decision['decision_id']=weekly.digest(decision)
         if action=='APPROVE':weekly.approved_policy(proposal,decision,proposal['parent_revision'],at)
         with self.db:
             old=self.db.execute('SELECT payload FROM decisions WHERE proposal_id=?',(proposal['proposal_id'],)).fetchone()
             if old:
                 saved=json.loads(old[0])
-                if saved['action']==action and saved['exclude_short']==sorted(exclude_short):return saved
+                if saved['action']==action and saved['exclude_short']==sorted(exclude_short) and saved.get('components')==components:return saved
                 raise ValueError('decision_conflict')
             if action=='APPROVE':
                 for row in self.db.execute("SELECT payload FROM decisions WHERE account=? AND parent_revision=? AND action='APPROVE'",(self.account,proposal['parent_revision'])):
@@ -96,7 +103,8 @@ class Broker:
         proposal=value['proposal']
         if not proposal or request['proposal_id']!=proposal['proposal_id'] or value['account']!=self.c['account']:
             raise ValueError('proposal_changed_reload_required')
-        return self.store.record(proposal,action=request['action'],exclude_short=request.get('exclude_short',[]),at=dt.datetime.now(weekly.UTC).isoformat())
+        if self.c.get('transition_only') and proposal.get('version')!='m1-long-maintenance-v2':raise ValueError('legacy_approval_disabled')
+        return self.store.record(proposal,action=request['action'],exclude_short=request.get('exclude_short',[]),components=request.get('components'),at=dt.datetime.now(weekly.UTC).isoformat())
 
 
 def main():

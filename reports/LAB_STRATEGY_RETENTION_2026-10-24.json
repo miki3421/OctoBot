@@ -1,0 +1,192 @@
+{
+  "scope": "OBSERVATIONAL_ANALYSIS_ONLY_NO_SHUTDOWN",
+  "as_of": "2026-10-24T14:29:37.276867+00:00",
+  "groups": {
+    "v13_three": {
+      "method": "FIRST_COMMON_5MIN_BUCKET_NO_INTERPOLATION_MAX120S_SKEW",
+      "points": 3156,
+      "gaps_over30m": 0,
+      "strategies": {
+        "ORIGINAL": {
+          "start_at": "2026-10-13T15:00:57.631602+00:00",
+          "end_at": "2026-10-24T14:25:16.617542+00:00",
+          "start_equity": 9963.229997221048,
+          "end_equity": 9727.773441116298,
+          "change": -235.45655610474932,
+          "return_pct": -2.36325525126313,
+          "observed_drawdown_pct": 2.639036416354279
+        },
+        "FAST": {
+          "start_at": "2026-10-13T15:00:00+00:00",
+          "end_at": "2026-10-24T14:25:11.176596+00:00",
+          "start_equity": 9961.090097221047,
+          "end_equity": 9848.897232661067,
+          "change": -112.19286455998008,
+          "return_pct": -1.126311111183298,
+          "observed_drawdown_pct": 1.2822502737543817
+        },
+        "HALF": {
+          "start_at": "2026-10-13T15:00:00+00:00",
+          "end_at": "2026-10-24T14:25:11.176596+00:00",
+          "start_equity": 9961.090097221047,
+          "end_equity": 9843.299674011198,
+          "change": -117.7904232098499,
+          "return_pct": -1.1825053489146864,
+          "observed_drawdown_pct": 1.338355884445841
+        }
+      }
+    },
+    "v13_four": {
+      "method": "FIRST_COMMON_5MIN_BUCKET_NO_INTERPOLATION_MAX120S_SKEW",
+      "points": 2075,
+      "gaps_over30m": 0,
+      "strategies": {
+        "ORIGINAL": {
+          "start_at": "2026-10-17T09:15:27.738502+00:00",
+          "end_at": "2026-10-24T14:21:15.384275+00:00",
+          "start_equity": 9907.989019710369,
+          "end_equity": 9737.073741116297,
+          "change": -170.91527859407142,
+          "return_pct": -1.725024909232975,
+          "observed_drawdown_pct": 2.5459538445717467
+        },
+        "FAST": {
+          "start_at": "2026-10-17T09:15:23.728513+00:00",
+          "end_at": "2026-10-24T14:20:56.918153+00:00",
+          "start_equity": 9936.242808891187,
+          "end_equity": 9852.260932661067,
+          "change": -83.98187623012018,
+          "return_pct": -0.8452075683473725,
+          "observed_drawdown_pct": 0.9740586600474388
+        },
+        "HALF": {
+          "start_at": "2026-10-17T09:15:23.728513+00:00",
+          "end_at": "2026-10-24T14:20:56.918153+00:00",
+          "start_equity": 9938.138974261788,
+          "end_equity": 9847.197134011198,
+          "change": -90.94184025059076,
+          "return_pct": -0.9150791761527555,
+          "observed_drawdown_pct": 1.1633936211898122
+        },
+        "M1": {
+          "start_at": "2026-10-17T09:15:23.728513+00:00",
+          "end_at": "2026-10-24T14:20:15.644281+00:00",
+          "start_equity": 9907.989019710369,
+          "end_equity": 9805.087469591139,
+          "change": -102.9015501192298,
+          "return_pct": -1.0385714993680684,
+          "observed_drawdown_pct": 1.7519131596542725
+        }
+      }
+    }
+  },
+  "variants": {
+    "FAST": {
+      "equity": 9848.897232661067,
+      "observed_at": "2026-10-24T14:25:11.176596+00:00",
+      "fork_at": "2026-10-13T14:55:36.881469+00:00",
+      "own_fork_change": -115.86312455998086,
+      "own_fork_change_pct": -1.1627286598620445,
+      "own_fork_drawdown_pct": 1.2822502737543817,
+      "fills": 87,
+      "fees": 2.2496410200000003,
+      "funding": -1.4726235399800007,
+      "current_gross": 0.10242885839589881
+    },
+    "HALF": {
+      "equity": 9843.299674011198,
+      "observed_at": "2026-10-24T14:25:11.176596+00:00",
+      "fork_at": "2026-10-13T14:55:36.881469+00:00",
+      "own_fork_change": -121.46068320985069,
+      "own_fork_change_pct": -1.218902199909233,
+      "own_fork_drawdown_pct": 1.338355884445841,
+      "fills": 114,
+      "fees": 1.9426467600000006,
+      "funding": -1.5587164498500012,
+      "current_gross": 0.10240723876988542
+    },
+    "M1": {
+      "equity": 9806.087369591138,
+      "observed_at": "2026-10-24T14:29:43.934115+00:00",
+      "fork_at": "2026-10-17T09:09:06.762912+00:00",
+      "own_fork_change": -101.212850119231,
+      "own_fork_change_pct": -1.0215986986835235,
+      "own_fork_drawdown_pct": 1.9433638778378448,
+      "fills": 92,
+      "fees": 12.50592996,
+      "funding": -1.9290201592299994,
+      "current_gross": 0.24973584343070235
+    },
+    "ORIGINAL": {
+      "equity": 9722.747841116297,
+      "observed_at": "2026-10-24T14:28:37.405019+00:00",
+      "fork_at": "2026-10-13T14:55:36.881469+00:00",
+      "own_fork_change": -242.01251610475083,
+      "own_fork_change_pct": -2.4286837558454066,
+      "own_fork_drawdown_pct": 2.6129899308716453,
+      "fills": 87,
+      "fees": 2.28427206,
+      "funding": -3.53298404475,
+      "current_gross": 0.24958247808691414
+    }
+  },
+  "legacy_intraday": {
+    "equity": 9998.472582400002,
+    "net": -1.5274175999984436,
+    "stress_net": -2.430625200000577,
+    "fills": 4,
+    "round_trips": 2,
+    "fees": 1.9834176,
+    "gross_realized": 0.45600000000005825,
+    "valid_slots": 753,
+    "slots": 1902,
+    "valid_slot_ratio": 0.39589905362776023,
+    "activation_at": "2026-10-17T17:01:50.189474+00:00"
+  },
+  "paired_intraday": {
+    "candidate-primary": {
+      "account": "btc-intraday-long-short-v1",
+      "equity": 10000.0,
+      "fills": 0,
+      "latest_reason": "PRICE_MISSING",
+      "slot_counts": {
+        "L5_WINDOW_INCOMPLETE": 1,
+        "NO_SIGNAL": 492,
+        "PRESTART_WARMUP": 29,
+        "WARMUP_OR_MISSING_INPUT": 259
+      }
+    },
+    "control-primary": {
+      "account": "btc-intraday-short-control-v1",
+      "equity": 10000.0,
+      "fills": 0,
+      "latest_reason": "PRICE_MISSING",
+      "slot_counts": {
+        "L5_WINDOW_INCOMPLETE": 1,
+        "NO_SIGNAL": 492,
+        "PRESTART_WARMUP": 29,
+        "WARMUP_OR_MISSING_INPUT": 259
+      }
+    }
+  },
+  "m1_confounds": {
+    "missed_daily": 2,
+    "episodes": 2,
+    "first_approval_not_applied": true
+  },
+  "limitations": [
+    "Short correlated market sample, not independent experiments",
+    "Different exposure, inception dates and missed daily M1 rebalances confound comparisons",
+    "Legacy intraday has only two round trips and incomplete input continuity",
+    "New paired accounts have no executions; flat equity is not demonstrated robustness"
+  ],
+  "recommendations": {
+    "ORIGINAL": "KEEP_UNCHANGED_REFERENCE",
+    "M1": "FOCUS_MAINTENANCE_WITH_EXPLICIT_APPROVAL",
+    "HALF": "KEEP_RISK_CONTROL",
+    "FAST": "NO_STATISTICAL_REJECTION_YET_SLIGHTLY_BETTER_THAN_HALF",
+    "legacy_intraday": "FIRST_CONSOLIDATION_CANDIDATE_NOT_PROVEN_UNPROFITABLE",
+    "paired_intraday": "CONTINUE_DATA_QUALIFIED_OBSERVATION_NOT_PROFITABILITY_VERDICT"
+  },
+  "services_stopped": false
+}

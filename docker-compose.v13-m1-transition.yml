@@ -1,0 +1,69 @@
+version: '2.4'
+services:
+  m1-paper:
+    image: octobot-local:dev
+    container_name: octobot-v13-m1-paper
+    user: '30943:30910'
+    entrypoint: ['python3', '-B', '-m', 'octobot.ai_strategy_lab.v13_m1_managed', '--config', '/configuration/config.json']
+    environment: {PYTHONPATH: /workspace, PYTHONDONTWRITEBYTECODE: '1'}
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
+    tmpfs: ['/tmp:rw,size=128m']
+    volumes:
+      - /opt/v13-m1-paper-runtime-v4.1:/workspace:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v2-r2/configuration/config.json:/configuration/config.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v2-r2/configuration/protocol.json:/configuration/protocol.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v2-r2/configuration/runtime-upgrade.json:/configuration/runtime-upgrade.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v2-r2/configuration/transition-proposal.json:/configuration/transition-proposal.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-paper-v1/state:/state:rw
+      - /root/auto_trading_sys/octobot-local/v13-m1-paper-v1/seed:/seed:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v1/approvals:/approvals:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v1/source:/management-source:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/execution:/original:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/source:/source:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/proposals:/proposals:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/baseline/implementation-lock.json:/baseline/implementation-lock.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/baseline/research:/usr/ext_hd/auto_trading_sys/octobot-local/backtesting/research:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/research/baseline/research:/research:ro
+      - /root/auto_trading_sys/octobot-local/v13-paper/m1-paper-ui:/projection:rw
+      - /root/auto_trading_sys/octobot-local/v13-paper/forks-ui:/comparators:ro
+    healthcheck:
+      test: ['CMD', 'python3', '-c', "import json,datetime,pathlib;v=json.loads(pathlib.Path('/projection/account.json').read_text());a=(datetime.datetime.now(datetime.timezone.utc)-datetime.datetime.fromisoformat(v['health']['checked_at'])).total_seconds();assert 0<=a<180 and v['health']['status']!='BLOCKED'"]
+      interval: 60s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+  m1-approval:
+    image: octobot-local:dev
+    container_name: octobot-m1-approval-broker
+    user: '30945:30910'
+    entrypoint: ['python3', '-B', '-m', 'octobot.ai_strategy_lab.v13_m1_approval_broker', '--config', '/configuration/broker.json']
+    environment: {PYTHONPATH: /workspace, PYTHONDONTWRITEBYTECODE: '1'}
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    tmpfs: ['/tmp:rw,size=32m']
+    volumes:
+      - /opt/v13-m1-paper-runtime-v4.1:/workspace:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v2-r2/configuration/broker.json:/configuration/broker.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v1/configuration/verifier.json:/configuration/verifier.json:ro
+      - /root/auto_trading_sys/octobot-local/v13-m1-management-v1/approvals:/approvals:rw
+      - /root/auto_trading_sys/octobot-local/v13-paper/m1-management-control/socket:/control:rw
+      - /root/auto_trading_sys/octobot-local/v13-paper/m1-paper-ui:/projection:ro
+    healthcheck:
+      test: ['CMD', 'python3', '-c', "import json,socket;s=socket.socket(socket.AF_UNIX);s.settimeout(3);s.connect('/control/approval.sock');s.sendall(b'{\"operation\":\"status\"}\\n');v=json.loads(s.recv(8192));assert v['ok'] and v['decision']['authentication_configured']"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3

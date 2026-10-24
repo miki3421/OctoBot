@@ -153,6 +153,9 @@ def proposal(science, market, *, account, revision, previous, positions, equity,
 
 
 def approved_policy(p, decision, previous_revision, at):
+    from . import v13_m1_transition as transition
+    if p.get('version') == transition.VERSION:
+        return transition.approved_policy(p, decision, previous_revision, at)
     verify(p,'proposal_id');verify(decision,'decision_id')
     if (p['version']!=VERSION or p['scope']!='M1_RESEARCH_PAPER_WEEKLY_PROPOSAL'
         or type(p['parent_revision']) is not int or type(previous_revision) is not int
@@ -188,6 +191,9 @@ def floor_quantity(value,step):
 
 def targets(state, policy, baseline, quotes, *, kind, short_reference=None):
     """Same account; no redistribution, no automatic restoration of LONG caps."""
+    from . import v13_m1_transition as transition
+    if policy.get('version') == transition.VERSION:
+        return transition.targets(state, policy, baseline, quotes, kind=kind, short_reference=short_reference)
     import copy
     policy=copy.deepcopy(policy)
     equity=state['initial_equity']+sum(p['realized_pnl']+p['quantity']*(p['current_price']-p['entry_price'])-p['fees']+p['funding'] for p in state['positions'].values())
