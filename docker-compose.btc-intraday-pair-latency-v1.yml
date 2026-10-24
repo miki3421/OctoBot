@@ -1,0 +1,47 @@
+# Latency-only continuation; original strategy, accounts and mounts preserved.
+# Shared book persistence is deployed separately; no account initialization.
+version: '3.8'
+services:
+  btc-intraday-pair:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    container_name: octobot-btc-intraday-pair
+    user: '30943:30910'
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    # Full append-only history verification at startup already exceeds 512 MiB.
+    mem_limit: 2g
+    cpus: 0.75
+    pids_limit: 64
+    environment:
+      PYTHONDONTWRITEBYTECODE: '1'
+    working_dir: /runtime
+    entrypoint: [/bin/sh, -c]
+    command: ['sha256sum --check files.sha256 && exec python3 -B btc_intraday_pair_latency_live.py --config /configuration/config-latency-v1.json']
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=33554432,mode=1777
+    volumes:
+      - /opt/btc-intraday-pair-latency-v1:/runtime:ro
+      - /opt/btc-intraday-pair-latency-v1/empty:/octobot/user:ro
+      - /opt/btc-intraday-pair-latency-v1/empty:/octobot/backtesting:ro
+      - /opt/btc-intraday-pair-latency-v1/empty:/octobot/logs:ro
+      - /opt/btc-intraday-pair-latency-v1/empty:/octobot/tentacles:ro
+      - ../octobot-local/btc-intraday-pair-v1/configuration:/configuration:ro
+      - ../octobot-local/btc-intraday-pair-v1/control:/control:ro
+      - ../octobot-local/btc-intraday-pair-v1/state:/state:rw
+      - ../octobot-local/v13-paper/intraday-pair-ui:/projection:rw
+      - ../octobot-local/v13-paper/research/source:/source:ro
+      - ../octobot-local/scalping:/book:ro
+    healthcheck:
+      test: [CMD, python3, -c, "import json,time,pathlib;v=json.loads(pathlib.Path('/projection/comparison.json').read_text());n=time.time_ns();assert v['no_real_orders'] and v['active_account'] and v['phase']!='BLOCKED' and 0<=n-v['checked_at_ns']<30000000000;assert all(a['cursor']==v['input_seq'] and a['input_sha']==v['input_sha'] and not a['integrity_halt'] and a['last_book_ns'] and 0<=n-a['last_book_ns']<30000000000 and a['last_market_ns'] and 0<=n-a['last_market_ns']<120000000000 for a in v['arms'].values())"]
+      interval: 20s
+      timeout: 5s
+      start_period: 10m
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '3'}
+    labels:
+      com.centurylinklabs.watchtower.enable: 'false'

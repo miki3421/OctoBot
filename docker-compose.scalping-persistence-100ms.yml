@@ -1,0 +1,8 @@
+# Technical persistence only. Network subscription, source data and strategy unchanged.
+version: '3.8'
+services:
+  scalping-observer:
+    image: sha256:7e825796375e06e3cfb6ea46b5b7202bdba4c0bb998bdffea5e02b8bd9d67575
+    entrypoint: [/bin/bash, /persistence-runtime/scalping-observer-low-latency-entrypoint.sh]
+    volumes:
+      - /opt/btc-intraday-pair-latency-v1:/persistence-runtime:ro
