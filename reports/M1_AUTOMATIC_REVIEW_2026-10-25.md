@@ -84,4 +84,21 @@ claiming independent QA. Tests use the existing installed images, no downloads.
 
 Prepared immutable release: `v13-m1-auto-v6`, manifest
 `8f0b1c346d3117503975bed56c8233aa1e0840ac1c0419210d17d43ecf77d8df`.
-Operational activation/readback is pending at the time of this preparation.
+Operational activation completed at 12:23:12 UTC (13:23:12 CET). The existing
+account now reports `delegated_automatic_review`; its first causal renewal is
+recorded and no new candidate was admitted because current LONG exposure uses
+the fixed capacity. No new fills were forced at activation. Capacity is
+reconsidered after actual reductions, within the unchanged weekly entry bound.
+
+All 319 previous order rows compare exactly with the cold backup; SQLite
+integrity is `ok`. SHORT caps are unchanged and `orders_authorized` is false.
+The 70 targeted tests, full-copy control fixture (including new-symbol entry,
+restart and actual three-stage exit) and both fixture/live desktop/mobile
+browser journeys passed. Browser journeys performed no approval POSTs.
+
+All 12 running lab containers are healthy. The passive monitor's 12:24:15 UTC
+sample reports M1 healthy, no account issues and no alerts. Other container IDs,
+start times and restart counts are unchanged; only M1 and the dashboard were
+restarted. The previous M1 runtime is retained stopped with restart disabled;
+no historical ledger restoration or deletion was performed. Code is delivered
+on the existing project branch; operator acceptance remains a separate step.
