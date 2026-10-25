@@ -199,7 +199,7 @@ def authority(config, account):
         raise ValueError('successor_operator_authority')
     if value['quantities'] != p['initial_quantities']:
         raise ValueError('successor_activation_quantities_changed')
-    upgrade=json.loads(safe_file(config['runtime_upgrade'],0).read_text())
+    upgrade=json.loads(safe_file(c.get('genesis_upgrade',config['runtime_upgrade']),0).read_text())
     if (value['backup_sha256']!=upgrade['backup_sha256'] or upgrade['account']!=account
             or upgrade['scope']!='M1_GRADUAL_LONG_SHORT_V3'):
         raise ValueError('successor_stopped_backup_binding')
@@ -253,6 +253,9 @@ class Runner(managed.Runner):
 
     def managed_policy(self):
         value=self.meta('management_policy')
+        if value and value.get('authority_kind')=='delegated_automatic_review':
+            from . import v13_m1_auto
+            return v13_m1_auto.validated_policy(self,value)
         if value is None or value.get('authority_kind')!='direct_operator_instruction':
             return super().managed_policy()
         p,a=authority(self.c,self.account)
@@ -271,13 +274,16 @@ class Runner(managed.Runner):
         p=self.managed_policy()
         if p and control['phase']=='NORMAL' and not control.get('pending'):
             try:
-                updated,progress,events=advance(p,self.meta('successor_progress'),state,self.science(),now.isoformat())
+                updated,progress,events=self.stage_review(p,self.meta('successor_progress'),state,self.science(),now.isoformat())
                 self.put('management_policy',updated);self.put('successor_progress',progress)
                 self.put('successor_input_status',None)
                 for event in events:self.event('GRADUAL_LONG_REDUCTION',event,p['proposal_id'])
             except (ValueError,KeyError,TypeError,OSError):
                 self.put('successor_input_status','WAITING_FRESH_CAUSAL_DAILY_NO_EXTRA_REDUCTION')
         return super().management_cycle(state,control,record,now,debt)
+
+    def stage_review(self,policy,progress,state,science,at):
+        return advance(policy,progress,state,science,at)
 
     def execute_pending(self,state,control,record,now,debt):
         pending=copy.deepcopy(control.get('pending'))

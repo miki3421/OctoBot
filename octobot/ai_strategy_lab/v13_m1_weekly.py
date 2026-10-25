@@ -194,6 +194,9 @@ def floor_quantity(value,step):
 
 def targets(state, policy, baseline, quotes, *, kind, short_reference=None):
     """Same account; no redistribution, no automatic restoration of LONG caps."""
+    if policy.get('authority_kind') == 'delegated_automatic_review':
+        from . import v13_m1_auto
+        return v13_m1_auto.targets(state,policy,baseline,quotes,kind=kind,short_reference=short_reference)
     if policy.get('version') == 'm1-gradual-long-short-v3':
         from . import v13_m1_successor
         return v13_m1_successor.targets(state,policy,baseline,quotes,kind=kind,short_reference=short_reference)

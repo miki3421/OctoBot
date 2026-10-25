@@ -13,6 +13,30 @@
     APPROVED_WAITING_RISK:'Approvata · aumenti sospesi dai controlli di rischio',PARTIAL_REBALANCE:'Ribilanciamento parziale · leggere i motivi',
     APPROVED_WAITING_NEXT_SLOT:'Approvata · attesa prossimo slot utile',EXECUTED:'Ribilanciamento eseguito'};
   function cell(row,value){const e=document.createElement('td');e.textContent=value;row.append(e);return e;}
+  const autoReasons={ALL_REQUIRED_CHECKS_PASSED:'Controlli superati',WAITING_CURRENT_DAILY:'Storico giornaliero incompleto',NO_POSITIVE_SIGNAL:'Segnale LONG assente',WAITING_SECOND_POSITIVE_DAY:'Attesa seconda conferma giornaliera',SIGNAL_TOO_WEAK:'Forza del segnale insufficiente',LONG_BUDGET_OR_WEEKLY_LIMIT:'Budget, rischio o slot settimanale non disponibili',WAITING_VALID_BOOK_COSTS_FUNDING:'Book, costi o funding non qualificati',SCORE_BELOW_THRESHOLD:'Punteggio sotto soglia',SIGNAL_RECOVERED:'Segnale recuperato: riduzione sospesa',COST_LIMIT:'Costi stimati oltre lo 0,20% per andata e ritorno',SPREAD_LIMIT:'Spread oltre lo 0,10%',QUANTITY_BELOW_MINIMUM:'Quantità sotto il minimo del contratto paper'};
+  function automatic(){
+    const a=current.automatic_review;let box=el('automatic-review');
+    if(!a){box?.remove();return;}
+    if(!box){box=document.createElement('section');box.id='automatic-review';el('weekly-policy').before(box);}
+    box.replaceChildren();
+    const title=document.createElement('h3');title.textContent='Approvazione automatica ponderata · attiva';box.append(title);
+    const line=document.createElement('p');line.textContent='Soglia '+a.rules.threshold+'/100. Dati 25 · segnale 30 · liquidità 20 · costi 15 · budget 10. Un veto blocca la proposta anche con punteggio alto. Il punteggio misura i controlli, non la probabilità di guadagno.';box.append(line);
+    const scope=document.createElement('p');scope.textContent='Budget SHORT conservato: '+n(a.short_budget*100)+'%. Nuovi LONG: '+(a.allow_admissions?'massimo due simboli nuovi alla settimana, fino all’1% ciascuno, entro il budget LONG del '+n(a.long_budget*100)+'%, con due giorni positivi.':'disabilitati.')+' Nessun riacquisto dei simboli esclusi; ingressi allo slot giornaliero, con book successivo e controlli di rischio.';box.append(scope);
+    const latest=a.history.find(x=>x.kind==='DAILY_RENEWAL_AND_WEEKLY_SELECTION');
+    const status=document.createElement('p');status.textContent=a.input_status?'Dati non qualificati: nessuna nuova approvazione.':latest?'Ultima revisione automatica: '+date(latest.at)+' · nuovi simboli approvati: '+(latest.details.admitted.join(', ')||'nessuno')+'.':'Prima revisione in attesa dei dati.';box.append(status);
+    Object.entries(current.policy?.automatic_admissions||{}).forEach(([symbol,v])=>{const line=document.createElement('p');line.textContent=symbol+' · approvato '+date(v.approved_at)+' · '+({PENDING:'ingresso in attesa dello slot e dei controlli',CONSUMED:'permesso utilizzato · nessun riacquisto',CANCELLED:'ingresso annullato'}[v.status]||v.status)+' · quantità attuale '+n(current.positions[symbol]?.quantity||0,6);box.append(line);});
+    if(latest){
+      const table=document.createElement('table'),head=document.createElement('tr');['Candidato nuovo','Esito','Punti','Motivo'].forEach(t=>cell(head,t));table.append(head);
+      latest.details.candidates.forEach(r=>{const row=document.createElement('tr');cell(row,r.symbol);cell(row,{APPROVED:'Approvato',DEFERRED:'Rinviato',REJECTED:'Respinto'}[r.status]||r.status);const score=cell(row,n(r.score,1)+'/100');score.title=Object.entries(r.components).map(([k,v])=>k+': '+n(v,1)).join(' · ');const reasons=r.reasons.map(x=>autoReasons[x]||x);const reason=cell(row,reasons.slice(0,2).join(' · '));reason.title=reasons.join(' · ');reason.style.whiteSpace='normal';reason.style.minWidth='240px';table.append(row);});const wrap=document.createElement('div');wrap.className='table-wrap';wrap.append(table);box.append(wrap);
+    }
+    const daily=a.daily_review;if(daily){const line=document.createElement('p');line.textContent='Review giornaliera dal '+date(daily.since)+': '+daily.fill_count+' fill, commissioni '+n(daily.fees,3)+' USDT, realizzato meno le commissioni di questi fill '+n(daily.closed_pnl_less_current_fill_fees,3)+' USDT. Questa cifra esclude P/L aperto, funding e costi precedenti; non è il rendimento del conto.';box.append(line);}
+    const details=document.createElement('details'),summary=document.createElement('summary');summary.textContent='Registro per la review giornaliera · '+a.history.length+' decisioni recenti';details.append(summary);
+    a.history.slice(0,20).forEach(r=>{const p=document.createElement('p');p.textContent=date(r.at)+' · '+r.kind+' · '+r.status+' · '+r.decision_id.slice(0,12);details.append(p);});box.append(details);
+    el('weekly-approve').hidden=true;el('weekly-reject').hidden=true;
+    el('weekly-auth-note').textContent='Delega automatica attiva per questo conto paper. Le approvazioni e gli esiti di esecuzione restano distinti e registrati; non occorre una password per ogni revisione.';
+    el('integration-badge').textContent='Approvazione automatica attiva';
+    el('weekly-scope-note').textContent='Riduzioni graduali sui LONG esistenti, budget SHORT invariato e nessun riacquisto automatico. I nuovi ingressi qualificati usano solo spazio disponibile nel budget LONG e un permesso di acquisto utilizzabile una volta.';
+  }
   function rows(){
     if(!current?.proposal)return;
     const p=current.proposal,filter=el('weekly-filter').value;
@@ -72,6 +96,7 @@
     el('weekly-execution').textContent=last?(labels[last.status]||last.status)+' · '+date(last.at)+(last.action.entry_block?' · motivo: '+last.action.entry_block:'')+(last.action.notes?.length?' · '+last.action.notes.map(x=>x.symbol+': '+x.reason).join('; '):''):'Nessun ribilanciamento da approvazione ancora registrato.';
     el('weekly-history').replaceChildren();
     current.reviews.forEach(r=>{const row=document.createElement('tr');cell(row,date(r.week));cell(row,r.id.slice(0,12));cell(row,labels[r.status]||r.status);cell(row,r.decision_id?r.decision_id.slice(0,12):'—');el('weekly-history').append(row);});
+    automatic();
   }
   async function load(){
     try{
