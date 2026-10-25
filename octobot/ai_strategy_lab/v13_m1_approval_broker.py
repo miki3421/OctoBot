@@ -51,11 +51,13 @@ class Store:
     def record(self,proposal,*,action,exclude_short,at,components=None):
         weekly.verify(proposal,'proposal_id')
         from . import v13_m1_transition as transition
-        is_v2=proposal.get('version')==transition.VERSION
-        if proposal['account']!=self.account or proposal['scope'] not in ('M1_RESEARCH_PAPER_WEEKLY_PROPOSAL',transition.SCOPE):raise ValueError('proposal_account')
+        from . import v13_m1_successor as successor
+        is_v2=proposal.get('version') in (transition.VERSION,successor.VERSION)
+        contract=successor if proposal.get('version')==successor.VERSION else transition
+        if proposal['account']!=self.account or proposal['scope'] not in ('M1_RESEARCH_PAPER_WEEKLY_PROPOSAL',transition.SCOPE,successor.SCOPE):raise ValueError('proposal_account')
         if is_v2:
-            transition.validate(proposal)
-            if components!=list(transition.COMPONENTS) or exclude_short:raise ValueError('transition_components')
+            contract.validate(proposal)
+            if components!=list(contract.COMPONENTS) or exclude_short:raise ValueError('transition_components')
         elif components is not None:raise ValueError('legacy_components_forbidden')
         if action not in ('APPROVE','REJECT') or not weekly.when(proposal['created_at'])<=weekly.when(at)<=weekly.when(proposal['expires_at']):raise ValueError('decision_action_or_expiry')
         if type(exclude_short) is not list or len(set(exclude_short))!=len(exclude_short):raise ValueError('short_exclusions')
@@ -103,7 +105,12 @@ class Broker:
         proposal=value['proposal']
         if not proposal or request['proposal_id']!=proposal['proposal_id'] or value['account']!=self.c['account']:
             raise ValueError('proposal_changed_reload_required')
-        if self.c.get('transition_only') and proposal.get('version')!='m1-long-maintenance-v2':raise ValueError('legacy_approval_disabled')
+        if self.c.get('transition_only') and proposal.get('version') not in ('m1-long-maintenance-v2','m1-gradual-long-short-v3'):raise ValueError('legacy_approval_disabled')
+        if self.c.get('successor_only'):
+            if proposal.get('version')!='m1-gradual-long-short-v3' or proposal['proposal_id']!=self.c['replacement_proposal_id']:
+                raise ValueError('superseded_proposal_not_authority')
+            if (value.get('successor') or {}).get('proposal_id')==proposal['proposal_id'] or value.get('proposal_status')=='ACTIVE_SUCCESSOR':
+                raise ValueError('manual_successor_already_active')
         return self.store.record(proposal,action=request['action'],exclude_short=request.get('exclude_short',[]),components=request.get('components'),at=dt.datetime.now(weekly.UTC).isoformat())
 
 

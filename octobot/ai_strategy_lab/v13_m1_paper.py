@@ -243,7 +243,7 @@ class Runner:
             raise ValueError('continuation_identity_changed')
         upgrade = shared.read(path)
         if (set(upgrade) != {'scope', 'account', 'from_identity', 'to_identity', 'authorized_at', 'owner_reference', 'backup_sha256'}
-                or upgrade['scope'] not in {'M1_CANONICAL_WEIGHT_DECODE_CORRECTION', 'M1_WEEKLY_SELECTION_MANAGEMENT_V1', 'M1_LONG_MAINTENANCE_V2'}
+                or upgrade['scope'] not in {'M1_CANONICAL_WEIGHT_DECODE_CORRECTION', 'M1_WEEKLY_SELECTION_MANAGEMENT_V1', 'M1_LONG_MAINTENANCE_V2', 'M1_GRADUAL_LONG_SHORT_V3'}
                 or upgrade['account'] != self.account or upgrade['from_identity'] != self.meta('identity')
                 or upgrade['to_identity'] != identity
                 or not upgrade['owner_reference'] or p.timestamp(upgrade['authorized_at']) > source.now()):

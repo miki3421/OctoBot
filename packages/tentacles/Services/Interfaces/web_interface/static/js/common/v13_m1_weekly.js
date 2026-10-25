@@ -3,12 +3,13 @@
 (() => {
   const el=id=>document.getElementById(id);
   let current=null, token=null, action=null, pinned=null, pinnedComponents;
-  const v2=p=>p?.version==='m1-long-maintenance-v2';
+  const v3=p=>p?.version==='m1-gradual-long-short-v3';
+  const v2=p=>p?.version==='m1-long-maintenance-v2'||v3(p);
   const n=(v,d=2)=>new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(v);
   const date=v=>new Date(v).toLocaleString('it-IT',{timeZone:'Europe/Rome',timeZoneName:'short'});
-  const labels={PROPOSED:'Da approvare',REJECTED:'Rifiutata',EXPIRED:'Scaduta',ARCHIVED_V1_NOT_APPROVABLE:'Archiviata · sostituita dalla v2',
+  const labels={ACTIVE_SUCCESSOR:'Nuova strategia attiva · versione precedente ritirata',SUPERSEDED:'Sostituita · conservata nello storico',PROPOSED:'Da approvare',REJECTED:'Rifiutata',EXPIRED:'Scaduta',ARCHIVED_V1_NOT_APPROVABLE:'Archiviata · sostituita dalla v2',
     APPROVED_WAITING_NORMAL_PHASE:'Approvata · attesa fine episodio M1',APPROVED_WAITING_INPUTS:'Approvata · attesa dati',
-    ACTIVE_REBALANCE_PENDING:'Approvata · ribilanciamento in preparazione',REDUCTIONS_APPLIED_WAITING_DAILY:'Riduzioni applicate · nuovi ingressi al prossimo slot giornaliero',
+    ACTIVE_REBALANCE_PENDING:'Approvata · ribilanciamento in preparazione',REDUCTIONS_APPLIED_WAITING_DAILY:'Riduzioni registrate · verifiche successive in attesa',
     APPROVED_WAITING_RISK:'Approvata · aumenti sospesi dai controlli di rischio',PARTIAL_REBALANCE:'Ribilanciamento parziale · leggere i motivi',
     APPROVED_WAITING_NEXT_SLOT:'Approvata · attesa prossimo slot utile',EXECUTED:'Ribilanciamento eseguito'};
   function cell(row,value){const e=document.createElement('td');e.textContent=value;row.append(e);return e;}
@@ -19,14 +20,14 @@
     const symbols=Object.keys(p.rows).sort((a,b)=>(p.rows[b].score||0)-(p.rows[a].score||0)||a.localeCompare(b));
     symbols.forEach(s=>{
       const added=p.selected.includes(s)&&!p.previous.includes(s),removed=p.previous.includes(s)&&!p.selected.includes(s);
-      const change=p.indicative_changes[s],pos=p.indicative_positions[s];
+      const change=p.indicative_changes[s],pos=v3(p)&&current.active?{quantity:current.positions[s]?.quantity||0,mark:current.positions[s]?.current_price||0}:p.indicative_positions[s];
       if(filter==='changes'&&(v2(p)?!change:!added&&!removed&&!change))return;
       const row=document.createElement('tr');cell(row,s);
       cell(row,v2(p)?change?'Riduzione LONG':pos?.quantity?'Quantità confermata':'Nessun ingresso incluso':p.ineligible[s]?'Dati non sufficienti':added?'Ingresso proposto':removed?'Escluso dai LONG':p.selected.includes(s)?'Selezionato':'Non selezionato');
       cell(row,v2(p)||p.rows[s].score===null?'—':n(p.rows[s].score,3));
-      cell(row,n(pos?Math.max(0,pos.quantity)*pos.mark/p.reference_equity*100:0)+'%');
-      cell(row,n(p.long_caps[s]*100)+'%');cell(row,n(p.short_caps[s]*100)+'%');
-      cell(row,v2(p)?n(p.quantity_ceilings[s]||0,6):change?n(change.indicative_target,6):pos?n(pos.quantity,6):'0');
+      cell(row,n(pos?Math.max(0,pos.quantity)*pos.mark/(current.metrics?.equity||p.reference_equity)*100:0)+'%');
+      cell(row,n((v3(p)&&current.active?(current.policy.quantity_ceilings[s]||0)*(pos?.mark||0)/(current.metrics?.equity||p.reference_equity):p.long_caps[s])*100)+'%');cell(row,n(p.short_caps[s]*100)+'%');
+      cell(row,v2(p)?n((v3(p)&&current.active?current.policy.quantity_ceilings[s]:p.quantity_ceilings[s])||0,6):change?n(change.indicative_target,6):pos?n(pos.quantity,6):'0');
       cell(row,change?(change.cost_available?n(change.immediate_equity_cost,3)+' USDT':'Non quotabile'):'—');
       el('weekly-rows').append(row);
     });
@@ -34,12 +35,12 @@
   function render(){
     const p=current.proposal;
     el('weekly-body').classList.remove('hidden');
-    el('weekly-status').textContent=current.stale?'Stato M1 non aggiornato: approvazioni sospese.':p?(labels[current.proposal_status]||current.proposal_status):'In attesa degli input necessari per generare la revisione.';
+    el('weekly-status').textContent=current.stale?'Stato M1 non aggiornato: approvazioni sospese.':current.successor?'Nuova strategia attiva · versione precedente ritirata':p?(labels[current.proposal_status]||current.proposal_status):'In attesa degli input necessari per generare la revisione.';
     el('weekly-proposal').classList.toggle('hidden',!p);
     el('weekly-policy').textContent=current.policy?'Epoca attiva '+current.policy.revision+' · '+date(current.policy.activated_at)+' · aumenta il rischio solo con revisione valida fino a '+date(current.policy.valid_until):'Nessuna selezione settimanale ancora applicata al conto.';
     el('integration-badge').textContent=current.active?'Collegamento attivo · approvazione richiesta':'Collegamento pronto · attesa prima approvazione';
     if(p){
-      el('weekly-title').textContent=v2(p)?'Manutenzione LONG · versione 2':'Selezione settimanale · conto M1';
+      el('weekly-title').textContent=v3(p)?'M1 · gestione graduale + SHORT':v2(p)?'Manutenzione LONG · versione 2':'Selezione settimanale · conto M1';
       el('weekly-approve').textContent=v2(p)?'Approva riduzioni LONG':'Approva selezione M1';
       el('weekly-id').textContent='Proposta '+p.proposal_id.slice(0,12)+' · creata '+date(p.created_at)+' · approvabile fino a '+date(p.expires_at)+'.';
       el('weekly-count').textContent=v2(p)?p.events.length+' riduzioni · budget SHORT invariato':p.selected.length+' selezionati su '+Object.keys(p.rows).length+' candidati';
@@ -47,6 +48,20 @@
       const summary=el('weekly-risk-summary');summary.classList.toggle('hidden',!v2(p));
       if(v2(p))summary.textContent='LONG: '+n(p.summary.long_before*100)+'% → '+n(p.summary.long_after*100)+'%. Budget SHORT per gli episodi M1: '+n(p.summary.short_before*100)+'% → '+n(p.summary.short_after*100)+'%, invariato; non si somma al LONG. Turnover indicativo '+n(p.summary.turnover)+' USDT; costo '+n(p.summary.estimated_cost,3)+' USDT. Nuove coin: nessuna. Cadenza dei segnali: Originale. Candidato '+p.candidate_id.slice(0,12)+', fotografia '+date(p.candidate_as_of)+'.';
       el('weekly-scope-note').textContent=v2(p)?'Approvi soltanto i tetti di quantità LONG mostrati. Le quantità rimaste e la liquidità non vengono riallocate automaticamente. QNT, XMR e qualsiasi aumento del budget SHORT richiedono un’altra proposta e un consenso separato. Quantità e costi sono indicativi; i fill usano dati successivi al consenso.':'Al massimo due nuovi ingressi o sostituzioni per settimana; i pesi sono limiti approvabili. Le esclusioni LONG non rimuovono automaticamente il budget SHORT.';
+      if(v3(p)){
+        const fractions=p.stage_rule.remaining_fractions;
+        el('weekly-count').textContent='Sei LONG · '+fractions.length+' tappe · SHORT conservato';
+        el('weekly-policy').textContent=current.successor?'Versione attiva dal '+date(current.successor.activated_at)+' · conto e storico conservati · versione precedente ritirata. Revisione del nuovo rischio entro '+date(current.policy.valid_until):el('weekly-policy').textContent;
+        el('weekly-scope-note').textContent='Quantità residue previste: '+fractions.map(v=>n(v*100)+'%').join(' → ')+'. Le tappe successive attendono almeno 24 ore dalla riduzione eseguita e un nuovo giorno di dati con segnale non positivo. In caso di recupero la riduzione si ferma, senza riacquisti. Anche il rientro dopo uno SHORT non ricostituisce LONG. Budget SHORT per simbolo invariato; nessuna nuova coin.';
+        el('weekly-changes').textContent=p.affected.map(s=>s+': '+n(p.initial_quantities[s],6)+' → '+p.indicative_changes[s].stages.map(q=>n(q,6)).join(' → ')).join(' · ');
+        let detail=el('successor-progress');
+        if(!detail){detail=document.createElement('div');detail.id='successor-progress';el('weekly-scope-note').after(detail);}
+        detail.replaceChildren();
+        const title=document.createElement('h3');title.textContent='Avanzamento delle riduzioni';detail.append(title);
+        const statuses={REDUCTION_PENDING:'Riduzione in attesa di book',WAITING_NEXT_REVIEW:'Attesa prossima verifica',RECOVERED_NO_REBUY:'Segnale recuperato · nessun riacquisto',LONG_CLOSED:'LONG chiuso · SHORT disponibile',WAITING_DATA:'Dati insufficienti · tetto conservato'};
+        p.affected.forEach(s=>{const line=document.createElement('p'),g=current.reduction_progress?.[s];line.textContent=s+' · LONG attuale '+n(Math.max(0,current.positions?.[s]?.quantity||0),6)+' · tetto '+n(current.policy?.quantity_ceilings[s]??p.quantity_ceilings[s],6)+' · '+(g?(statuses[g.status]||g.status)+' · tappa '+(g.stage+1):'Prima riduzione in preparazione');detail.append(line);});
+        if(current.successor_input_status){const line=document.createElement('p');line.textContent='Attesa di dati giornalieri freschi: nessuna riduzione aggiuntiva basata su dati mancanti.';detail.append(line);}
+      }
       rows();
     }
     const expired=p&&new Date(p.expires_at)<new Date();
@@ -67,7 +82,7 @@
   }
   function open(which){
     if(!current?.proposal)return;action=which;pinned=current.proposal.proposal_id;
-    pinnedComponents=v2(current.proposal)?['LONG_MAINTENANCE']:undefined;
+    pinnedComponents=v2(current.proposal)?current.proposal.approval_components:undefined;
     el('weekly-dialog-title').textContent=which==='APPROVE'?(v2(current.proposal)?'Approva solo le riduzioni LONG v2':'Approva questa selezione M1'):'Rifiuta questa proposta';
     el('weekly-dialog-id').textContent='Proposta '+pinned.slice(0,12);el('weekly-password').value='';el('weekly-ack').checked=false;el('weekly-decision-message').textContent='';
     el('weekly-short-options').replaceChildren();

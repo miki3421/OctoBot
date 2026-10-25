@@ -153,6 +153,9 @@ def proposal(science, market, *, account, revision, previous, positions, equity,
 
 
 def approved_policy(p, decision, previous_revision, at):
+    if p.get('version') == 'm1-gradual-long-short-v3':
+        from . import v13_m1_successor
+        return v13_m1_successor.approved_policy(p,decision,previous_revision,at)
     from . import v13_m1_transition as transition
     if p.get('version') == transition.VERSION:
         return transition.approved_policy(p, decision, previous_revision, at)
@@ -191,6 +194,9 @@ def floor_quantity(value,step):
 
 def targets(state, policy, baseline, quotes, *, kind, short_reference=None):
     """Same account; no redistribution, no automatic restoration of LONG caps."""
+    if policy.get('version') == 'm1-gradual-long-short-v3':
+        from . import v13_m1_successor
+        return v13_m1_successor.targets(state,policy,baseline,quotes,kind=kind,short_reference=short_reference)
     from . import v13_m1_transition as transition
     if policy.get('version') == transition.VERSION:
         return transition.targets(state, policy, baseline, quotes, kind=kind, short_reference=short_reference)
