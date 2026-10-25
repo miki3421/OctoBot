@@ -53,4 +53,8 @@ Il candidato è provato con test unitari mirati e con il runner reale su **una c
 
 Evidenze private in `audit-evidence/m1-successor-20261025/`: copie, proposta, manifest, test, browser e ricevuta del passaggio. Le versioni preparatorie precedenti sono conservate; il candidato finale è soltanto quello identificato sopra.
 
-**Stato di consegna: verifiche finali e sostituzione operativa in corso.** L'esito operativo e il browser effettivo vengono registrati dopo il passaggio; i test dell'autore non costituiscono accettazione dell'operatore.
+**Attiva dal 25 ottobre alle 12:27:40 CET.** Prima riduzione completata sui sei LONG alle 12:28:38 CET: 6 fill, costo immediato effettivo 1,574570 USDT, incluse fee 0,741120. Tutti i 313 ordini precedenti conservati, ora 319. Budget SHORT e contatori di rischio invariati; contabilità indipendente riconciliata e integrity_check `ok` sulla copia successiva. Seconda tappa non prima del 26 ottobre alle 12:28:38 CET, solo con nuovi dati e deterioramento confermato.
+
+**78 test mirati passati**, prova completa su copia e browser fixture/live desktop e mobile passati. Sei conti attivi in UI, vecchia M1 come versione ritirata, nessun altro conto di confronto. Monitor passivo successivo: M1 healthy, zero issue e zero alert complessivi. Altri container con ID, avvio e restart count conservati. Evidenze operative: `manual-20261025T112639Z/result.json`, `operational-readback.json`, `v6/browser-live/result.json`. Il browser già aperto può conservare la vecchia pagina: una ricarica carica i nuovi riferimenti degli asset. Accettazione dell'operatore ancora distinta dalle verifiche dell'autore.
+
+Richieste successive dell'operatore: aggiunta alle regole del progetto della revisione settimanale delle tecnologie open source; approvazione automatica ponderata M1 da implementare con evidenze e controlli espliciti. Quest'ultima non è inclusa nel manifest di sostituzione sopra identificato.
