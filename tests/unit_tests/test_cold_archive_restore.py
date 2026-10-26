@@ -1,9 +1,11 @@
 """Archive restoration safety and a real SQLite recovery, using synthetic data."""
 import importlib.util
+import json
 from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tarfile
 import tempfile
 import unittest
@@ -44,6 +46,32 @@ class RestoreTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'undeclared_or_linked_member'):
                 m.restore(archive,{'account.sqlite':{'before':{'size':0}}},p/'restore-link')
             self.assertFalse((p/'restore-link/account.sqlite').exists())
+
+    def test_forensic_wal_restore_is_exact_without_claiming_database_integrity(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=Path(folder);db=p/'working.sqlite';connection=sqlite3.connect(db)
+            connection.execute('PRAGMA journal_mode=WAL');connection.execute('PRAGMA wal_autocheckpoint=0')
+            connection.execute('CREATE TABLE events(value TEXT)');connection.execute("INSERT INTO events VALUES('synthetic')");connection.commit()
+            source=p/'source';source.mkdir()
+            for name in ('working.sqlite','working.sqlite-wal','working.sqlite-shm'):
+                shutil.copy2(p/name,source/name)
+            connection.close()
+            self.assertGreater((source/'working.sqlite-wal').stat().st_size,0)
+            manifest={}
+            for path in source.iterdir():
+                s=path.stat();manifest[path.name]=dict(sha256=m.digest(path),before=dict(size=s.st_size,uid=s.st_uid,gid=s.st_gid,mode=s.st_mode&0o777,mtime_ns=s.st_mtime_ns))
+            manifest_path=p/'manifest.json';manifest_path.write_text(json.dumps(manifest));tar=p/'archive.tar'
+            with tarfile.open(tar,'w') as contents:
+                for path in source.iterdir():contents.add(path,arcname=path.name)
+            archive=p/'archive.tar.zst';subprocess.run(['zstd','-q','-o',str(archive),str(tar)],check=True)
+            dest=p/'recovered';result=p/'result.json'
+            subprocess.run([sys.executable,str(Path(m.__file__)), '--archive',str(archive),
+                '--archive-sha256',m.digest(archive),'--manifest',str(manifest_path),
+                '--destination',str(dest),'--result',str(result),'--files-only'],check=True,capture_output=True)
+            record=json.loads(result.read_text());self.assertTrue(record['passed'])
+            self.assertFalse(record['sqlite_integrity_checked']);self.assertIsNone(record['sqlite_integrity'])
+            for name,item in manifest.items():self.assertEqual(m.digest(dest/name),item['sha256'])
+            with self.assertRaisesRegex(ValueError,'nonempty_wal'):m.check_databases(dest,manifest)
 
 
 if __name__=='__main__':unittest.main()

@@ -102,8 +102,8 @@ originals. No active Docker container mounts one of the four cold packages.
 The exact private catalog SHA-256 is
 `295b95ea72e3992dfd50b19747b9cac25f5c4ed7abc94a8bf120b2f1b469ba22`.
 The catalog contains source identity/ownership metadata, archive hashes, manifests
-and exact file counts. Every original remains present while the operator's
-specific replacement decision is pending. The approval question requests only
+and exact file counts. Every original was retained through preparation and until the operator's
+specific replacement decision. The subsequent explicit approval covered only
 these four packages, not any operational journal or general retention policy.
 
 At 10:31:38 UTC the large filesystem had 146.95 GiB available (18.13%), including
@@ -137,7 +137,64 @@ Archive/manifest files are synchronized before replacement. Original package
 locations retain root-owned `ARCHIVED.json` records with hashes and restore
 instructions. No account or service restart is required.
 
-Eight focused archival tests pass, including real synthetic SQLite restoration,
+Nine focused archival tests pass, including real synthetic SQLite restoration,
 refusal of traversal/symlinks, archive tampering, open sources, same-metadata
-content tampering, scope changes and replacement of cross-package hard links.
-Operational activation and final capacity readback follow the approved preflight.
+content tampering, scope changes, replacement of cross-package hard links, and
+byte-exact forensic restoration of a nonempty WAL without an integrity claim.
+
+The final source/archive preflight passed and replacement completed from
+10:58:17 to 10:58:21 UTC (11:58 CET). All 350 original files in the four approved
+cold packages were replaced by the already verified archives. The original
+package directories now contain only `ARCHIVED.json` records identifying the
+archive, exact hashes, manifest, catalog and recovery tool. Private staging was
+removed after becoming empty. All four archives and manifests remain intact.
+
+At 10:59:02 UTC available space increased from 137.86 GiB immediately before
+activation to 195.76 GiB (24.15% of the filesystem). The measured increase was
+57.91 GiB while other writers continued; original-file allocation was 57.92 GiB.
+The overall storage-format benefit remains 45.12 GiB after accounting for the
+12.80 GiB compressed archives, which were already present before activation.
+These two figures use different baselines and must not be added together.
+
+All twelve containers retained exactly their identities, start times, restart
+counts and healthy state. Both required OPS VMs retained their states and IDs.
+Qwen remains inactive and disabled at boot, and its UI remains explicitly
+disabled. M1 reports `OBSERVING` with no baseline error. No service restart or
+change to an operational database, account, collector or VM was needed.
+
+### Recovery instructions
+
+Open the retained `ARCHIVED.json` at the old audit-package location. It provides
+the archive/manifest paths and the pinned archive SHA-256. Restore into a fresh
+private directory with `scripts/verify_cold_archive.py`, supplying its `--archive`,
+`--archive-sha256`, `--manifest`, `--destination` and `--result` arguments.
+
+Some original forensic snapshots intentionally include nonempty WAL companions.
+For byte-exact recovery of the whole forensic package, also pass `--files-only`.
+This restores and verifies every file and its metadata, including WAL/SHM, but
+sets `sqlite_integrity_checked=false` and makes no claim that a raw pre-repair
+snapshot is a clean runnable account. Investigate those snapshots only on a
+private copy. Without that option, the helper requires empty WALs and performs
+full read-only SQLite integrity checks. The earlier separate eleven-file
+checked-state recovery passed all three database integrity checks.
+
+Restore one package at a time and retain the helper's free-space reserve.
+Do not restore over a live directory, merge into an existing account or restart
+an old strategy as part of evidence recovery. The compressed originals,
+manifests and catalog are root-owned and read-only in the private audit area.
+
+
+Post-replacement readback at 11:01:11 UTC rehashed all four archives and manifests
+against the exact approved catalog and verified every restoration pointer. All
+350 files and their WAL companions remain represented by the verified manifests.
+The retired BTC account is still accessible in its read-only UI with all six
+historical fills. The operational profile remains `local_ai_trading`, with the
+real trader disabled, simulator enabled and `deterministic_alignment` unchanged.
+Affected account/chart pages respond successfully.
+
+The final passive monitor confirms the larger filesystem's recovered headroom.
+It still records the pre-existing FAST/HALF risk mismatch and M1 missed-daily-slot
+finding, plus intermittent swap traffic while the required VMs remain active.
+Qwen is off and about 14.9 GiB of swap is available; no claim of zero swap IO is
+made. This one-time cold replacement reduces retained storage, not ongoing data
+or VM growth, and grants no periodic deletion authority.

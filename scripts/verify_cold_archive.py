@@ -97,13 +97,18 @@ def check_databases(destination, manifest):
             result[name] = status[0]
         finally:
             connection.close()
+    verify_files(destination, manifest)
+    return result
+
+
+def verify_files(destination, manifest):
+    """Verify a byte-exact forensic restore without claiming SQLite validity."""
     for name, item in manifest.items():
         path = destination/name;s = path.stat();old = item['before']
         if (s.st_size, s.st_uid, s.st_gid, s.st_mode&0o777, s.st_mtime_ns) != (old['size'], old['uid'], old['gid'], old['mode'], old['mtime_ns']):
             raise ValueError('restored_metadata_changed')
         if digest(path) != item['sha256']:
             raise ValueError('restore_changed_by_read_only_check')
-    return result
 
 
 def main():
@@ -113,14 +118,21 @@ def main():
     p.add_argument('--manifest', type=Path, required=True)
     p.add_argument('--destination', type=Path, required=True)
     p.add_argument('--result', type=Path, required=True)
+    p.add_argument('--files-only', action='store_true',
+                   help='Byte/metadata recovery of forensic snapshots, including nonempty WAL; no SQLite validity claim.')
     args = p.parse_args();started = time.monotonic()
     if digest(args.archive) != args.archive_sha256:
         raise ValueError('archive_digest_mismatch')
     manifest = json.loads(args.manifest.read_text())
     size = restore(args.archive, manifest, args.destination)
-    dbs = check_databases(args.destination, manifest)
+    if args.files_only:
+        verify_files(args.destination, manifest)
+        dbs = None
+    else:
+        dbs = check_databases(args.destination, manifest)
     result = dict(passed=True, files=len(manifest), restored_bytes=size,
-                  sqlite_integrity=dbs, elapsed_seconds=time.monotonic()-started,
+                  sqlite_integrity=dbs, sqlite_integrity_checked=not args.files_only,
+                  elapsed_seconds=time.monotonic()-started,
                   archive_sha256=args.archive_sha256, manifest_sha256=digest(args.manifest),
                   restored_files_retained=True, original_files_changed=False)
     args.result.write_text(json.dumps(result, indent=2)+'\n')
