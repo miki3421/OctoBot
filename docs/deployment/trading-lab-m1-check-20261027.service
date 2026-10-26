@@ -20,4 +20,3 @@ ProtectKernelModules=true
 ProtectControlGroups=true
 CapabilityBoundingSet=CAP_DAC_READ_SEARCH
 ReadWritePaths=/var/lib/libvirt/trading-ai-lab/operational-checks/m1-20261027
-
