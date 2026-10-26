@@ -1,0 +1,23 @@
+[Unit]
+Description=Read-only M1 daily-slot checkout for 27 October 2026
+RequiresMountsFor=/var/lib/libvirt/trading-ai-lab
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sha256sum --check /opt/trading-lab-m1-check-20261027/SHA256SUMS
+ExecStart=/usr/bin/python3 -I -B /opt/trading-lab-m1-check-20261027/check.py --config /opt/trading-lab-m1-check-20261027/config.json
+TimeoutStartSec=30
+UMask=0077
+Nice=15
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+PrivateNetwork=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+ReadWritePaths=/var/lib/libvirt/trading-ai-lab/operational-checks/m1-20261027
+

@@ -1,0 +1,12 @@
+[Unit]
+Description=Single future M1 checkout at 00:25 UTC on 27 October 2026
+
+[Timer]
+OnCalendar=2026-10-27 00:25:00 UTC
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=trading-lab-m1-check-20261027.service
+
+[Install]
+WantedBy=timers.target
