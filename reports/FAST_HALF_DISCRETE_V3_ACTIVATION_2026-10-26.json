@@ -1,0 +1,66 @@
+{
+  "candidate_commit": "9376115ac0b778289ec37fd9875d475e4b9f15de",
+  "runtime_manifest_sha256": "dd813acbadc246dc9e2c53f255733c9971758a8b0af42f152307e843c23e95ea",
+  "grant_sha256": "3cf131249f735af7a248ea03ebde769965b51a3b54bcd2443386eb7c6cc8da58",
+  "configuration_sha256": "0f1462f19760b2b836dc5ae9f6ae0ed9b702215d7b5b792659a62099f6dee1d7",
+  "installed_at": "2026-10-26T16:58:08.148584+00:00",
+  "version": "v13-paired-discrete-risk-v3",
+  "boundary": "2026-10-27T00:15:00+00:00",
+  "legacy": {
+    "evaluated": 13,
+    "latest_slot": "2026-10-26T00:15:00+00:00",
+    "matched": 7,
+    "slots": 13
+  },
+  "current": {
+    "evaluated": 0,
+    "latest_slot": null,
+    "matched": 0,
+    "slots": 0
+  },
+  "state": "SCHEDULED",
+  "checks": {
+    "verified_at": "2026-10-26T17:00:43.152237+00:00",
+    "integrity": "ok",
+    "full_history_prefixes_unchanged": true,
+    "legacy_receipt_identity_unchanged": true,
+    "complete_initial_state_inherited": true,
+    "risk_state_not_reset": true,
+    "quantities_generations_order_counts_unchanged_before_boundary": true,
+    "held_quantities_reconcile": true,
+    "all_containers_healthy": 12,
+    "other_container_ids_start_times_restarts_unchanged": true,
+    "monitor_alerts": [
+      "FORK_RISK_MISMATCH",
+      "PAPER_DAILY_NOT_EXECUTED:m1"
+    ]
+  },
+  "paper_profile": {
+    "name": "local_ai_trading",
+    "real_trader": false,
+    "simulator": true,
+    "decision_mode": "deterministic_alignment",
+    "new_real_order_authority": false
+  },
+  "tests": {
+    "runtime": 57,
+    "monitor_and_dated_check": 22,
+    "total": 79,
+    "failed": 0
+  },
+  "browser": {
+    "pages": 5,
+    "javascript_errors": [],
+    "mobile_overflow": false
+  },
+  "dated_check": {
+    "schema": 1,
+    "scope": "READ_ONLY_FIRST_DISCRETE_SLOT_CHECK",
+    "checked_at": "2026-10-26T16:58:34.572655+00:00",
+    "issues": [],
+    "status": "WAITING_FOR_NATURAL_SLOT",
+    "execution_authorized": false
+  },
+  "future_slot_already_qualified": false,
+  "new_account": false
+}
