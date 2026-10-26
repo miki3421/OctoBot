@@ -1,0 +1,683 @@
+{
+  "scope": "CONSUMED_DATA_INDEPENDENT_ONE_SLOT_ENGINEERING_QUALIFICATION",
+  "candidate_version": "fast-half-discrete-risk-offline-candidate-v1",
+  "tolerance": 0.02,
+  "executed": 13,
+  "actual_matched": 7,
+  "candidate_matched": 13,
+  "original_history_reclassified": false,
+  "corrected_state_propagated": false,
+  "future_profit_used": false,
+  "profitability_validated": false,
+  "execution_authorized": false,
+  "limitation": "Recorded historical gate outcomes constrain reconstruction; intermediate policy counters are not independently replayed. Real gate behavior is tested with synthetic fault controls.",
+  "integrity": {
+    "forks.sqlite": [
+      "ok"
+    ],
+    "parent-snapshot.sqlite": [
+      "ok"
+    ]
+  },
+  "evidence_manifest_sha256": "68f07e277c15e8fa05811ca72e9a7ca4b152c4134ab95caa21bb9c5169f81a8f",
+  "evidence_unchanged": true,
+  "slots": [
+    {
+      "slot": "2026-10-14T00:15:00+00:00",
+      "actual_gap": 0.0,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.05706508569356314,
+        "HALF": 0.05706508569356314
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.0,
+      "candidate_volatility": {
+        "FAST": 0.05706508569356314,
+        "HALF": 0.05706508569356314
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 4.581688518071999,
+        "HALF": 4.581688518071999
+      },
+      "fees_replanned": {
+        "FAST": 4.581688518071999,
+        "HALF": 4.581688518071999
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-15T00:15:00+00:00",
+      "actual_gap": 0.073824549918443,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.04830733578890368,
+        "HALF": 0.0521578668325206
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 2.377538944455418e-05,
+      "candidate_volatility": {
+        "FAST": 0.04830733578890368,
+        "HALF": 0.048308484341932384
+      },
+      "adjustments": [
+        {
+          "arm": "HALF",
+          "symbol": "BTCUSDT",
+          "before": 0.001,
+          "after": 0.0,
+          "gap_before": 0.073824549918443,
+          "gap_after": 0.022699934087613637
+        },
+        {
+          "arm": "HALF",
+          "symbol": "ETHUSDT",
+          "before": 0.03,
+          "after": 0.02,
+          "gap_before": 0.022699934087613637,
+          "gap_after": 2.377538944455418e-05
+        }
+      ],
+      "fees_original": {
+        "FAST": 4.6770673980719994,
+        "HALF": 4.617720318072
+      },
+      "fees_replanned": {
+        "FAST": 4.6770673980719994,
+        "HALF": 4.681309458072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.08738913999877695
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-16T00:15:00+00:00",
+      "actual_gap": 0.02779126584053658,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.04727952562448608,
+        "HALF": 0.04596556775904152
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.0030371977383084788,
+      "candidate_volatility": {
+        "FAST": 0.04610559958181477,
+        "HALF": 0.04596556775904152
+      },
+      "adjustments": [
+        {
+          "arm": "FAST",
+          "symbol": "ZECUSDT",
+          "before": 0.02,
+          "after": 0.01,
+          "gap_before": 0.02779126584053658,
+          "gap_after": 0.0030371977383084788
+        }
+      ],
+      "fees_original": {
+        "FAST": 4.695891798072,
+        "HALF": 4.680255978071999
+      },
+      "fees_replanned": {
+        "FAST": 4.703230218072,
+        "HALF": 4.680255978071999
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.01163841999914439,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-17T00:15:00+00:00",
+      "actual_gap": 0.005204547806575072,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.0430101873263156,
+        "HALF": 0.043235207028221145
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.005204547806575072,
+      "candidate_volatility": {
+        "FAST": 0.0430101873263156,
+        "HALF": 0.043235207028221145
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 4.730845518072,
+        "HALF": 4.705171338072
+      },
+      "fees_replanned": {
+        "FAST": 4.730845518072,
+        "HALF": 4.705171338072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-18T00:15:00+00:00",
+      "actual_gap": 0.06330419338635394,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.041044048707656045,
+        "HALF": 0.038445788310907655
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.012710741307635769,
+      "candidate_volatility": {
+        "FAST": 0.03894075416340291,
+        "HALF": 0.038445788310907655
+      },
+      "adjustments": [
+        {
+          "arm": "FAST",
+          "symbol": "ZECUSDT",
+          "before": 0.01,
+          "after": 0.0,
+          "gap_before": 0.06330419338635394,
+          "gap_after": 0.038643218791641724
+        },
+        {
+          "arm": "FAST",
+          "symbol": "ETHUSDT",
+          "before": 0.01,
+          "after": 0.0,
+          "gap_before": 0.038643218791641724,
+          "gap_after": 0.012710741307635769
+        }
+      ],
+      "fees_original": {
+        "FAST": 4.745320338071999,
+        "HALF": 4.744727778072
+      },
+      "fees_replanned": {
+        "FAST": 4.7664759180719996,
+        "HALF": 4.744727778072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.035455580000416376,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-19T00:15:00+00:00",
+      "actual_gap": 0.018011616488407992,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.041960565289344574,
+        "HALF": 0.041204787679716096
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.018011616488407992,
+      "candidate_volatility": {
+        "FAST": 0.041960565289344574,
+        "HALF": 0.041204787679716096
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 4.796033538072,
+        "HALF": 4.786977978072
+      },
+      "fees_replanned": {
+        "FAST": 4.796033538072,
+        "HALF": 4.786977978072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-20T00:15:00+00:00",
+      "actual_gap": 0.024438151904046784,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.03919576245811396,
+        "HALF": 0.038237890461167635
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.0028464037867439573,
+      "candidate_volatility": {
+        "FAST": 0.03812904998496187,
+        "HALF": 0.038237890461167635
+      },
+      "adjustments": [
+        {
+          "arm": "FAST",
+          "symbol": "ZECUSDT",
+          "before": 0.01,
+          "after": 0.0,
+          "gap_before": 0.024438151904046784,
+          "gap_after": 0.0028464037867439573
+        }
+      ],
+      "fees_original": {
+        "FAST": 4.828475598072,
+        "HALF": 4.808176218072
+      },
+      "fees_replanned": {
+        "FAST": 4.835338758072,
+        "HALF": 4.808176218072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.010663160001058714,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-21T00:15:00+00:00",
+      "actual_gap": 0.017469704706530417,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.03916201188610508,
+        "HALF": 0.03847786310274119
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.017469704706530417,
+      "candidate_volatility": {
+        "FAST": 0.03916201188610508,
+        "HALF": 0.03847786310274119
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 5.134050918072,
+        "HALF": 5.341396218072
+      },
+      "fees_replanned": {
+        "FAST": 5.134050918072,
+        "HALF": 5.341396218072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-22T00:15:00+00:00",
+      "actual_gap": 0.008904484910103731,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.0611856159078326,
+        "HALF": 0.06173533728712598
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.008904484910103731,
+      "candidate_volatility": {
+        "FAST": 0.0611856159078326,
+        "HALF": 0.06173533728712598
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 5.785475178072,
+        "HALF": 5.632376898072
+      },
+      "fees_replanned": {
+        "FAST": 5.785475178072,
+        "HALF": 5.632376898072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-23T00:15:00+00:00",
+      "actual_gap": 0.02037733833396285,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.06116112664088418,
+        "HALF": 0.062433352181612355
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.011769982890488135,
+      "candidate_volatility": {
+        "FAST": 0.06116112664088418,
+        "HALF": 0.060441261226758
+      },
+      "adjustments": [
+        {
+          "arm": "HALF",
+          "symbol": "BTCUSDT",
+          "before": 0.005,
+          "after": 0.004,
+          "gap_before": 0.02037733833396285,
+          "gap_after": 0.011769982890488135
+        }
+      ],
+      "fees_original": {
+        "FAST": 5.821012098071999,
+        "HALF": 5.655932418071999
+      },
+      "fees_replanned": {
+        "FAST": 5.821012098071999,
+        "HALF": 5.704645218072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.08148280000023078
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-24T00:15:00+00:00",
+      "actual_gap": 0.0008148844923027498,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.0517972354573707,
+        "HALF": 0.05183947864460725
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.0008148844923027498,
+      "candidate_volatility": {
+        "FAST": 0.0517972354573707,
+        "HALF": 0.05183947864460725
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 6.086026098072,
+        "HALF": 5.779031838072
+      },
+      "fees_replanned": {
+        "FAST": 6.086026098072,
+        "HALF": 5.779031838072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-25T00:15:00+00:00",
+      "actual_gap": 0.013905851804720138,
+      "actual_matched": true,
+      "actual_volatility": {
+        "FAST": 0.05082390615337066,
+        "HALF": 0.05011715644626488
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED_UNCHANGED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.013905851804720138,
+      "candidate_volatility": {
+        "FAST": 0.05082390615337066,
+        "HALF": 0.05011715644626488
+      },
+      "adjustments": [],
+      "fees_original": {
+        "FAST": 6.091166778071999,
+        "HALF": 5.784114138072
+      },
+      "fees_replanned": {
+        "FAST": 6.091166778071999,
+        "HALF": 5.784114138072
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.0
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": true,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    },
+    {
+      "slot": "2026-10-26T00:15:00+00:00",
+      "actual_gap": 0.04065184340115763,
+      "actual_matched": false,
+      "actual_volatility": {
+        "FAST": 0.0358240211200874,
+        "HALF": 0.0373420440469637
+      },
+      "replay_errors": {
+        "quantity": 0.0,
+        "fees": 0.0,
+        "volatility": 0.0,
+        "weight": 0.0
+      },
+      "candidate_status": "MATCHED",
+      "candidate_qualified": true,
+      "candidate_gap": 0.01285545082484853,
+      "candidate_volatility": {
+        "FAST": 0.0358240211200874,
+        "HALF": 0.035363487178229784
+      },
+      "adjustments": [
+        {
+          "arm": "HALF",
+          "symbol": "BTCUSDT",
+          "before": 0.003,
+          "after": 0.002,
+          "gap_before": 0.04065184340115763,
+          "gap_after": 0.01285545082484853
+        }
+      ],
+      "fees_original": {
+        "FAST": 6.235689978071999,
+        "HALF": 5.937994878072
+      },
+      "fees_replanned": {
+        "FAST": 6.235689978071999,
+        "HALF": 5.9860482780719995
+      },
+      "incremental_execution_drag": {
+        "FAST": 0.0,
+        "HALF": 0.050483400000302936
+      },
+      "recorded_blocks": {
+        "FAST": null,
+        "HALF": null
+      },
+      "paired_entry_veto": false,
+      "funding_debt": null,
+      "notes": [],
+      "quantities_only_reduce": true
+    }
+  ],
+  "source_code_sha256": {
+    "docs/research-protocols/fast-half-discrete-risk-candidate-v1.json": "7add91a37ab9a25a9d925817ae9584bb0d31bd82dd8c9410039b57c691249de4",
+    "octobot/ai_strategy_lab/v13_discrete_risk_candidate.py": "803c235bc2cfb36c27fe26f009c4a80e02c72793a8db90a02142e6a0529397dc",
+    "scripts/qualify_fork_discrete_risk_candidate.py": "bf10da7eab0bf529cc3d7eb4d5a7d6a98b4f105fd21a37a49da99e0d75f2e86c",
+    "tests/unit_tests/ai_strategy_lab/test_v13_discrete_risk_candidate.py": "a9a53d0e169392e6e3694d5557fe8d5574bdd0fe215eec64a0d861699f85ff76",
+    "octobot/ai_strategy_lab/v13_fork_runner.py": "e9e939bc5d44ad54e0a16bae61ba1813c6ec8811475b1129f777679abb5e92d7",
+    "octobot/ai_strategy_lab/v13_research_paper.py": "d915ec12e196b2299a9df2e2ca4f8b60cb102a9920b4a529ebf4104e0b585a8d",
+    "octobot/ai_strategy_lab/v13_paper_v2.py": "45c5c428170aa469f9f9cbb9edd7facd4d84d74bab2eac303654199237554de5",
+    "octobot/ai_strategy_lab/v13_exposure.py": "53c2d7782201229800566a4f52b546834d747e7f75dc10ae496027251a62062d",
+    "octobot/ai_strategy_lab/v13_market.py": "7c01092ae234f958758b45b3fe02aef25aeffb465bc5dfd4f11024efbff259c7",
+    "octobot/ai_strategy_lab/v13_market_sanity.py": "0ddd8daf3e9381102ef6d117b63df8fb98e819ea6c91349c952c670e8847a347",
+    "octobot/ai_strategy_lab/v13_original_portfolio.py": "638dc286cac64a90104858977c3bf0a857f7b20712c7e79eaaefa821b60f6c60"
+  },
+  "tests": {
+    "passed": 28,
+    "failed": 0,
+    "candidate_tests": 16,
+    "existing_fork_tests": 12
+  },
+  "runtime_verification": {
+    "containers": 12,
+    "all_healthy": true,
+    "all_ids_start_times_restart_counts_unchanged": true,
+    "selected_profile": "local_ai_trading",
+    "trader_enabled": false,
+    "simulator_enabled": true,
+    "decision_mode": "deterministic_alignment"
+  }
+}

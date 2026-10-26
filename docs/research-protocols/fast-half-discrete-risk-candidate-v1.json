@@ -1,0 +1,26 @@
+{
+  "id": "fast-half-discrete-risk-offline-candidate-v1",
+  "scope": "TECHNICAL_OFFLINE_QUALIFICATION_ONLY",
+  "frozen_on": "2026-10-26",
+  "starting_evidence": "Thirteen executed actual slots through 26 October; earlier single consumed-slot feasibility is exploratory input, not independent validation.",
+  "relative_tolerance": 0.02,
+  "mechanics": [
+    "Use the original sixty-return shrinkage covariance and the actual pre-slot state, observed book, precision, fee and adverse slippage model.",
+    "Respect risk and paired market vetoes when projecting the already proposed quantity vector.",
+    "Reprice complete per-symbol orders from the original pre-slot state for each trial; never reuse already-consumed depth as another order.",
+    "Only consider one contract less in absolute quantity on the currently higher forecast-risk arm.",
+    "Accept only a strict relative-gap improvement that does not increase that arm forecast risk; choose lowest gap with symbol lexical tie-break.",
+    "Stop within the existing two-percent tolerance; do not increase quantities, change signs, extend the universe, or target subsequent profit.",
+    "Bound the walk to 1000 iterations; lack of a permitted improving move is an algorithmic non-solution, not proof of mathematical infeasibility.",
+    "Missing funding, partial execution, invalid input, one-sided zero risk or unresolved matching must not receive a qualification pass. Never flatten both portfolios merely to obtain a pass."
+  ],
+  "historical_method": "Independent one-slot engineering contexts only. Reconstruct the unmodified actual path and retain all original outcomes. Never propagate a corrected context into another historical slot.",
+  "faults": ["funding debt", "missing or future funding", "daily loss", "drawdown", "daily entry count", "cooldown", "paired spread veto", "insufficient depth", "quantity minimum", "invalid covariance", "stale or altered book", "indivisible mismatch", "zero-risk degeneracy"],
+  "scientific_status": "UNVALIDATED_CONSUMED_DATA_TECHNICAL_TEST",
+  "profitability_selection": false,
+  "active_strategy_mutation": false,
+  "new_account": false,
+  "execution_authorized": false,
+  "orders_authorized": false,
+  "change_control": "Any eventual operational allocation change needs qualification, an explicitly declared new future version boundary and operator authorization; original observations are never reclassified."
+}
