@@ -48,6 +48,21 @@ class Runner(base.Runner):
 
     def signal_universe(self):return self.signal_symbols
 
+    def prepare_input(self,slot):
+        """Verify the original scientific bundle before execution projection.
+
+        Execution membership can shrink to held/budgeted symbols or grow with a
+        separately admitted asset. Neither changes the frozen V13 derivation
+        universe. Use a shallow view sharing the same input cache/connection,
+        without temporarily mutating the running execution scope.
+        """
+        view=copy.copy(self)
+        view.universe=list(self.signal_universe())
+        item=base.shared.Runner.prepare_input(view,slot)
+        if set(item['prices'])!=set(view.universe) or set(item['targets'])!=set(view.universe):
+            raise ValueError('scientific_input_scope')
+        return item
+
     def event(self,kind,value,proposal_id=None):
         previous=self.db.execute('SELECT id FROM m1_management_events ORDER BY rowid DESC LIMIT 1').fetchone()
         at=base.source.now().isoformat()
