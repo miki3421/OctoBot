@@ -1,0 +1,1127 @@
+{
+  "scope": "READ_ONLY_DESCRIPTIVE_ECONOMIC_ANALYSIS_NOT_STRATEGY_QUALIFICATION",
+  "as_of": "2026-10-26T17:47:05.811069+00:00",
+  "windows": {
+    "m1": {
+      "since_version": {
+        "available": true,
+        "start": "2026-10-25T11:27:40.532267+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 1.2634870231703477,
+        "net": -7.615101699099938,
+        "long_net": 2.800485010900053,
+        "short_net": -10.41558670999999,
+        "fees": 2.9702118,
+        "funding": -0.05318989910000002,
+        "reconciliation_error": 2.842170943040401e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9743.905210263938,
+        "end_equity": 9736.290108564837
+      },
+      "since_clone": {
+        "available": true,
+        "start": "2026-10-17T09:09:06.762912+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 9.359711205520563,
+        "net": -171.01011114552986,
+        "long_net": -172.4131534297299,
+        "short_net": 1.4030422842000143,
+        "fees": 21.36818496,
+        "funding": -2.18662618553,
+        "reconciliation_error": 2.842170943040401e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9907.300219710369,
+        "end_equity": 9736.290108564837
+      },
+      "legacy": {
+        "available": true,
+        "start": "2026-10-17T09:09:06.762912+00:00",
+        "end": "2026-10-25T11:27:40.532267+00:00",
+        "days": 8.096224182350216,
+        "net": -163.39500944642995,
+        "long_net": -175.21363844062995,
+        "short_net": 11.818628994200006,
+        "fees": 18.39797316,
+        "funding": -2.1334362864300003,
+        "reconciliation_error": -2.842170943040401e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9907.300219710369,
+        "end_equity": 9743.905210263938
+      },
+      "24h": {
+        "available": true,
+        "start": "2026-10-25T17:47:05.811069+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 1.0,
+        "net": -28.445484243000017,
+        "long_net": -18.029897533000028,
+        "short_net": -10.41558670999999,
+        "fees": 2.22909216,
+        "funding": 0.048407916999999995,
+        "reconciliation_error": -7.105427357601002e-15,
+        "unavailable_symbols": [],
+        "baseline_equity": 9764.735592807838,
+        "end_equity": 9736.290108564837
+      },
+      "48h": {
+        "available": true,
+        "start": "2026-10-24T17:47:05.811069+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 2.0,
+        "net": -36.45527871889984,
+        "long_net": -13.791890908899983,
+        "short_net": -22.663387809999858,
+        "fees": 5.944920359999999,
+        "funding": -0.43355835890000005,
+        "reconciliation_error": -2.1316282072803006e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9772.745387283738,
+        "end_equity": 9736.290108564837
+      }
+    },
+    "original": {
+      "since_version": {
+        "available": true,
+        "start": "2026-10-25T11:27:40.532267+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 1.2634870231703477,
+        "net": 16.689993374800082,
+        "long_net": 16.689993374800082,
+        "short_net": 0.0,
+        "fees": 0.009935939999999973,
+        "funding": -0.8550706852000001,
+        "reconciliation_error": -2.842170943040401e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9728.045299034398,
+        "end_equity": 9744.735292409197
+      },
+      "since_clone": {
+        "available": true,
+        "start": "2026-10-17T09:09:06.762912+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 9.359711205520563,
+        "net": -162.56492730116983,
+        "long_net": -162.56492730116983,
+        "short_net": 0.0,
+        "fees": 1.9067062799999999,
+        "funding": -3.6126210211700003,
+        "reconciliation_error": -2.842170943040401e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9907.300219710369,
+        "end_equity": 9744.735292409197
+      },
+      "legacy": {
+        "available": true,
+        "start": "2026-10-17T09:09:06.762912+00:00",
+        "end": "2026-10-25T11:27:40.532267+00:00",
+        "days": 8.096224182350216,
+        "net": -179.2549206759699,
+        "long_net": -179.2549206759699,
+        "short_net": 0.0,
+        "fees": 1.89677034,
+        "funding": -2.75755033597,
+        "reconciliation_error": 0.0,
+        "unavailable_symbols": [],
+        "baseline_equity": 9907.300219710369,
+        "end_equity": 9728.045299034398
+      },
+      "24h": {
+        "available": true,
+        "start": "2026-10-25T17:47:05.811069+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 1.0,
+        "net": -30.37894284359987,
+        "long_net": -30.37894284359987,
+        "short_net": 0.0,
+        "fees": 0.009935939999999973,
+        "funding": -0.6516069036000001,
+        "reconciliation_error": -5.3290705182007514e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9775.114235252799,
+        "end_equity": 9744.735292409197
+      },
+      "48h": {
+        "available": true,
+        "start": "2026-10-24T17:47:05.811069+00:00",
+        "end": "2026-10-26T17:47:05.811069+00:00",
+        "days": 2.0,
+        "net": 13.730517382100011,
+        "long_net": 13.730517382100011,
+        "short_net": 0.0,
+        "fees": 0.029847539999999964,
+        "funding": -1.2308350779000001,
+        "reconciliation_error": -4.973799150320701e-14,
+        "unavailable_symbols": [],
+        "baseline_equity": 9731.004775027099,
+        "end_equity": 9744.735292409197
+      }
+    }
+  },
+  "difference_against_original": {
+    "net": -8.445183844360031,
+    "price_component": 9.590299999999957,
+    "extra_fees": 19.46147868,
+    "funding_difference": 1.42599483564
+  },
+  "management": {
+    "long_budget": 0.12639645730018034,
+    "short_budget": 0.25545833343071755,
+    "automatic_review_count": 10,
+    "latest_review": "2026-10-26T11:29:57.667901+00:00",
+    "admissions": []
+  },
+  "m1_slot_counts": {
+    "NO_SIGNAL": 2390,
+    "SCHEDULED": 4,
+    "MISSED": 1,
+    "INSUFFICIENT_INPUT": 288,
+    "COOLDOWN": 12
+  },
+  "successor_fill_kinds": {
+    "MAINTENANCE_CLOSE": 12,
+    "M1_ENTRY": 6
+  },
+  "no_live_writes": true,
+  "no_alternative_trades_simulated": true,
+  "limitations": [
+    "Only three closed SHORT episodes and one still-open episode.",
+    "Observed extrema omit a hypothetical closing spread, depth and fee.",
+    "Funding is the recorded simulator estimate, not reconstructed availability.",
+    "Actual account exposures and rules differ; Original is descriptive context.",
+    "Signal thresholds, quantities, holding rules and future decisions were not optimized."
+  ],
+  "accounting_formula": "realized_delta + final_open_pnl - initial_open_pnl - commissions + recorded_funding",
+  "symbols": {
+    "AAVEUSDT": {
+      "since_version": {
+        "net": -2.6672093143999933,
+        "quantity": -2.7600000000000002,
+        "fill_count": 3,
+        "available": true,
+        "long_net": -1.1831462743999963,
+        "short_net": -1.484063039999997
+      },
+      "since_clone": {
+        "net": -46.77071003409995,
+        "quantity": -2.7600000000000002,
+        "fill_count": 17,
+        "available": true,
+        "long_net": -48.6758720309,
+        "short_net": 1.9051619968000502
+      },
+      "legacy": {
+        "net": -44.10350071969996,
+        "quantity": 2.74,
+        "fill_count": 14,
+        "available": true,
+        "long_net": -47.49272575650001,
+        "short_net": 3.389225036800047
+      },
+      "24h": {
+        "net": -5.514735792000015,
+        "quantity": -2.7600000000000002,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -4.030672752000018,
+        "short_net": -1.484063039999997
+      },
+      "48h": {
+        "net": -8.332477601799962,
+        "quantity": -2.7600000000000002,
+        "fill_count": 6,
+        "available": true,
+        "long_net": -3.7691569618000056,
+        "short_net": -4.563320639999955
+      }
+    },
+    "ADAUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": -0.0845936566000261,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 0.1930873591999821,
+        "short_net": -0.2776810158000082
+      },
+      "legacy": {
+        "net": -0.0845936566000261,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 0.1930873591999821,
+        "short_net": -0.2776810158000082
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "ATOMUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "legacy": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "AVAXUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": -3.431601317199985,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": -3.73743597099998,
+        "short_net": 0.30583465379999497
+      },
+      "legacy": {
+        "net": -3.431601317199985,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": -3.73743597099998,
+        "short_net": 0.30583465379999497
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "BCHUSDT": {
+      "since_version": {
+        "net": -2.444713201999955,
+        "quantity": -1.13,
+        "fill_count": 3,
+        "available": true,
+        "long_net": 2.615864108000016,
+        "short_net": -5.060577309999971
+      },
+      "since_clone": {
+        "net": -10.0139330255,
+        "quantity": -1.13,
+        "fill_count": 15,
+        "available": true,
+        "long_net": -7.168243797100007,
+        "short_net": -2.8456892283999937
+      },
+      "legacy": {
+        "net": -7.569219823500045,
+        "quantity": 1.1,
+        "fill_count": 12,
+        "available": true,
+        "long_net": -9.784107905100022,
+        "short_net": 2.214888081599977
+      },
+      "24h": {
+        "net": -5.902382669999975,
+        "quantity": -1.13,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -0.8418053600000043,
+        "short_net": -5.060577309999971
+      },
+      "48h": {
+        "net": -7.1990615019999975,
+        "quantity": -1.13,
+        "fill_count": 6,
+        "available": true,
+        "long_net": 0.33067920799995776,
+        "short_net": -7.529740709999955
+      }
+    },
+    "BTCUSDT": {
+      "since_version": {
+        "net": -7.000422645999983,
+        "quantity": -0.01,
+        "fill_count": 3,
+        "available": true,
+        "long_net": -2.2570442459999827,
+        "short_net": -4.7433784
+      },
+      "since_clone": {
+        "net": -28.778772945630035,
+        "quantity": -0.01,
+        "fill_count": 13,
+        "available": true,
+        "long_net": -25.438236076830005,
+        "short_net": -3.3405368688000294
+      },
+      "legacy": {
+        "net": -21.778350299630052,
+        "quantity": 0.01,
+        "fill_count": 10,
+        "available": true,
+        "long_net": -23.181191830830024,
+        "short_net": 1.4028415311999702
+      },
+      "24h": {
+        "net": -8.36702334600001,
+        "quantity": -0.01,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -3.6236449460000113,
+        "short_net": -4.7433784
+      },
+      "48h": {
+        "net": -9.00428514999994,
+        "quantity": -0.01,
+        "fill_count": 5,
+        "available": true,
+        "long_net": -2.4991813499999824,
+        "short_net": -6.505103799999959
+      }
+    },
+    "DOGEUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "legacy": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "DOTUSDT": {
+      "since_version": {
+        "net": 1.1102007482999738,
+        "quantity": -313.0,
+        "fill_count": 3,
+        "available": true,
+        "long_net": -0.10788257170001368,
+        "short_net": 1.2180833199999874
+      },
+      "since_clone": {
+        "net": -43.94508841770005,
+        "quantity": -313.0,
+        "fill_count": 18,
+        "available": true,
+        "long_net": -43.13148089750004,
+        "short_net": -0.8136075202000109
+      },
+      "legacy": {
+        "net": -45.05528916600002,
+        "quantity": 306.0,
+        "fill_count": 15,
+        "available": true,
+        "long_net": -43.02359832580002,
+        "short_net": -2.0316908401999982
+      },
+      "24h": {
+        "net": -2.637903150000009,
+        "quantity": -313.0,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -3.8559864699999964,
+        "short_net": 1.2180833199999874
+      },
+      "48h": {
+        "net": -5.044503582100004,
+        "quantity": -313.0,
+        "fill_count": 6,
+        "available": true,
+        "long_net": -5.837797602100018,
+        "short_net": 0.7932940200000137
+      }
+    },
+    "ETHUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 3.269352547299966,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.9710061580999745,
+        "short_net": 1.2983463891999911
+      },
+      "legacy": {
+        "net": 3.269352547299966,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.9710061580999745,
+        "short_net": 1.2983463891999911
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "HBARUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 2.0817722451999905,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.041334567999991,
+        "short_net": 1.0404376771999995
+      },
+      "legacy": {
+        "net": 2.0817722451999905,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.041334567999991,
+        "short_net": 1.0404376771999995
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "LINKUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 1.7300933565000176,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.219711956700005,
+        "short_net": 0.5103813998000125
+      },
+      "legacy": {
+        "net": 1.7300933565000176,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.219711956700005,
+        "short_net": 0.5103813998000125
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "LTCUSDT": {
+      "since_version": {
+        "net": -1.1072984849999963,
+        "quantity": -8.200000000000001,
+        "fill_count": 3,
+        "available": true,
+        "long_net": 0.8462777150000108,
+        "short_net": -1.953576200000007
+      },
+      "since_clone": {
+        "net": -43.67272634599986,
+        "quantity": -8.200000000000001,
+        "fill_count": 16,
+        "available": true,
+        "long_net": -40.21100489499985,
+        "short_net": -3.461721451000008
+      },
+      "legacy": {
+        "net": -42.56542786099987,
+        "quantity": 8.3,
+        "fill_count": 13,
+        "available": true,
+        "long_net": -41.05728260999987,
+        "short_net": -1.5081452510000006
+      },
+      "24h": {
+        "net": -4.591060124999998,
+        "quantity": -8.200000000000001,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -2.6374839249999904,
+        "short_net": -1.953576200000007
+      },
+      "48h": {
+        "net": -10.230674752999963,
+        "quantity": -8.200000000000001,
+        "fill_count": 5,
+        "available": true,
+        "long_net": -3.5131309529999633,
+        "short_net": -6.7175438
+      }
+    },
+    "NEARUSDT": {
+      "since_version": {
+        "net": 4.494341200000015,
+        "quantity": -46.3,
+        "fill_count": 3,
+        "available": true,
+        "long_net": 2.886416280000019,
+        "short_net": 1.6079249199999963
+      },
+      "since_clone": {
+        "net": -14.083021809999936,
+        "quantity": -46.3,
+        "fill_count": 17,
+        "available": true,
+        "long_net": -20.76502435999995,
+        "short_net": 6.682002550000012
+      },
+      "legacy": {
+        "net": -18.57736300999995,
+        "quantity": 48.4,
+        "fill_count": 14,
+        "available": true,
+        "long_net": -23.651440639999965,
+        "short_net": 5.0740776300000165
+      },
+      "24h": {
+        "net": -1.4323791600000115,
+        "quantity": -46.3,
+        "fill_count": 2,
+        "available": true,
+        "long_net": -3.040304080000008,
+        "short_net": 1.6079249199999963
+      },
+      "48h": {
+        "net": 3.3557238700000256,
+        "quantity": -46.3,
+        "fill_count": 6,
+        "available": true,
+        "long_net": 1.496696750000029,
+        "short_net": 1.8590271199999966
+      }
+    },
+    "SOLUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 2.6443933071999832,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 2.486687961599985,
+        "short_net": 0.15770534559999824
+      },
+      "legacy": {
+        "net": 2.6443933071999832,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 2.486687961599985,
+        "short_net": 0.15770534559999824
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "UNIUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 2.1347368640000104,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.947202764000003,
+        "short_net": 0.18753410000000748
+      },
+      "legacy": {
+        "net": 2.1347368640000104,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 1.947202764000003,
+        "short_net": 0.18753410000000748
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "XLMUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "legacy": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "XRPUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 2.6352835549999964,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 2.6676343590000005,
+        "short_net": -0.0323508040000041
+      },
+      "legacy": {
+        "net": 2.6352835549999964,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 2.6676343590000005,
+        "short_net": -0.0323508040000041
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    },
+    "ZECUSDT": {
+      "since_version": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "since_clone": {
+        "net": 5.274704532000003,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 5.187479472000001,
+        "short_net": 0.08722506000000221
+      },
+      "legacy": {
+        "net": 5.274704532000003,
+        "quantity": 0.0,
+        "fill_count": 4,
+        "available": true,
+        "long_net": 5.187479472000001,
+        "short_net": 0.08722506000000221
+      },
+      "24h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      },
+      "48h": {
+        "net": 0.0,
+        "quantity": 0.0,
+        "fill_count": 0,
+        "available": true,
+        "long_net": 0.0,
+        "short_net": 0.0
+      }
+    }
+  },
+  "episodes": [
+    {
+      "signal_at": "2026-10-19T10:35:00+00:00",
+      "entry_at": "2026-10-19T10:40:58.185427+00:00",
+      "exit_due": "2026-10-19T16:40:00+00:00",
+      "actual_exit": "2026-10-19T16:41:00.965426+00:00",
+      "valued_at": "2026-10-19T16:41:00.965426+00:00",
+      "status": "CLOSED",
+      "entry_lag_after_due_seconds": 58.18542695045471,
+      "exit_lag_after_due_seconds": 60.965425968170166,
+      "short": {
+        "net": -4.054959266800024,
+        "fees": 2.3495087999999997,
+        "funding": 0.04414953320000001,
+        "realized": -1.749600000000024,
+        "turnover": 3915.848,
+        "notional_days": 485.3430868671688
+      },
+      "observed_best": {
+        "at": "2026-10-19T14:03:29.666630+00:00",
+        "before_exit_cost": 20.00560047999999
+      },
+      "observed_worst": {
+        "at": "2026-10-19T13:05:18.683679+00:00",
+        "before_exit_cost": -18.602229520000066
+      },
+      "missing_points": 0,
+      "max_gap_seconds": 348.85178804397583,
+      "extrema_executable": false,
+      "entry_long_notional_at_fill_prices": 1957.0492,
+      "entry_short_notional_at_fill_prices": 1957.0492,
+      "short_to_prior_long_notional_ratio": 1.0
+    },
+    {
+      "signal_at": "2026-10-22T02:15:00+00:00",
+      "entry_at": "2026-10-22T02:20:15.471312+00:00",
+      "exit_due": "2026-10-22T08:20:00+00:00",
+      "actual_exit": "2026-10-22T08:21:06.172788+00:00",
+      "valued_at": "2026-10-22T08:21:06.172788+00:00",
+      "status": "CLOSED",
+      "entry_lag_after_due_seconds": 15.471312046051025,
+      "exit_lag_after_due_seconds": 66.17278790473938,
+      "short": {
+        "net": 42.18540434839997,
+        "fees": 2.9877903,
+        "funding": 0.09269464840000002,
+        "realized": 45.08049999999997,
+        "turnover": 4979.650500000001,
+        "notional_days": 625.5050758672767
+      },
+      "observed_best": {
+        "at": "2026-10-22T08:10:29.143674+00:00",
+        "before_exit_cost": 45.2211753483999
+      },
+      "observed_worst": {
+        "at": "2026-10-22T03:01:34.990785+00:00",
+        "before_exit_cost": -5.056219299999996
+      },
+      "missing_points": 0,
+      "max_gap_seconds": 91.65971302986145,
+      "extrema_executable": false,
+      "entry_long_notional_at_fill_prices": 2512.3655,
+      "entry_short_notional_at_fill_prices": 2512.3655,
+      "short_to_prior_long_notional_ratio": 1.0
+    },
+    {
+      "signal_at": "2026-10-24T15:10:00+00:00",
+      "entry_at": "2026-10-24T15:15:18.966706+00:00",
+      "exit_due": "2026-10-24T21:15:00+00:00",
+      "actual_exit": "2026-10-24T21:15:52.819812+00:00",
+      "valued_at": "2026-10-24T21:15:52.819812+00:00",
+      "status": "CLOSED",
+      "entry_lag_after_due_seconds": 18.966706037521362,
+      "exit_lag_after_due_seconds": 52.819812059402466,
+      "short": {
+        "net": -26.31181608739994,
+        "fees": 2.93146842,
+        "funding": 0.17595233259999998,
+        "realized": -23.55629999999994,
+        "turnover": 4885.7807,
+        "notional_days": 612.6645647682685
+      },
+      "observed_best": {
+        "at": "2026-10-24T15:20:03.406367+00:00",
+        "before_exit_cost": 15.92863267999993
+      },
+      "observed_worst": {
+        "at": "2026-10-24T20:02:11.999045+00:00",
+        "before_exit_cost": -39.935614987400086
+      },
+      "missing_points": 0,
+      "max_gap_seconds": 55.46893310546875,
+      "extrema_executable": false,
+      "entry_long_notional_at_fill_prices": 2431.1122,
+      "entry_short_notional_at_fill_prices": 2431.1122,
+      "short_to_prior_long_notional_ratio": 1.0
+    },
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "entry_at": "2026-10-26T13:40:32.357797+00:00",
+      "exit_due": "2026-10-26T19:40:00+00:00",
+      "actual_exit": null,
+      "valued_at": "2026-10-26T17:47:05.811069+00:00",
+      "status": "OPEN_NOT_FINAL",
+      "entry_lag_after_due_seconds": 32.35779690742493,
+      "exit_lag_after_due_seconds": null,
+      "short": {
+        "net": -10.41558670999999,
+        "fees": 1.486908,
+        "funding": 0.24942129,
+        "realized": 0.0,
+        "turnover": 2478.18,
+        "notional_days": 426.11696584017744
+      },
+      "observed_best": {
+        "at": "2026-10-26T13:57:39.241943+00:00",
+        "before_exit_cost": 13.688392000000139
+      },
+      "observed_worst": {
+        "at": "2026-10-26T15:21:48.816485+00:00",
+        "before_exit_cost": -38.268907999999996
+      },
+      "missing_points": 0,
+      "max_gap_seconds": 55.269083976745605,
+      "extrema_executable": false,
+      "entry_long_notional_at_fill_prices": 572.0993000000001,
+      "entry_short_notional_at_fill_prices": 2478.18,
+      "short_to_prior_long_notional_ratio": 4.331730523005358
+    }
+  ],
+  "admission_costs": [
+    {
+      "symbol": "QNTUSDT",
+      "at": "2026-10-26T11:29:57.667901+00:00",
+      "quantity": 0.44,
+      "notional": 96.03439999999999,
+      "spread": 0.0008716995847957137,
+      "round_trip_cost": 0.0028969964929235602,
+      "round_trip_fee": 0.0012,
+      "reasons": [
+        "COST_LIMIT"
+      ]
+    },
+    {
+      "symbol": "XMRUSDT",
+      "at": "2026-10-26T11:29:57.667901+00:00",
+      "quantity": 0.16,
+      "notional": 94.26719999999999,
+      "spread": 0.0010521671248684868,
+      "round_trip_cost": 0.002756327969856055,
+      "round_trip_fee": 0.0012,
+      "reasons": [
+        "SPREAD_LIMIT"
+      ]
+    },
+    {
+      "symbol": "PUMPUSDT",
+      "at": "2026-10-26T11:29:57.667901+00:00",
+      "quantity": 22000.0,
+      "notional": 93.47800000000001,
+      "spread": 0.0007064641469446363,
+      "round_trip_cost": 0.0025305098525855866,
+      "round_trip_fee": 0.0012,
+      "reasons": [
+        "SIGNAL_TOO_WEAK",
+        "COST_LIMIT"
+      ]
+    }
+  ],
+  "source_sha256": {
+    "m1": "e60880cf7dbd84a72c9894e822981bd367fdbdd24735e325fc9ead659ce80cd3",
+    "original": "314e86b82119fe3801999ca3cb3f9fc76eef8d4511c713c2f7e07e6a835489ea",
+    "receipt": "b0b31963533496d1b8b2b78b1d4260e4c9cc65b4532159daf6bd4dddfe4f0653"
+  },
+  "work_card": "work-card-b23d7d70-7b83-490a-9174-2572ed5ff3e3"
+}
