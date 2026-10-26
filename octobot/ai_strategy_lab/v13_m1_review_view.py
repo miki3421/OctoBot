@@ -13,6 +13,11 @@ REPORT_SHA256 = '3d7bdbfb0ba5d60ddca6ccf4457a04e27b61eea705b75ec17501e3a5af8fb2c
 VERSION = 'm1-symbol-review-ui-v1'
 
 
+def live_view():
+    from . import v13_m1_live_review
+    return v13_m1_live_review.public_view()
+
+
 def finite(value):
     if type(value) not in (int, float) or not math.isfinite(value):
         raise ValueError('invalid_metric')

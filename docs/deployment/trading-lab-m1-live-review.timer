@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh M1 per-symbol accounting every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:2/5:30
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=trading-lab-m1-live-review.service
+
+[Install]
+WantedBy=timers.target

@@ -94,15 +94,16 @@ class RouteTests(unittest.TestCase):
         for f in funcs:self.assertTrue(any(ast.unparse(d)=='login.login_required_when_activated' for d in f.decorator_list))
         module=ast.Module(body=[ast.FunctionDef(name='register',args=register.args,body=funcs,decorator_list=[])],type_ignores=[]);ast.fix_missing_locations(module)
         self.accepted=True;self.profile='local_ai_trading'
-        namespace=dict(flask=flask,models=types.SimpleNamespace(accepted_terms=lambda:self.accepted,get_current_profile=lambda:types.SimpleNamespace(profile_id=self.profile)),login=types.SimpleNamespace(login_required_when_activated=lambda f:f),v13_m1_review_view=view)
+        namespace=dict(flask=flask,models=types.SimpleNamespace(accepted_terms=lambda:self.accepted,get_current_profile=lambda:types.SimpleNamespace(profile_id=self.profile)),login=types.SimpleNamespace(login_required_when_activated=lambda f:f),v13_m1_review_view=types.SimpleNamespace(public_view=view.public_view,live_view=lambda:dict(available=False,version="m1-live-symbol-review-v2")))
         exec(compile(module,str(WEB/'controllers/home.py'),'exec'),namespace)
         app=flask.Flask(__name__,template_folder=str(WEB/'templates'));app.add_url_rule('/terms','terms',lambda:'terms')
         namespace['register'](app);self.client=app.test_client()
 
     def test_page_data_no_store_and_no_order_surface(self):
         response=self.client.get('/v13_variants/m1/review');self.assertEqual(response.status_code,200)
-        self.assertIn('no-store',response.headers['Cache-Control']);self.assertIn('Non applicate',response.text)
-        response=self.client.get('/v13_variants/m1/review/data');self.assertTrue(response.json['available'])
+        self.assertIn('no-store',response.headers['Cache-Control']);self.assertIn('Risultati aggiornati',response.text)
+        response=self.client.get('/v13_variants/m1/review/data');self.assertEqual(response.json['version'],'m1-live-symbol-review-v2')
+        archived=self.client.get('/v13_variants/m1/review/data?archive=1');self.assertTrue(archived.json['available']);self.assertTrue(archived.json['snapshot'])
         self.assertIn('no-store',response.headers['Cache-Control'])
         for path in ('/v13_variants/m1/review','/v13_variants/m1/review/data'):
             for method in ('post','put','patch','delete'):

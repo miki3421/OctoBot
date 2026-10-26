@@ -1,0 +1,9 @@
+--- a/packages/tentacles/Services/Interfaces/web_interface/controllers/home.py
++++ b/packages/tentacles/Services/Interfaces/web_interface/controllers/home.py
+@@ -84,5 +84,5 @@
+         if not models.accepted_terms() or models.get_current_profile().profile_id != "local_ai_trading":
+             flask.abort(403)
+-        response = flask.jsonify(v13_m1_review_view.public_view())
++        response = flask.jsonify(v13_m1_review_view.public_view() if flask.request.args.get('archive') == '1' else v13_m1_review_view.live_view())
+         response.cache_control.no_store = True
+         return response

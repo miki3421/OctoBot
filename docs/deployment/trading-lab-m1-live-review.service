@@ -1,0 +1,25 @@
+[Unit]
+Description=Read-only M1 per-symbol accounting publication
+RequiresMountsFor=/var/lib/libvirt/trading-ai-lab
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/bin/sha256sum --check /opt/trading-lab-m1-live-review-v1/SHA256SUMS
+ExecStart=/usr/bin/python3 -I -B /opt/trading-lab-m1-live-review-v1/publish.py --config /opt/trading-lab-m1-live-review-v1/config.json
+TimeoutStartSec=120
+UMask=0077
+Nice=15
+CPUQuota=50%
+MemoryMax=768M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+PrivateNetwork=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+ReadWritePaths=/var/lib/libvirt/trading-ai-lab/analytics-scratch/m1-review
+ReadWritePaths=/var/lib/libvirt/trading-ai-lab/auto_trading_sys/octobot-local/v13-paper/m1-review-ui
