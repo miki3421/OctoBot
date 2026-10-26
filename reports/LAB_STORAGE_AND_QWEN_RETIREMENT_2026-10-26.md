@@ -118,3 +118,26 @@ before removing even the uncompressed cold SQLite copies; preservation in
 verified archives does not silently waive that instruction. No original journal,
 dataset, log or volume has been removed. Completing the approved cold replacement
 will not require stopping an account, collector or VM.
+
+
+## Approved cold replacement continuation
+
+The operator subsequently explicitly authorized only the four prepared cold
+copies to be replaced by their verified archives. The authorization is bound to
+the exact 350-file catalog above; it does not permit general cleanup or removal
+of any operational journal, dataset, log or volume.
+
+The scoped activation helper defaults to read-only preflight. It verifies the
+pinned catalog, archive/manifest hashes, complete source membership, file hashes
+and identities, absence of open descriptors and absence of overlapping active
+container mounts. All four sources are rechecked before any removal. Sources
+are first moved into private staging, rechecked again, and only manifest-listed
+files are unlinked. Shared inode link counts are tracked across packages.
+Archive/manifest files are synchronized before replacement. Original package
+locations retain root-owned `ARCHIVED.json` records with hashes and restore
+instructions. No account or service restart is required.
+
+Eight focused archival tests pass, including real synthetic SQLite restoration,
+refusal of traversal/symlinks, archive tampering, open sources, same-metadata
+content tampering, scope changes and replacement of cross-package hard links.
+Operational activation and final capacity readback follow the approved preflight.
