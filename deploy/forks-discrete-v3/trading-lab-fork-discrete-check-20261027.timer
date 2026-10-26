@@ -1,0 +1,8 @@
+[Unit]
+Description=One-date verification of corrected FAST HALF slot
+[Timer]
+OnCalendar=2026-10-27 00:25:00 UTC
+Persistent=yes
+Unit=trading-lab-fork-discrete-check-20261027.service
+[Install]
+WantedBy=timers.target

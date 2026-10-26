@@ -159,6 +159,22 @@ def read_forks(item, now=None):
         if phase not in {'OBSERVING', 'BLOCKED', 'COMPLETED_AWAITING_REVIEW'} or (phase == 'COMPLETED_AWAITING_REVIEW' and not completed):
             raise ValueError('runner_status')
         result['runner_status'] = phase
+        revision = value.get('discrete_revision')
+        boundary = None
+        if revision is not None:
+            boundary = instant(revision['boundary'])
+            if (revision['schema'] != 1 or revision['version'] != 'v13-paired-discrete-risk-v3'
+                    or revision['account_ids'] != receipt['account_ids']
+                    or revision['history_preserved'] is not True or revision['no_real_orders'] is not True
+                    or not first < boundary < end or boundary.time() != dt.time(0,15)
+                    or revision['state'] not in {'SCHEDULED','AWAITING_FIRST_SLOT','OBSERVING'}):
+                raise ValueError('fork_revision_identity')
+            for epoch in ('legacy','current'):
+                counts = revision[epoch]
+                if any(type(counts[k]) is not int for k in ('slots','evaluated','matched')) or not 0 <= counts['matched'] <= counts['evaluated'] <= counts['slots']:
+                    raise ValueError('fork_revision_counts')
+            result['discrete_revision'] = dict(version=revision['version'],boundary=boundary.isoformat(),
+                state=revision['state'],legacy=revision['legacy'],current=revision['current'])
         if phase == 'BLOCKED':
             issues.append('FORK_RUNNER_BLOCKED')
         if value['funding_debt'] is not None:
@@ -215,11 +231,27 @@ def read_forks(item, now=None):
                 if status in {'MISSED', 'DENIED'}:
                     issues.append('FORK_DECISION_'+status)
                 elif status in {'EXECUTED', 'OBSERVED_NO_FILL'}:
-                    gap = finite(slot['detail']['risk_gap'])
-                    if gap < 0 or gap > 1:
+                    detail = slot['detail']
+                    if boundary is not None and due >= boundary:
+                        if detail.get('policy_revision') != revision['version']:
+                            raise ValueError('fork_revision_not_executed')
+                        if type(detail.get('risk_matched')) is not bool:
+                            raise ValueError('fork_revision_qualification')
+                        result['risk_qualified'] = detail['risk_matched']
+                        if not detail['risk_matched']:
+                            issues.append('FORK_RISK_MISMATCH')
+                        if detail.get('risk_gap') is None and detail.get('risk_matched') is False and str(detail.get('discrete_status','')).startswith('UNQUALIFIED_'):
+                            result.update(risk_gap=None,risk_qualified=False)
+                            continue_risk_check = False
+                        else:
+                            continue_risk_check = True
+                    else:
+                        continue_risk_check = True
+                    gap = finite(detail['risk_gap']) if continue_risk_check else None
+                    if gap is not None and (gap < 0 or gap > 1):
                         raise ValueError('risk_gap')
                     result['risk_gap'] = gap
-                    if gap > .02:
+                    if gap is not None and gap > .02 and 'FORK_RISK_MISMATCH' not in issues:
                         issues.append('FORK_RISK_MISMATCH')
                 else:
                     raise ValueError('slot_status')

@@ -1,0 +1,7 @@
+version: '3.8'
+services:
+  v13-forks:
+    entrypoint: [python3, -B, /release/entrypoint.py]
+    command: [--config, /release/configuration/config.json]
+    volumes:
+      - /opt/trading-lab-forks-discrete-v3:/release:ro

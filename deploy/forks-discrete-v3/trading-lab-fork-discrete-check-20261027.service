@@ -1,0 +1,23 @@
+[Unit]
+Description=Read-only check of first corrected FAST HALF daily slot
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/trading-lab-fork-discrete-check-20261027
+ExecStartPre=/usr/bin/sha256sum --check files.sha256
+ExecStart=/usr/bin/python3 -B check.py --config config.json
+User=root
+ProtectSystem=strict
+ProtectHome=read-only
+InaccessiblePaths=-/root/.ops -/root/.ssh -/run/secrets
+ReadWritePaths=/var/lib/libvirt/trading-ai-lab/operational-checks/forks-20261027
+PrivateNetwork=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH
+RestrictAddressFamilies=AF_UNIX
+LimitCORE=0
+MemoryMax=64M
+CPUQuota=20%
+TimeoutStartSec=30
+UMask=0077

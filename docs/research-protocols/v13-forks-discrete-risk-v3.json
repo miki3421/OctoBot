@@ -1,0 +1,17 @@
+{
+  "id": "v13-paired-discrete-risk-v3",
+  "scope": "RESEARCH_SIMULATION_ONLY_NO_EXECUTOR_LINK",
+  "boundary": "2026-10-27T00:15:00+00:00",
+  "operator_authorization": "Operator instructed proceeding to the explicit future activation after the completed technical qualification in commit 54f173ea.",
+  "accounts": "Continue the existing FAST and HALF account IDs; no new accounts, reset or erasure.",
+  "predecessor": "v13-prospective-fast-vs-half-risk-matched-v2",
+  "legacy_protocol_and_receipt": "Retain their exact identity and all prior observations. V3 metadata is a separate epoch.",
+  "economics": "Unchanged original daily targets, FAST filter, HALF preliminary multiplier, 60-return shrinkage covariance, quantity precision, fees and adverse execution; qualified post-cost one-increment reductions occur before the atomic decision commit.",
+  "limits": "Unchanged 2% daily loss, 10% drawdown, one increase per UTC day, 22-hour cooldown, 31.5% per symbol, 90% gross and paired entry vetoes.",
+  "matching": "Keep the 2% relative forecast-risk tolerance. Missing funding and partial or unresolved execution remain unqualified. Persist only final net fills, never provisional trials.",
+  "future_science": "Use the actual published collector bundle and its original derivation. Synthetic offline inputs are forbidden.",
+  "evaluation": "Keep the existing fixed horizon ending 11 January 2027; do not pool legacy and corrected slots for a claim of equal-risk qualification. Fewer than 80 future corrected daily slots remain before that horizon, so this revision alone cannot satisfy the frozen 80-slot scientific minimum. Report descriptive outcomes and technical completeness without a profitability promotion.",
+  "monitoring": "Retain legacy and current denominators separately, keep the actual latest mismatch alert until naturally superseded, and check the first corrected slot read-only at 27 October 00:25 UTC.",
+  "real_orders_authorized": false,
+  "new_accounts": false
+}
