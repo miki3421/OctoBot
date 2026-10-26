@@ -29,7 +29,14 @@ and refusal to infer through an untrusted marker. The final immutable descriptiv
 runtime is `qwen-v13-analysis-v7`, source SHA-256
 `261e0faef43e83931f8cf936006001b4af69ffff4adbe625c620674d34483df1`.
 Only scoped patches to the pre-existing untracked worker/template are delivered;
-unrelated local changes remain untouched. UI activation/readback is pending.
+unrelated local changes remain untouched. UI activation is complete. The GET-only
+browser journey passed: disabled badge/title visible, no next scheduled report,
+quantitative symbol metrics still available, no JavaScript errors or write
+requests. All twelve lab containers remain healthy with zero automatic restarts;
+only the dashboard was restarted for publication. M1 still reports no baseline
+error. The model port is no longer served. The immutable patch reproduces the
+worker from its pinned predecessor; the worker patch uses zero context and can
+be applied with `git apply --unidiff-zero`.
 
 ## Physical growth attribution
 
@@ -71,13 +78,43 @@ refused. The recovery helper never deletes or changes originals.
 
 ## Archive preparation and remaining boundary
 
-Four closed audit packages are being packaged losslessly with exact per-file
+Four closed audit packages have been packaged losslessly with exact per-file
 manifests. Generation rechecks original metadata, refuses open files and
 symlinks, verifies every archived byte and metadata, and enforces at least 17%
 free space. Existing hard links are accounted for when estimating recoverable
 space. Every original path is retained during preparation.
 
-Archive completion, final capacity and the concrete migration decision are
-pending the final readback. No active journal, dataset, log or volume has been
-removed. Replacing uncompressed cold copies with their verified archives is a
-separate material step under the project's no-journal-deletion rule.
+All four packages passed complete streaming hash and file-metadata verification.
+Preparation took 437 seconds. The 350 files contain 88.66 GiB of logical data;
+existing hard links reduce current physical original allocation to 57.92 GiB.
+The four compressed archives total 12.80 GiB. Replacing the cold originals would
+therefore provide a net 45.12 GiB benefit compared with the pre-preparation
+state; from the present state it would release the 57.92 GiB occupied by the
+originals. No active Docker container mounts one of the four cold packages.
+
+| Cold audit package | Files | Compressed size |
+| --- | ---: | ---: |
+| Old source IO, 23 October | 91 | 1.86 GiB |
+| Legacy account retirement, 24 October | 46 | 2.33 GiB |
+| Pair latency intervention, 24 October | 118 | 7.76 GiB |
+| Pair source IO intervention, 22 October | 95 | 0.85 GiB |
+
+The exact private catalog SHA-256 is
+`295b95ea72e3992dfd50b19747b9cac25f5c4ed7abc94a8bf120b2f1b469ba22`.
+The catalog contains source identity/ownership metadata, archive hashes, manifests
+and exact file counts. Every original remains present while the operator's
+specific replacement decision is pending. The approval question requests only
+these four packages, not any operational journal or general retention policy.
+
+At 10:31:38 UTC the large filesystem had 146.95 GiB available (18.13%), including
+the newly prepared 12.80 GiB archives. Root had 79.53 GiB available after retaining
+the independent restore copy. Host swap available was 14.92 GiB and memory
+available 35.70 GiB. The automatic monitor no longer reports high swap activity;
+the historical M1 missed slot and genuine FAST/HALF risk mismatch remain.
+
+`AGENTS.md` prohibits deleting SQLite journals, datasets, logs or volumes. The
+conservative boundary for this continuation is to request explicit permission
+before removing even the uncompressed cold SQLite copies; preservation in
+verified archives does not silently waive that instruction. No original journal,
+dataset, log or volume has been removed. Completing the approved cold replacement
+will not require stopping an account, collector or VM.
