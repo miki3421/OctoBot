@@ -2,6 +2,7 @@
 import copy
 import datetime as dt
 import json
+import os
 from pathlib import Path
 import sys
 import tempfile
@@ -114,6 +115,34 @@ class CoverageValidationTests(unittest.TestCase):
             self.assertNotIn('comment', result)
             self.assertEqual(result['status'], 'rejected')
             self.assertEqual(result['reason_code'], 'contradicted_open_pnl')
+
+    @unittest.skipUnless(os.geteuid() == 0, 'root-owned operator record contract')
+    def test_operator_disable_hides_scheduling_and_skips_inference_without_writes(self):
+        now = dt.datetime(2032, 5, 10, 6, tzinfo=dt.timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/'status.json';path.write_bytes(b'Historical report bytes retained.')
+            marker = path.with_name('disabled.json')
+            marker.write_text(json.dumps(dict(contract='qwen-descriptive-operator-state-v1',
+                state='DISABLED_BY_OPERATOR', disabled_at=now.isoformat(),
+                last_report_generated_at=(now-dt.timedelta(hours=1)).isoformat())))
+            marker.chmod(0o444);before={p.name:p.read_bytes() for p in path.parent.iterdir()}
+            view=q.public_view(path,now)
+            self.assertEqual(view['status'],'disabled');self.assertFalse(view['available'])
+            self.assertIsNone(view['next_scheduled_at'])
+            with mock.patch.object(q,'infer',side_effect=AssertionError('model must remain off')):
+                result=q.run_once(path,reader=lambda *args: self.fail('no network request'),now=now)
+            self.assertEqual(result['status'],'disabled')
+            self.assertEqual(before,{p.name:p.read_bytes() for p in path.parent.iterdir()})
+
+    def test_untrusted_stop_marker_never_falls_through_to_inference(self):
+        now=dt.datetime(2032,5,10,6,tzinfo=dt.timezone.utc)
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'status.json';marker=path.with_name('disabled.json')
+            marker.symlink_to(Path(folder)/'unread-source')
+            with mock.patch.object(q,'infer',side_effect=AssertionError('must fail closed')):
+                result=q.run_once(path,reader=lambda *args: self.fail('no network request'),now=now)
+            self.assertEqual(result['status'],'unverifiable');self.assertIsNone(result['next_scheduled_at'])
+            self.assertFalse(path.exists())
 
 
 if __name__ == '__main__':

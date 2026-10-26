@@ -1,0 +1,44 @@
+--- a/octobot/ai_strategy_lab/v13_qwen_analysis.py
++++ b/octobot/ai_strategy_lab/v13_qwen_analysis.py
+@@ -8,0 +9 @@
++import stat
+@@ -37 +38 @@
+-    'interrupted': 'Tentativo non concluso'}
++    'interrupted': 'Tentativo non concluso', 'disabled': 'Servizio disabilitato'}
+@@ -38,0 +40 @@
++    'disabled': 'Qwen MoE e l’analisi periodica sono disabilitati su richiesta dell’operatore. I rapporti storici sono conservati; le metriche del conto restano indipendenti.',
+@@ -385,0 +388,25 @@
++def operator_disabled_view(path, now):
++    """Root-owned descriptive stop record; never a trading authorization."""
++    marker = Path(path).with_name('disabled.json')
++    try:
++        metadata = marker.lstat()
++    except FileNotFoundError:
++        return None
++    try:
++        if (not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != 0
++                or metadata.st_mode & 0o022 or metadata.st_size > 1024):
++            raise ValueError('untrusted_disable_record')
++        value = json.loads(marker.read_text())
++        if (set(value) != {'contract', 'state', 'disabled_at', 'last_report_generated_at'}
++                or value['contract'] != 'qwen-descriptive-operator-state-v1'
++                or value['state'] != 'DISABLED_BY_OPERATOR'
++                or analytics.timestamp(value['disabled_at']) > now
++                or analytics.timestamp(value['last_report_generated_at']) > analytics.timestamp(value['disabled_at'])):
++            raise ValueError('invalid_disable_record')
++        return view_state('disabled', disabled_at=value['disabled_at'],
++            generated_at=value['last_report_generated_at'], next_scheduled_at=None)
++    except (OSError, ValueError, TypeError, KeyError):
++        # A malformed stop record cannot silently enable a model call.
++        return view_state('unverifiable', next_scheduled_at=None)
++
++
+@@ -388,0 +416,3 @@
++    disabled = operator_disabled_view(path, now)
++    if disabled is not None:
++        return disabled
+@@ -450,0 +481,4 @@
++    disabled = operator_disabled_view(output, now)
++    if disabled is not None:
++        print(json.dumps({'status': disabled['status'], 'model_called': False}))
++        return disabled
