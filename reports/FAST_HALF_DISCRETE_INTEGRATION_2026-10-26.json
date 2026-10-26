@@ -1,0 +1,147 @@
+{
+  "scope": "OFFLINE_INTEGRATION_ONLY",
+  "fixture_role": "SYNTHETIC_FUTURE_MECHANICS_ONLY_NOT_A_BACKTEST",
+  "inherited_full_state_sha256": "0a35bd191b662e68e92e225bc87292cfff61cd59349a554c9f09b66672460a40",
+  "legacy_receipt_unchanged": true,
+  "all_historical_prefix_rows_unchanged": true,
+  "source_cutoff": "2026-10-26T15:20:26.545499+00:00",
+  "mechanical_boundary": "2026-10-27T00:15:00+00:00",
+  "cached_input_source_day": "2026-10-25",
+  "future_scientific_inputs_qualified": false,
+  "input_integrity": {
+    "paired.sqlite": [
+      "ok"
+    ],
+    "original.sqlite": [
+      "ok"
+    ],
+    "parent-snapshot.sqlite": [
+      "ok"
+    ]
+  },
+  "half_write_rollback_passed": true,
+  "hard_process_exit_code": 91,
+  "interrupted_journal_bytes": 2774536,
+  "hot_journal_recovery_passed": true,
+  "restart_idempotent": true,
+  "filled_quantities_reconcile": true,
+  "new_rows": {
+    "slots": 1,
+    "fills": 6,
+    "funding": 36,
+    "observations": 1,
+    "inputs": 0
+  },
+  "decision_status": "EXECUTED",
+  "decision": {
+    "blocks": {
+      "FAST": null,
+      "HALF": null
+    },
+    "candidate_volatility": {
+      "FAST": 0.03594904990001148,
+      "HALF": 0.06311889494641444
+    },
+    "common_target_volatility": 0.03594904990001148,
+    "discrete_status": "MATCHED_UNCHANGED",
+    "execution_authorized": false,
+    "funding_debt": null,
+    "market_hash": "14908fdcc88e1a3f63e4ef662bafbc9eee9c398dcfbf4e9c1445557649adb337",
+    "notes": [],
+    "orders_authorized": false,
+    "ordinary_notes": [],
+    "ordinary_risk_gap": 0.010331586783545876,
+    "paired_entry_veto": false,
+    "proposal_id": "SYNTHETIC_MECHANICAL_INPUT",
+    "quantity_adjustments": [],
+    "realized_allocation_volatility": {
+      "FAST": 0.03573429343058977,
+      "HALF": 0.03536510147686294
+    },
+    "risk_gap": 0.010331586783545876,
+    "risk_matched": true,
+    "scope": "OFFLINE_INTEGRATION_ONLY",
+    "snapshot_id": "SYNTHETIC_MECHANICAL_INPUT",
+    "version": "fast-half-discrete-offline-integration-v1",
+    "weights": {
+      "FAST": {
+        "AAVEUSDT": 0.002668277907451046,
+        "ADAUSDT": 0.0,
+        "ATOMUSDT": 0.0,
+        "AVAXUSDT": 0.0,
+        "BCHUSDT": 0.015582836231643294,
+        "BTCUSDT": 0.03275922971792704,
+        "DOGEUSDT": 0.0,
+        "DOTUSDT": 0.0028284283032334024,
+        "ETHUSDT": 0.0,
+        "HBARUSDT": 0.0,
+        "LINKUSDT": 0.0,
+        "LTCUSDT": 0.02261161410830896,
+        "NEARUSDT": 0.0023090139436466243,
+        "SOLUSDT": 0.0,
+        "UNIUSDT": 0.0,
+        "XLMUSDT": 0.0,
+        "XRPUSDT": 0.0,
+        "ZECUSDT": 0.0
+      },
+      "HALF": {
+        "AAVEUSDT": 0.011004964174412001,
+        "ADAUSDT": 0.0,
+        "ATOMUSDT": 0.0,
+        "AVAXUSDT": 0.0,
+        "BCHUSDT": 0.008928984581958203,
+        "BTCUSDT": 0.02540439752976602,
+        "DOGEUSDT": 0.0,
+        "DOTUSDT": 0.009350262707392351,
+        "ETHUSDT": 0.0,
+        "HBARUSDT": 0.0,
+        "LINKUSDT": 0.0,
+        "LTCUSDT": 0.013811727407075985,
+        "NEARUSDT": 0.0063542125762775575,
+        "SOLUSDT": 0.0,
+        "UNIUSDT": 0.0,
+        "XLMUSDT": 0.0,
+        "XRPUSDT": 0.0,
+        "ZECUSDT": 0.0
+      }
+    }
+  },
+  "work_copy_integrity": [
+    "ok"
+  ],
+  "execution_authorized": false,
+  "live_mutations": false,
+  "profitability_evaluated": false,
+  "source_evidence_unchanged": true,
+  "code_sha256": {
+    "octobot/ai_strategy_lab/v13_fork_discrete_offline.py": "bd2d1781ae7c5d33a016b87cceaeed249540a9bd04f0412de450821c7392a225",
+    "scripts/qualify_fork_discrete_integration.py": "16963b5f371b8956bb8a3dbd7f17ba54a4d07e81d7adee5bfa3cc5a853916f0b",
+    "tests/unit_tests/ai_strategy_lab/test_v13_fork_discrete_offline.py": "7de3ceaea2c46296e157160fbc550b26447f3a02ad640ad778d1ba9c315cd42f",
+    "docs/research-protocols/fast-half-discrete-integration-v1.json": "d985ac6327a3e5c2d50a050ed795ca3aa587ba1f14e1c18780977743b3003abb",
+    "octobot/ai_strategy_lab/v13_fork_runner.py": "e9e939bc5d44ad54e0a16bae61ba1813c6ec8811475b1129f777679abb5e92d7",
+    "octobot/ai_strategy_lab/v13_discrete_risk_candidate.py": "803c235bc2cfb36c27fe26f009c4a80e02c72793a8db90a02142e6a0529397dc",
+    "octobot/ai_strategy_lab/v13_research_paper.py": "d915ec12e196b2299a9df2e2ca4f8b60cb102a9920b4a529ebf4104e0b585a8d",
+    "octobot/ai_strategy_lab/v13_research_source.py": "833b843f63f5c09410cb26abbc9ba6c599237ad13d5abbfec4a610a71ad4afbf",
+    "octobot/ai_strategy_lab/v13_paper_v2.py": "45c5c428170aa469f9f9cbb9edd7facd4d84d74bab2eac303654199237554de5",
+    "octobot/ai_strategy_lab/v13_exposure.py": "53c2d7782201229800566a4f52b546834d747e7f75dc10ae496027251a62062d",
+    "octobot/ai_strategy_lab/v13_market.py": "7c01092ae234f958758b45b3fe02aef25aeffb465bc5dfd4f11024efbff259c7",
+    "octobot/ai_strategy_lab/v13_market_sanity.py": "0ddd8daf3e9381102ef6d117b63df8fb98e819ea6c91349c952c670e8847a347",
+    "octobot/ai_strategy_lab/v13_original_portfolio.py": "638dc286cac64a90104858977c3bf0a857f7b20712c7e79eaaefa821b60f6c60"
+  },
+  "input_manifest_sha256": "7b34dee85f50ddf80994b5f52bbf6c5d228e1d9d1a22f98de010b94702fc0024",
+  "tests": {
+    "passed": 45,
+    "failed": 0,
+    "integration": 17,
+    "pure_candidate": 16,
+    "legacy_fork": 12
+  },
+  "runtime": {
+    "containers": 12,
+    "all_healthy": true,
+    "ids_start_times_restart_counts_unchanged": true,
+    "paper_only": true,
+    "active_runner_changed": false
+  },
+  "contract": "docs/research-protocols/fast-half-discrete-integration-v1.json"
+}

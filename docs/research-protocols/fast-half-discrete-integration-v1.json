@@ -1,0 +1,17 @@
+{
+  "id": "fast-half-discrete-offline-integration-v1",
+  "scope": "OFFLINE_INTEGRATION_ONLY",
+  "execution_authorized": false,
+  "operational_activation": false,
+  "new_accounts": false,
+  "baseline": "Continue a complete copied paired ledger with unchanged parent, legacy receipt, states, counters, generations, funding cursors and history.",
+  "epoch": "A separate pinned offline epoch starts at an explicit later UTC daily slot. It does not rewrite the frozen legacy protocol, receipt or historical risk results.",
+  "decision": "Use unchanged original daily targets, FAST/HALF filters, covariance, risk gates and market vetoes. Project the ordinary discrete plan on copies, then invoke the frozen post-cost one-increment reduction candidate from the same funded pre-slot states and original book.",
+  "accounting": "Commit only the final net per-symbol orders, with ordinary generations, position identity, counters, fees and causal funding. Trial orders are never persisted or charged.",
+  "unqualified": "Invalid input denies new decision fills. Funding/valuation debt permits only valid protective reductions. Partial or indivisible plans remain explicitly unqualified; never widen tolerance, ignore vetoes or flatten both arms to manufacture parity.",
+  "funding": "Retain the existing held-quantity reconstruction, causal reference marks, settlement identities and both-arms-or-neither cursor update. Missing funding is explicit debt; recovery cannot double charge a settlement.",
+  "storage": "The slot, both states, final fills, funding rows and filters share one synchronous FULL SQLite transaction. Valid passive observations and cached scientific inputs may precede that transaction. Failure must not leave a half-committed decision.",
+  "restart": "Persist module/candidate/base identity and source-copy hash. Refuse a missing continuation, changed identity or reinitialization. Reopening cannot repeat a consumed slot or funding event; expired slots cannot trade retrospectively.",
+  "fixtures": "A complete actual current snapshot tests inheritance. Future timestamps and settlement/mark fixtures are explicitly synthetic mechanical tests, not future market observations, new research accounts or profitability evidence.",
+  "activation_boundary": "Any subsequent live change still needs a separately authorized future version boundary and a live-state handoff. This delivery has no service entrypoint, deployment, schedule or UI change."
+}
