@@ -106,6 +106,8 @@ if(d.m1?.successor){
  const panel=node('section',null,'panel');panel.id='m1-retired-version';panel.append(node('h2','M1 precedente · versione ritirata'),node('p','Chiusura versione: '+date(epoch.activated_at)+' · equity finale '+num(epoch.boundary_metrics.equity)+' USDT · '+epoch.legacy_fill_count+' fill conservati.'),node('p','Lo stesso conto continua con la gestione graduale. Nessun reset del capitale e nessun altro conto di confronto. Lo storico precedente resta nella curva.','small muted'));$('cards').after(panel);
  $('status').textContent+=' M1: gestione graduale attiva, riacquisti LONG bloccati e budget SHORT conservato.';
 }
+const latestRiskSlot=d.slots?.find(s=>s.status==='EXECUTED'&&typeof s.detail?.risk_matched==='boolean');
+if((comparison||['FAST','HALF'].includes(keys[0]))&&latestRiskSlot?.detail.risk_matched===false)$('status').textContent+=' FAST/HALF: rischio effettivo non allineato nell’ultimo ribilanciamento ('+num(latestRiskSlot.detail.risk_gap*100)+'% di scarto). Risultati non qualificati a parità di rischio.';
 $('legend').replaceChildren();keys.forEach(k=>{const n=node('span',d.variants[k].label,'swatch');n.style.setProperty('--accent',colors[k]);$('legend').append(n);});
 $('comparison-panel').classList.toggle('hidden',!comparison);$('detail-panel').classList.toggle('hidden',comparison);$('comparison-rows').replaceChildren();
 for(const k of ['ORIGINAL','FAST','HALF','M1'].filter(k=>d.variants[k])){const v=d.variants[k],pct=commonReturn(k,window),r=row('comparison-rows',[v.label,pct==null?'In attesa':signed(pct)+'%',date(v.fork_at),signed(v.change)+' USDT',num(v.drawdown_pct)+'%',num(v.fees_since_fork)+' USDT',signed(v.funding_since_fork)+' USDT',v.post_fork_order_count]);if(pct!=null)pnl(r.children[1],pct);}

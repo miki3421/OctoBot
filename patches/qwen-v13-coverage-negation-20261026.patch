@@ -1,0 +1,17 @@
+--- a/octobot/ai_strategy_lab/v13_qwen_analysis.py
++++ b/octobot/ai_strategy_lab/v13_qwen_analysis.py
+@@ -221,6 +221,14 @@
+         for phrase, ref in [('24 ore', 'window_24h'), ('7 giorni', 'window_7d')]:
+             if phrase in prose and ref in ids:
+                 prose = prose.replace(phrase, '')
++        # A specific denial of complete data coverage is not a positive
++        # guarantee. License only this clause, backed by a cited incomplete
++        # measured window; every other guarantee/action/number stays blocked.
++        defensive_coverage = r'\bcopertura(?:\s+completa)?\s+non\s+è\s+garantita\b'
++        cited_incomplete = any(i.startswith('window_') and
++            source['metrics']['windows'].get(i[7:], {}).get('complete') is False for i in ids)
++        if cited_incomplete:
++            prose = re.sub(defensive_coverage, 'copertura incompleta', prose, flags=re.I)
+         if re.search(r'[\d<>`]|https?://|\b(?:due|tre|quattro|cinque|sei|sette|otto|nove|dieci|cento|mille|compra\w*|vend[ei]\w*|acquista\w*|autorizz\w*|garantit\w*|certificat\w*|promuov\w*)\b|statisticamente.{0,20}significativ', prose, re.I):
+             raise ValueError('unsafe_or_invented_text')
+     if any(re.search(r'\bgap\b|lacun\w*|copertura incompleta', text, re.I) for text in points) and not any(i.startswith('window_') for i in ids):

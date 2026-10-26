@@ -35,4 +35,14 @@ Prepared release: `v13-m1-scope-fix-v1`, manifest
 `25d15fdda2a0b3ac183f0120c0c4e66d339883dd8361ce3008d91e6e6b68794e`.
 The predecessor's exact delegation and genesis authority bytes are carried
 forward; a new root-owned runtime-upgrade record binds a fresh cold backup.
-Operational activation/readback is pending at preparation time.
+Activated at 09:27:57 UTC (10:27:57 CET), using existing local images and
+restarting only the M1 runner. At 09:31:55 UTC the live projection reported
+`OBSERVING`, no health reason, baseline day `2026-10-25` and no baseline error.
+All 319 orders, positions and delegated budget remained intact. Today's denied
+ordinary slot is still recorded; its historical missed-execution alert must not
+be erased or presented as an execution that took place. The next ordinary
+decision remains the natural daily slot, subject to current checks.
+
+Evidence is retained under the private `lab-fixes-20261026/v1` audit package,
+including the cold backup, runtime manifest, 75-test log, full-copy published
+bundle regression and activation readback. Git delivery: `dd910014`.
