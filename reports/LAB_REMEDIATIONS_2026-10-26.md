@@ -56,23 +56,38 @@ this rejection was a false positive, not a model timeout.
 
 The correction permits only the exact negated coverage clause, with a cited
 measured incomplete window. Positive guarantees, invented numbers, unknown
-symbols and trading instructions still fail closed. It does not alter model
-output or trading authority. The existing 41-test suite passed; two standalone
-regressions additionally exercise the precise exception and unsafe alternatives.
+symbols and trading instructions still fail closed. It does not alter trading
+authority.
 
-The deployed worker uses the immutable `qwen-v13-analysis-v4` runtime. The
-baseline source SHA-256 is
-`c67f41bf12f1e3973d5da9457c04ad3208b7b46cca42a4faff83d6188247f3fd`;
-the corrected source is
-`a4bef22c7026efeb5cc0a9a3029724e15f5e8ee6b5c90fb37f8c596878d66ca2`.
-`patches/qwen-v13-coverage-negation-20261026.patch` records only this change
-against the installed baseline, isolating the pre-existing untracked legacy
-module and test file. Existing worker confinement, timer, model and local
-endpoint are retained. The suspended BTC Qwen shadow remains suspended.
+A subsequent actual inference completed at 09:41:29 UTC, but manual content
+review caught a second defect: it described open gains while aggregate, BTC and
+NEAR open P/L were negative, and invented a critical concentration threshold.
+A syntactically valid report is therefore insufficient. New bounded checks
+reject explicit open-profit/open-loss claims that contradict the measured sign
+for the account or any named symbol, and reject unmeasured critical thresholds.
+The descriptive prompt now explicitly requires measured signs. These controls
+are not a general semantic proof of arbitrary language or future conditionals.
 
-A fresh actual inference completed successfully at 09:41:29 UTC (10:41:29 CET),
-in 66.694 seconds, with status `ready`. No previous rejected record was erased.
-Dashboard readback is part of the final delivery check.
+Cached reports are revalidated too: a prior ready-attempt record cannot conceal
+a newly detected content rejection. The actual contradictory cached report was
+rejected by the final validator, without deleting its evidence. Forty-six tests
+passed, covering coverage, polarity, mixed-symbol claims, zero P/L, thresholds,
+cache revalidation and the existing analysis suite. Preparation caught a metrics
+shape mismatch before activation; the final regression uses the real nested
+aggregate totals and the actual cached report.
+
+Final prepared runtime: `qwen-v13-analysis-v6`, source SHA-256
+`ba2b74969ce16edf1a66de711f507ee2a158faa0d1a87485775b279c05ee99d0`;
+manifest SHA-256
+`4ff8d5f4d971bd41ac557508c85f85745df7a21d043d59ab9f4bec4765ca161a`.
+The installed original source baseline SHA-256 is
+`c67f41bf12f1e3973d5da9457c04ad3208b7b46cca42a4faff83d6188247f3fd`.
+`patches/qwen-v13-coverage-negation-20261026.patch` and
+`patches/qwen-v13-pnl-validation-20261026.patch` preserve the two scoped changes,
+isolating the pre-existing untracked legacy module and test file. Existing
+worker confinement, timer, model and local endpoint are retained. The suspended
+BTC Qwen shadow remains suspended. Final activation, fresh inference and UI
+content readback are pending the final delivery check.
 
 ## Storage
 
@@ -95,9 +110,27 @@ Three filesystem invariant tests passed. All fourteen pairs were coalesced and
 read back successfully: 30.740 GiB of duplicate physical storage was released.
 The measured net available-space increase was 30.717 GiB while collectors
 continued writing. The larger filesystem now has 173.325 GiB available (21.39%).
-Root is unchanged at about 88.6 GiB free. No Docker prune or VM change is involved. Deduplication frees headroom but does not remove ongoing ingestion
-growth. The next storage action is a measured cold-archive compression/retention
-proposal, keeping causal receipts and account history recoverable.
+Root is unchanged at about 88.6 GiB free. No Docker prune or VM change is involved.
+
+A complete cold directory from the retired BTC account was also compressed with
+existing Zstandard, including all eleven files and SQLite companion files.
+9,642,000,969 input bytes became a 1,248,991,471-byte archive (7.72:1). Streaming
+reconstruction verified every file hash, size, owner, group and mode, and source
+metadata remained unchanged. Total measured qualification time was 37.2 seconds.
+All originals and the compressed qualification artifact are retained; the latter
+consumes about 1.16 GiB, so it must not be counted as additional reclaimed space.
+This establishes byte/metadata recoverability; it does not claim a new live
+account restoration. The archive SHA-256 is
+`00109aa2dc386fdf5a755db4afa9a144ea088082bf3ce05a2080d8c6a38b6f81`. At an unchanged 15.79 GiB/day, ninety days would add about 1,421 GiB
+(1.39 TiB), exceeding the larger filesystem's total 810.48 GiB capacity. Current
+headroom after the qualification artifact reaches the 15%-free warning in
+roughly 3.2 days at that rate, not a guaranteed forecast. Deduplication frees
+headroom but does not remove ongoing ingestion growth. The concrete storage follow-up is to
+package closed audit directories into verified lossless archives and define a
+recoverable cold-storage tier, then qualify deduplicated receipt payloads or
+closed partitions. Applying that to originals or changing live journal layout
+requires its own bounded migration; no such deletion or schema change is hidden
+in this maintenance package.
 
 ## Delivery and residual checks
 

@@ -1,0 +1,69 @@
+--- a/octobot/ai_strategy_lab/v13_qwen_analysis.py
++++ b/octobot/ai_strategy_lab/v13_qwen_analysis.py
+@@ -23,7 +23,7 @@
+ SECTIONS = ('summary', 'strengths', 'weaknesses', 'watch')
+ ATTEMPT_CONTRACT = 'qwen-v13-analysis-attempt-v1'
+ REJECTED_REASONS = {'invalid_comment_schema', 'invalid_comment_sections', 'invalid_evidence_ids',
+-    'unsupported_exclusivity',
++    'unsupported_exclusivity', 'contradicted_open_pnl', 'unmeasured_critical_threshold',
+     'unsafe_or_invented_text', 'uncited_symbol', 'uncited_coverage', 'overstated_concentration',
+     'unknown_symbol', 'invalid_text', 'incomplete_output', 'model_response_invalid'}
+ KNOWN_REASONS = REJECTED_REASONS | {'analysis_unavailable', 'shared_model_busy',
+@@ -47,6 +47,8 @@
+ }
+ REASON_MESSAGES = {
+     'unsupported_exclusivity': 'La risposta attribuisce contributi esclusivi che non coincidono con i dati misurati.',
++    'contradicted_open_pnl': 'La risposta descrive guadagni o perdite aperte con un segno contrario ai dati citati.',
++    'unmeasured_critical_threshold': 'La risposta richiama una soglia critica che non è definita nei dati misurati.',
+     'shared_model_busy': 'Il modello locale era occupato durante il tentativo.',
+     'model_timeout': 'Il modello non ha completato la risposta nel tempo disponibile.',
+     'model_unavailable': 'Il modello locale non era raggiungibile durante il tentativo.',
+@@ -81,6 +83,8 @@
+ quali fragilità emergono e cosa resta da osservare. Non ripetere solo lo stato operativo.
+ Usa il contributo dei simboli e distingue guadagni realizzati da guadagni ancora aperti,
+ costi, concentrazione e lacune. Un simbolo positivo finora non è una strategia validata.
++Un P/L aperto negativo è una perdita aperta, non un guadagno. Rispetta il segno
++misurato, sia per il conto sia per ciascun simbolo nominato. Non inventare soglie critiche.
+ Nessuna previsione certa, diagnosi causale non provata, nuovo dato o consiglio operativo.
+ Non calcolare né scrivere cifre, percentuali, date o numeri nel testo: i riferimenti
+ mostreranno i valori originali. Usa nomi dei simboli presenti nei fatti quando utile.
+@@ -207,6 +211,21 @@
+         for symbol in cited_symbols:
+             if not any(source['evidence'][i].startswith(symbol + ':') for i in ids):
+                 raise ValueError('uncited_symbol')
++        # Bounded polarity checks: citations alone cannot turn an observed
++        # open loss into an open gain (or vice versa). These do not purport
++        # to prove arbitrary narrative semantics or future conditional claims.
++        signs = []
++        if re.search(r'\b(?:guadagn[oi]|profitt[oi])\s+apert[oi]\b', text, re.I):
++            signs.append(1)
++        if re.search(r'\bperdit[ae]\s+apert[ae]\b', text, re.I):
++            signs.append(-1)
++        for sign in signs:
++            values = ([r['unrealized_pnl'] for r in source['metrics']['symbols'] if r['symbol'] in cited_symbols]
++                      if cited_symbols else [source['metrics']['totals']['unrealized_pnl']])
++            if not values or any(sign * analytics.number(v) <= 0 for v in values):
++                raise ValueError('contradicted_open_pnl')
++        if re.search(r'\bsogli[ae]\s+critic[hae]+\b', text, re.I):
++            raise ValueError('unmeasured_critical_threshold')
+         # A citation does not justify omitting other measured positive contributors.
+         # This bounded check is not a general semantic proof of arbitrary prose.
+         exclusive = re.search(r'\bunic[oaie]\b|\bsol[oi]\s+(?:simboli|contributi)|\bsoltanto\b', text, re.I)
+@@ -384,14 +403,14 @@
+     except FileNotFoundError:
+         pass
+     except (OSError, ValueError, TypeError, KeyError, AttributeError) as error:
+-        result = (view_state('rejected', 'unsupported_exclusivity')
+-                  if isinstance(error, ValueError) and str(error) == 'unsupported_exclusivity'
++        result = (view_state('rejected', str(error))
++                  if isinstance(error, ValueError) and str(error) in REJECTED_REASONS
+                   else view_state('unverifiable'))
+         try:
+             if path.is_symlink() or path.stat().st_size > 262144:
+                 raise ValueError('unsafe_cache')
+             r = json.loads(path.read_text())
+-            if result.get('reason_code') == 'unsupported_exclusivity':
++            if result['status'] == 'rejected':
+                 # Keep the verified report clock: its earlier ready attempt must
+                 # not conceal the newly detected content rejection.
+                 result.update(generated_at=r['generated_at'], as_of=r['source']['as_of'])
