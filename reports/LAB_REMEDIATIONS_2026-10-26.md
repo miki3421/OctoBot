@@ -76,7 +76,7 @@ cache revalidation and the existing analysis suite. Preparation caught a metrics
 shape mismatch before activation; the final regression uses the real nested
 aggregate totals and the actual cached report.
 
-Final prepared runtime: `qwen-v13-analysis-v6`, source SHA-256
+Final active runtime: `qwen-v13-analysis-v6`, source SHA-256
 `ba2b74969ce16edf1a66de711f507ee2a158faa0d1a87485775b279c05ee99d0`;
 manifest SHA-256
 `4ff8d5f4d971bd41ac557508c85f85745df7a21d043d59ab9f4bec4765ca161a`.
@@ -86,8 +86,13 @@ The installed original source baseline SHA-256 is
 `patches/qwen-v13-pnl-validation-20261026.patch` preserve the two scoped changes,
 isolating the pre-existing untracked legacy module and test file. Existing
 worker confinement, timer, model and local endpoint are retained. The suspended
-BTC Qwen shadow remains suspended. Final activation, fresh inference and UI
-content readback are pending the final delivery check.
+BTC Qwen shadow remains suspended. Final activation is complete. One fresh
+inference finished at 09:52:07 UTC (10:52:07 CET), in 60.452 seconds, and passed
+validation. The account summary now describes open losses, consistent with the
+negative measured aggregate open P/L. The UI publishes that fresh report; the
+contradictory predecessor remains in retained audit evidence. Qualitative model
+commentary still requires daily review; these bounded checks cannot certify all
+possible claims about stability, causality or future performance.
 
 ## Storage
 
@@ -135,6 +140,19 @@ in this maintenance package.
 ## Delivery and residual checks
 
 Final browser, resource monitor, runtime and storage readbacks are recorded in
-the private `lab-fixes-20261026` audit package. Project cards remain separate from
+the private `lab-fixes-20261026` audit package. The GET-only live browser journey
+passed after the final validator deployment: six active account cards, current
+M1 baseline, retained denied daily slot, active automatic review, preserved SHORT
+budget, unequal-risk warning, published Qwen report and existing chart/archive
+routes. No browser write request or JavaScript error occurred.
+
+At 09:53:10 UTC all twelve lab containers were healthy, with zero automatic
+restarts. Original, FAST, HALF, intraday accounts, collectors and broker retained
+the same container identities and start times across dashboard publication.
+The M1-only restart was performed earlier for its input correction. Final
+available space was 171.14 GiB (21.12%) on the larger filesystem and 88.55 GiB on
+root, after retained compression evidence and ongoing writes. The automatic
+resource monitor succeeds and no longer reports the M1 baseline block. It still
+reports the genuine unequal-risk and historical missed-daily-slot findings. Project cards remain separate from
 operator acceptance. Legitimate historical missed-slot and unequal-risk alerts
 are not suppressed merely to produce a green dashboard.
