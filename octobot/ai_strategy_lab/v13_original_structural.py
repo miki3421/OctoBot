@@ -450,8 +450,10 @@ def persist(db, result, control, record, now, fund, legs, claim, increasing, fun
         db.execute('INSERT INTO equity_history VALUES(?,?,?)', (now.isoformat(), metrics['equity'], metrics['pnl']))
         db.execute('UPDATE state SET payload=? WHERE id=1', (json.dumps(result),))
         save(db, control)
-        event = dict(version=VERSION, at=now.isoformat(), claim=claim, market_hash=record['record_hash'],
-                     status=control['status'], fills=legs, funding_known=funding_ok)
+        event = dict(scope=P.source.SCOPE, version=VERSION, at=now.isoformat(), claim=claim,
+                     market_hash=record['record_hash'], status=control['status'], fills=legs,
+                     funding_known=funding_ok, notes=[], entry_gate=result.get('entry_gate'),
+                     reason=control['status'], funding_method='ESTIMATED_PREVIOUS_OBSERVED_MARK')
         if increasing or legs or control['phase']=='EXIT_PENDING':
             event.update(episode=control.get('episode'), last_exit_reason=control.get('last_exit_reason'),
                          pending=control.get('pending'))
