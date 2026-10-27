@@ -1,0 +1,267 @@
+{
+  "schema": 1,
+  "scope": "OPERATOR_REQUESTED_RESEARCH_PAPER_REPLACEMENT",
+  "generated_at": "2026-10-27T12:24:03.844186+00:00",
+  "status": "DEPLOYED_LIVE_CHECKS_PASSED_OPERATOR_ACCEPTANCE_PENDING",
+  "execution_mode": "SINGLE_AGENT",
+  "independent_qa": "NOT_CLAIMED",
+  "account": "v13-paper-v2",
+  "label": "M1 strutturale · ex Originale",
+  "protocol_id": "f7216e9549725ba94c5d01bdc0c972f509981e2df15ebd5be3db07b90185f8d1",
+  "delivery_commit": "7b9b91036ce4e48c5a675fbf9a14e2978a9ee071",
+  "release_manifest_sha256": "2c4d5c630b2a2fcec0c29bec74e1ca978298fed00c9076496a84096f190e0b54",
+  "authority_sha256": "2b0037ea0dc46aa48a1ddb79c40e4f39d5a53d301b3d81e519d032fc0c3616d2",
+  "operator_scope": "Replace the weakest existing research-paper strategy with the frozen structural M1 candidate. No additional account; no real orders.",
+  "selection": {
+    "method": "Observed worst account and worst available common five-minute-bucket window; not risk-matched scientific rejection.",
+    "snapshot_at": "2026-10-27T10:53:00+00:00",
+    "since_copy_pct": {
+      "Original": -2.5411,
+      "FAST": -1.0833,
+      "HALF": -1.2278,
+      "M1": -1.616,
+      "BTC_SHORT_control": -0.126545,
+      "BTC_LONG_SHORT": -0.219605
+    },
+    "available_common_window_utc": [
+      "2026-10-25T17:10:00+00:00",
+      "2026-10-27T10:50:00+00:00"
+    ],
+    "common_window_pct": {
+      "Original": -0.5569,
+      "FAST": -0.0794,
+      "HALF": -0.1935,
+      "M1": -0.1466,
+      "BTC_SHORT_control": -0.116,
+      "BTC_LONG_SHORT": -0.2091
+    },
+    "common_window_method": "Actual observations in shared five-minute buckets, no interpolation. Coverage limited by the current views; no fixed benchmark claim."
+  },
+  "boundary": {
+    "account": "v13-paper-v2",
+    "at": "2026-10-27T12:17:22.634122+00:00",
+    "label": "M1 strutturale · ex Originale",
+    "metrics": {
+      "equity": 9709.274086650497,
+      "fees": 6.157674618072,
+      "funding": -14.778108611430001,
+      "pnl": -290.72591334950266,
+      "realized_pnl": -45.404914345642695,
+      "unrealized_pnl": -224.38521577435725
+    },
+    "order_count": 262,
+    "predecessor": "V13 originale"
+  },
+  "active_accounts_before": 6,
+  "active_accounts_after": 6,
+  "new_accounts": 0,
+  "preservation": {
+    "account_capital_reset": false,
+    "historical_losses_preserved": true,
+    "initial_capital": 10000,
+    "historical_rows_unchanged": {
+      "orders": 262,
+      "funding_events": 1354,
+      "marks": 698270,
+      "equity_history": 38801,
+      "research_events": 38787
+    },
+    "high_water_and_daily_risk_baselines_preserved": true,
+    "other_five_accounts_untouched": true,
+    "source_collectors_unchanged": true,
+    "ops_vms_untouched": true,
+    "other_service_identities_and_starts_unchanged": true,
+    "global_kill_and_all_predecessor_grants_unchanged": true
+  },
+  "initial_operations": {
+    "type": "REDUCE_ONLY_INHERITED_LONGS",
+    "quantity_rounding": "Floor to existing simulated contract step; no redistribution.",
+    "positions": [
+      {
+        "symbol": "AAVEUSDT",
+        "before": 2.76,
+        "after": 1.38,
+        "step": 0.01
+      },
+      {
+        "symbol": "BCHUSDT",
+        "before": 1.08,
+        "after": 0.54,
+        "step": 0.01
+      },
+      {
+        "symbol": "BTCUSDT",
+        "before": 0.01,
+        "after": 0.005,
+        "step": 0.001
+      },
+      {
+        "symbol": "DOTUSDT",
+        "before": 315.0,
+        "after": 157.0,
+        "step": 1.0
+      },
+      {
+        "symbol": "LTCUSDT",
+        "before": 8.3,
+        "after": 4.1,
+        "step": 0.1
+      },
+      {
+        "symbol": "NEARUSDT",
+        "before": 48.0,
+        "after": 24.0,
+        "step": 0.1
+      }
+    ],
+    "fills": [
+      {
+        "symbol": "AAVEUSDT",
+        "action": "SELL",
+        "quantity": -1.38,
+        "price": 130.87,
+        "fee": 0.10836035999999999,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      },
+      {
+        "symbol": "BCHUSDT",
+        "action": "SELL",
+        "quantity": -0.54,
+        "price": 280.85,
+        "fee": 0.0909954,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      },
+      {
+        "symbol": "BTCUSDT",
+        "action": "SELL",
+        "quantity": -0.005,
+        "price": 79962.2,
+        "fee": 0.23988659999999998,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      },
+      {
+        "symbol": "DOTUSDT",
+        "action": "SELL",
+        "quantity": -158.0,
+        "price": 0.9836,
+        "fee": 0.09324528,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      },
+      {
+        "symbol": "LTCUSDT",
+        "action": "SELL",
+        "quantity": -4.200000000000001,
+        "price": 56.13,
+        "fee": 0.14144760000000003,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      },
+      {
+        "symbol": "NEARUSDT",
+        "action": "SELL",
+        "quantity": -24.0,
+        "price": 4.486,
+        "fee": 0.06459839999999999,
+        "at": "2026-10-27T12:18:25.634012+00:00",
+        "market_hash": "c8482ed5af8cdd8c5cf82c0f9f246d4bc20bfa30c0b9f9a1d37847d1d41ae547"
+      }
+    ],
+    "no_long_repurchases": true,
+    "last_checked_status": "NO_M1_SIGNAL"
+  },
+  "rules": {
+    "frozen_protocol": "docs/research-protocols/original-m1-structural-successor-v2.json",
+    "sizing_parent": "docs/research-protocols/m1-short-risk-exits-candidate-v1.json",
+    "structural_exit": "docs/research-protocols/m1-short-structural-invalidation-v1.json",
+    "short_signal": "BTC hourly return <= -1% and at least 12 of 18 symbols negative; evaluated every five minutes from complete causal 289-row window.",
+    "no_long_entries_or_repurchase_or_post_short_long_reentry": true,
+    "inherited_long_stages": "50% remaining immediately, then 25% of initial quantity and then zero only on distinct fresh deteriorated daily targets, at least 24 hours apart.",
+    "short_gross_cap_pct": 25.545833343071756,
+    "planned_episode_risk_pct": 0.25,
+    "exits": "Net loss -R; arm profit at +R and half-R giveback; confirmed structural BTC and breadth recovery; maximum six hours. All execute on later observed books.",
+    "max_episodes_per_utc_day": 1,
+    "cooldown_hours": 6,
+    "daily_loss_limit_pct": 2,
+    "drawdown_limit_pct": 10,
+    "lot_rounding_or_depth_limit": "No redistribution or invented liquidity; protective partial covers retried.",
+    "missing_input_approval_or_risk_veto": "No new risk; shared mark stream continues."
+  },
+  "custody": {
+    "manual_account_scoped_root_authority": true,
+    "predecessor_m1_delegation_not_reused": true,
+    "independent_issuer_uid": 30913,
+    "executor_uid": 30914,
+    "issuer_sqlite_read_only_to_executor": true,
+    "network_none_and_root_filesystem_read_only": true,
+    "pinned_runtime_and_protocol": true,
+    "predecessor_containers_retained_stopped_restart_disabled": true,
+    "durable_claim_and_crash_recovery_qualified": true
+  },
+  "verification": {
+    "targeted_and_regression_tests_passed": 131,
+    "complete_copy_with_synthetic_inputs_and_clock": "PASSED, not predictive validation",
+    "native_role_entrypoints_under_actual_uids": "PASSED",
+    "live_ledger_integrity": "ok",
+    "all_12_lab_services_healthy": true,
+    "shared_mark_stream_symbols": 18,
+    "actual_browser_without_mock_responses": "PASSED: six active cards, version boundary, period filters, real USDT, successor detail, no JS errors",
+    "passive_monitor": {
+      "observed_at": "2026-10-27T12:22:27.078820+00:00",
+      "alerts": [],
+      "notification_alerts": [],
+      "container_check_failure_streak": 0,
+      "collectors": {
+        "paper": {
+          "warn_after_seconds": 300,
+          "last_success_at": "2026-10-27T12:21:26.838108+00:00",
+          "age_seconds": 60.24071192741394,
+          "source_status": "healthy",
+          "collection_state": "FRESH",
+          "success_interval_seconds": 120.805615
+        }
+      },
+      "container_count": 10
+    },
+    "real_trader_enabled": false,
+    "trader_simulator_enabled": true,
+    "decision_mode": "deterministic_alignment",
+    "orders_authorized": false,
+    "real_orders_authorized": false,
+    "paper_research_authorization": "Existing explicit research-paper scope remains; not exchange order authorization.",
+    "frozen_predecessor_rule_hashes": "UNCHANGED",
+    "git_diff_check": "PASSED"
+  },
+  "ui": {
+    "comparison": "/v13_variants",
+    "successor": "/v13_variants/original",
+    "original_version_archive": "Read-only version boundary and all 262 predecessor fills retained on the same account."
+  },
+  "operations": {
+    "runtime_recipe": "The active role Compose definition is the generated compose.json of the release matching release_manifest_sha256. Use this pinned release for the two Original successor roles, not legacy base-Compose recreation.",
+    "restart": "New roles use unless-stopped; retired roles use restart=no.",
+    "recovery": "Stopped coherent ledger/approval backups and prior registry retained. After any successor fill, never rewind the account using a historical database; stop, inspect phase and reconcile append-only economic history.",
+    "monitor": "Existing issuer/executor names and paper health path retained; monitor configuration/checksums unchanged."
+  },
+  "limits": [
+    "Scientific validity remains UNASSESSED. Replacing a virtual research strategy is not proof of future profitability or promotion to the operational trading profile.",
+    "Small already-observed offline event sample; structural exit delays some useful covers and the stressed advantage over six-hour holding is fragile.",
+    "Funding uses settled rates and strictly prior observed marks as an explicit estimate; exact settlement mark and real exchange minima remain unqualified.",
+    "Same-account history combines the retired and successor versions; evaluate successor results from the marked boundary and retain total historical losses.",
+    "Live SHORT entry has not occurred yet: current status NO_M1_SIGNAL. Technical entry/exit and recovery have been checked on an isolated full-account copy."
+  ],
+  "evidence_sha256": {
+    "regression-final-v2.log": "3e6ade38cbe4948012c3dc56698e4854341a21ff9d79b4b93bf3159ca1fa3cbb",
+    "case-10/result.json": "f6cc5f4b399fd34f8ef424ac2d37c71193a8fb8e7cea457db9b307e6ef8eef0f",
+    "entrypoint-final.json": "c8fa2debe63a0d2afbae7e4ed9ee7cd4207a5721b5d170c12b160dbb5dd02b9b",
+    "live-verification.json": "386c0fb8f65fbdd7fb7d72b243b153f9b6503428bcfb6ff76c73cc8b7e1ff01b",
+    "live-browser.json": "4bd04101dc5b72a677ace775ecde78ad3e9952935082544fb36ba33e117952c5",
+    "monitor-after.json": "0cbbd0394c7e48eadcbfe15a86d42bdbca47d7e529986becf840c090881e1e6d",
+    "live-comparison.png": "66576113afd2700adb43843d5000a2c700f8779182a963da5099ce18ad606c2a",
+    "live-original-successor.png": "809e568eab793e694d0f0f6bb4ef436c4c1e82a9f5142a3d46d5acdc5fa35d44"
+  },
+  "next_review": "Review next causal signals, actual fills, cost coverage, protective exits and drawdown daily; do not retune the frozen rules from an individual episode."
+}
