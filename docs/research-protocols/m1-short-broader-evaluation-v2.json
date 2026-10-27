@@ -1,0 +1,76 @@
+{
+  "version": "m1-short-broader-evaluation-v2",
+  "scope": "CONDITIONAL_FROZEN_BASKET_HISTORICAL_DIAGNOSTIC_NOT_CAUSAL_PORTFOLIO_VALIDATION",
+  "created_at": "2026-10-27T10:07:41.947325+00:00",
+  "candidate_protocol_id": "a77bc705b996d5680c5dd9301351e64f0f58ab9e9dcc9a56795c3cb234351aa8",
+  "frozen_code_sha256": {
+    "docs/research-protocols/m1-short-risk-exits-candidate-v1.json": "f0aec307f7fb6fa2f15d5727bb4dfa34fab70d8abd1ef553717da4d9d864514b",
+    "octobot/ai_strategy_lab/v13_m1_short_risk.py": "83033ed3e8ecbb8f4f940af0a3ac72ab8bad4327eb3ce98d87c63eda11d22637",
+    "octobot/ai_strategy_lab/v13_m1_short_candidate.py": "c1308c8800f0cc60f17c2ae107409f972a5d0159f1abfd078ae9bacd84335c39",
+    "scripts/qualify_m1_short_episode.py": "e6574920ff8e9e0c199d3300f41296890cdb93bbb2ded288620aaa6373fc935f"
+  },
+  "evaluation_code_sha256": {
+    "scripts/qualify_m1_short_broader.py": "4c1b7cd2b5a80b608a10f4c34087772b3bb96748ca9e9a7f23b2e056dd1326d4"
+  },
+  "inventory_sha256": "bb158487205902420d3cd5aee92af808cadd351672cd4629de4b91624b14d504",
+  "capital_reference": 10000.0,
+  "capital_compounded": false,
+  "conditional_flat_start": true,
+  "basket_selection_available_from": "2026-10-25T11:27:40.532267+00:00",
+  "earlier_basket_is_retrospective_fixture": true,
+  "contemporaneous_episode_report_sha256": "77b0db713f50adb72c3224b0d301b8499257902b955104e1a07ccbda39833c08",
+  "cohort": {
+    "signal": "UNCHANGED_M1_18_SYMBOLS",
+    "entry": "FIRST_FRESH_OBSERVED_BOOK_AFTER_DUE_PLUS_ASSUMED_LATENCY_WITHIN_120S",
+    "one_signal_per_UTC_day": true,
+    "common_entry_schedule": "AFTER_SLOWEST_COMPLETED_SIX_HOUR_CONTROL_PLUS_6H_COOLDOWN",
+    "candidate_extra_entries_not_evaluated": true,
+    "keep_unavailable": true,
+    "matched_common_scenario_pool": true,
+    "maximum_observation_gap_seconds": 120,
+    "timeout_tail_seconds": 300
+  },
+  "funding": {
+    "rates": "OBSERVED_SETTLED_POINTS_ONLY_NO_FUTURE_RATES",
+    "reference": "STRICT_PREVIOUS_ORIGINAL_MARK_MAX_1800_SECONDS_ESTIMATE",
+    "quantity": "OWN_ARM_QUANTITY_STRICTLY_BEFORE_SETTLEMENT",
+    "unknown_at_exit": "UNQUALIFIED_NOT_ZERO"
+  },
+  "scenarios": [
+    {
+      "name": "base",
+      "latency_seconds": 20,
+      "fee_multiplier": 1,
+      "extra_slippage_per_side": 0.0
+    },
+    {
+      "name": "latency_60s",
+      "latency_seconds": 60,
+      "fee_multiplier": 1,
+      "extra_slippage_per_side": 0.0
+    },
+    {
+      "name": "cost_2x_latency_60s",
+      "latency_seconds": 60,
+      "fee_multiplier": 2,
+      "extra_slippage_per_side": 0.0002
+    }
+  ],
+  "analysis": [
+    "NET_FEES_FUNDING_AND_SAME_ENTRY_QUANTITIES_PER_PAIR",
+    "COVER_DEPTH_AND_PARTIAL_REDUCTIONS",
+    "ADVERSE_EXECUTABLE_EXPOSURE_AND_HOLDING_TIME",
+    "LEAVE_ONE_WEEK_OUT_DIFFERENCE",
+    "REPORT_BOTH_COMPLETE_AND_MISSING_EVENTS"
+  ],
+  "no_parameter_search": true,
+  "no_downloads": true,
+  "no_operating_changes": true,
+  "no_new_accounts": true,
+  "no_promotion": true,
+  "full_M1_equity_and_loss_counters_replayed": false,
+  "supersedes_evaluation_id": "318bedc111e787020895202c99d578cb3b82b2112433b13085b8cf2e4bb84d8f",
+  "supersession_reason": "V1 qualified no pairs: Original equity timestamps represent persistence/processing, not source collection end. V2 preserves both clocks and binds each book to its exact 18-symbol persisted mark vector. Rules, scenarios and cohort criteria unchanged.",
+  "availability": "SEALED_EXECUTOR_PERSISTENCE_TIME_WITH_SOURCE_COLLECTION_TIME_RETAINED_AND_EXACT_MARK_VECTOR_MATCH",
+  "evaluation_id": "31d614bd2e8d5502c4912c84dd8abce646249e2dca0fad941ff39d847513d808"
+}
