@@ -1,0 +1,751 @@
+{
+  "scope": "BROADER_OFFLINE_FROZEN_M1_EXIT_VERIFICATION",
+  "candidate_protocol_id": "a77bc705b996d5680c5dd9301351e64f0f58ab9e9dcc9a56795c3cb234351aa8",
+  "evaluation_id": "31d614bd2e8d5502c4912c84dd8abce646249e2dca0fad941ff39d847513d808",
+  "recommendation": "KEEP_INACTIVE_NOT_QUALIFIED_FOR_ACTIVATION",
+  "source_period": {
+    "first": "2026-09-28T20:10:00+00:00",
+    "last": "2026-10-27T09:25:00+00:00",
+    "grid_rows": 8224,
+    "invalid_grid_rows": 6,
+    "raw_signal_observations": 79,
+    "selected_episodes": 13,
+    "used_verified_books": 4342
+  },
+  "capital_reference": 10000.0,
+  "capital_compounded": false,
+  "basket_selection_bias_before": "2026-10-25T11:27:40.532267+00:00",
+  "contemporaneous_basket_diagnostic": [
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "entry_at": "2026-10-26T13:40:32.357797+00:00",
+      "risk_unit": 24.369102837137092,
+      "short_notional": 1871.6544800000001,
+      "planned_stopped_risk": 23.833690367803445,
+      "scale": 0.7801549937938485,
+      "quantities": {
+        "AAVEUSDT": -2.16,
+        "BCHUSDT": -0.88,
+        "BTCUSDT": -0.007,
+        "DOTUSDT": -244.0,
+        "LTCUSDT": -6.4,
+        "NEARUSDT": -36.1
+      },
+      "corrected": {
+        "at": "2026-10-26T14:40:45.392209+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "decided_at": "2026-10-26T14:40:29.929966+00:00",
+        "net": -9.041527525315876
+      },
+      "sizing_only_6h_control": {
+        "at": "2026-10-26T19:40:49.156484+00:00",
+        "net": 0.8787325216001831
+      },
+      "actual_legacy_short_net": 0.4923341700001166,
+      "incremental_exit_effect": -9.92026004691606,
+      "maximum_observation_gap_seconds": 55.46330809593201
+    }
+  ],
+  "common_scenario_summaries": {
+    "base": {
+      "episodes": 6,
+      "arms": {
+        "corrected": {
+          "net": 6.208722750160236,
+          "fees": 13.09847144904,
+          "funding": 0.4153522792,
+          "winners": 3,
+          "worst_episode": -10.999372149659859,
+          "worst_observed_executable_pnl": -17.51117821045195,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 1.2853713639135715
+        },
+        "six_hour": {
+          "net": 50.24619805522862,
+          "fees": 13.072231862171998,
+          "funding": 0.6939432174,
+          "winners": 4,
+          "worst_episode": -26.89408292021596,
+          "worst_observed_executable_pnl": -40.65948809074408,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 6.0068228254825975
+        }
+      },
+      "difference": -44.037475305068384,
+      "improved_exits": 2,
+      "exit_reasons": {
+        "PROFIT_GIVEBACK": 1,
+        "SIGNAL_INVALIDATED": 5
+      },
+      "weekly_difference": {
+        "2026-W40": -22.206137779756055,
+        "2026-W42": -8.252203887992009,
+        "2026-W43": -13.579133637320322
+      },
+      "leave_one_week_out": {
+        "2026-W40": -21.83133752531233,
+        "2026-W42": -35.78527141707637,
+        "2026-W43": -30.458341667748062
+      }
+    },
+    "latency_60s": {
+      "episodes": 6,
+      "arms": {
+        "corrected": {
+          "net": 2.389443763344061,
+          "fees": 13.114408084955999,
+          "funding": 0.41662198829999997,
+          "winners": 1,
+          "worst_episode": -12.082562759607882,
+          "worst_observed_executable_pnl": -17.87079033363989,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 1.2946804862772978
+        },
+        "six_hour": {
+          "net": 41.185328519924155,
+          "fees": 13.091311566576,
+          "funding": 0.6952129265,
+          "winners": 4,
+          "worst_episode": -27.37106425740792,
+          "worst_observed_executable_pnl": -40.65948809074408,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 6.017035620124251
+        }
+      },
+      "difference": -38.795884756580094,
+      "improved_exits": 2,
+      "exit_reasons": {
+        "PROFIT_GIVEBACK": 1,
+        "SIGNAL_INVALIDATED": 5
+      },
+      "weekly_difference": {
+        "2026-W40": -22.63548103123613,
+        "2026-W42": -8.080266427376012,
+        "2026-W43": -8.080137297967955
+      },
+      "leave_one_week_out": {
+        "2026-W40": -16.160403725343965,
+        "2026-W42": -30.715618329204084,
+        "2026-W43": -30.71574745861214
+      }
+    },
+    "cost_2x_latency_60s": {
+      "episodes": 6,
+      "arms": {
+        "corrected": {
+          "net": -15.154027955722263,
+          "fees": 23.31726198105874,
+          "funding": 0.3697562427,
+          "winners": 1,
+          "worst_episode": -12.931510222182068,
+          "worst_observed_executable_pnl": -18.13071836169917,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 1.3745297517379125
+        },
+        "six_hour": {
+          "net": 21.003012470301176,
+          "fees": 23.274218648889693,
+          "funding": 0.6143098623500001,
+          "winners": 4,
+          "worst_episode": -27.05889783291016,
+          "worst_observed_executable_pnl": -38.79815672813289,
+          "unavailable_valuation_points": 0,
+          "mean_holding_hours": 6.017035620124251
+        }
+      },
+      "difference": -36.157040426023435,
+      "improved_exits": 2,
+      "exit_reasons": {
+        "SIGNAL_INVALIDATED": 6
+      },
+      "weekly_difference": {
+        "2026-W40": -21.788158126493393,
+        "2026-W42": -7.138698903034614,
+        "2026-W43": -7.2301833964954305
+      },
+      "leave_one_week_out": {
+        "2026-W40": -14.368882299530043,
+        "2026-W42": -29.01834152298882,
+        "2026-W43": -28.926857029528005
+      }
+    }
+  },
+  "all_base_qualified_summary": {
+    "episodes": 8,
+    "arms": {
+      "corrected": {
+        "net": 53.253075054168384,
+        "fees": 17.364258267552,
+        "funding": 0.63502244172,
+        "winners": 5,
+        "worst_episode": -10.999372149659859,
+        "worst_observed_executable_pnl": -21.58845846325195,
+        "unavailable_valuation_points": 0,
+        "mean_holding_hours": 1.9519339465515482
+      },
+      "six_hour": {
+        "net": 106.38582184979673,
+        "fees": 17.332564790124,
+        "funding": 0.91361337992,
+        "winners": 6,
+        "worst_episode": -26.89408292021596,
+        "worst_observed_executable_pnl": -40.65948809074408,
+        "unavailable_valuation_points": 0,
+        "mean_holding_hours": 6.006802895988027
+      }
+    },
+    "difference": -53.13274679562835,
+    "improved_exits": 3,
+    "exit_reasons": {
+      "PROFIT_GIVEBACK": 2,
+      "SIGNAL_INVALIDATED": 6
+    },
+    "weekly_difference": {
+      "2026-W40": -16.13418337170401,
+      "2026-W42": -23.419429786604013,
+      "2026-W43": -13.579133637320322
+    },
+    "leave_one_week_out": {
+      "2026-W40": -36.99856342392434,
+      "2026-W42": -29.713317009024337,
+      "2026-W43": -39.553613158308025
+    }
+  },
+  "coverage_supplement_post_primary": true,
+  "all_base_episodes": [
+    {
+      "signal_at": "2026-09-30T14:00:00+00:00",
+      "entry_at": "2026-09-30T14:06:29.383480+00:00",
+      "entry_source_observed_at": "2026-09-30T14:06:19.815150+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1673.4486,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.88116720806262,
+      "quantities": {
+        "AAVEUSDT": -1.59,
+        "BCHUSDT": -0.7,
+        "BTCUSDT": -0.006,
+        "DOTUSDT": -177.0,
+        "LTCUSDT": -4.8,
+        "NEARUSDT": -27.1
+      },
+      "corrected": {
+        "net": 19.202577983464,
+        "gross": 21.19729384,
+        "fees": 1.9947158565359997,
+        "funding": 0.0,
+        "exit_at": "2026-09-30T15:12:39.863621+00:00",
+        "reason": "PROFIT_GIVEBACK",
+        "worst_executable_pnl": -3.4712492952200114,
+        "best_executable_pnl": 28.945467231676005,
+        "valuation_missing_points": 0,
+        "holding_seconds": 3970.4801409244537,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 25.38780736224808,
+        "gross": 27.25920598000008,
+        "fees": 1.9910787092519997,
+        "funding": 0.1196800915,
+        "exit_at": "2026-09-30T20:06:46.147987+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -3.757293572367962,
+        "best_executable_pnl": 30.21378122375188,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21616.764506816864,
+        "cover_fills": 6
+      },
+      "difference": -6.185229378784079
+    },
+    {
+      "signal_at": "2026-10-01T07:30:00+00:00",
+      "entry_at": "2026-10-01T07:35:39.465728+00:00",
+      "entry_source_observed_at": "2026-10-01T07:35:35.110327+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1711.7706999999998,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.66286755615213,
+      "quantities": {
+        "AAVEUSDT": -1.62,
+        "BCHUSDT": -0.73,
+        "BTCUSDT": -0.006,
+        "DOTUSDT": -186.0,
+        "LTCUSDT": -5.0,
+        "NEARUSDT": -28.1
+      },
+      "corrected": {
+        "net": 4.878146096332068,
+        "gross": 6.803123220000068,
+        "fees": 2.048929441668,
+        "funding": 0.123952318,
+        "exit_at": "2026-10-01T09:06:34.357351+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -3.6248050663438427,
+        "best_executable_pnl": 11.918374620484038,
+        "valuation_missing_points": 0,
+        "holding_seconds": 5454.891623020172,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 20.899054497304043,
+        "gross": 22.814424840000044,
+        "fees": 2.039322660696,
+        "funding": 0.123952318,
+        "exit_at": "2026-10-01T13:36:38.114855+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -3.6248050663438427,
+        "best_executable_pnl": 31.34980967039214,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21658.64912700653,
+        "cover_fills": 6
+      },
+      "difference": -16.020908400971976
+    },
+    {
+      "signal_at": "2026-10-02T14:35:00+00:00",
+      "entry_at": "2026-10-02T14:41:03.069238+00:00",
+      "entry_source_observed_at": "2026-10-02T14:41:00.648295+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1677.5922,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.88199773833167,
+      "quantities": {
+        "AAVEUSDT": -1.41,
+        "BCHUSDT": -0.69,
+        "BTCUSDT": -0.006,
+        "DOTUSDT": -181.0,
+        "LTCUSDT": -4.6,
+        "NEARUSDT": -29.8
+      },
+      "corrected": {
+        "net": 45.72005204586798,
+        "gross": 47.59275089999998,
+        "fees": 1.9834415095319997,
+        "funding": 0.11074265539999999,
+        "exit_at": "2026-10-02T19:00:24.971879+00:00",
+        "reason": "PROFIT_GIVEBACK",
+        "worst_executable_pnl": -8.622447832139994,
+        "best_executable_pnl": 58.00917695938389,
+        "valuation_missing_points": 0,
+        "holding_seconds": 15561.902641057968,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 39.64809763781594,
+        "gross": 41.52443747999993,
+        "fees": 1.9870824975839998,
+        "funding": 0.11074265539999999,
+        "exit_at": "2026-10-02T20:42:01.428210+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -8.622447832139994,
+        "best_executable_pnl": 58.00917695938389,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21658.3589720726,
+        "cover_fills": 6
+      },
+      "difference": 6.071954408052044
+    },
+    {
+      "signal_at": "2026-10-14T13:10:00+00:00",
+      "entry_at": "2026-10-14T13:16:13.234613+00:00",
+      "entry_source_observed_at": "2026-10-14T13:15:56.902451+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1904.5267999999999,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.902038128229044,
+      "quantities": {
+        "AAVEUSDT": -1.88,
+        "BCHUSDT": -0.91,
+        "BTCUSDT": -0.007,
+        "DOTUSDT": -221.0,
+        "LTCUSDT": -6.1,
+        "NEARUSDT": -33.9
+      },
+      "corrected": {
+        "net": 1.3243002581401686,
+        "gross": 3.4977180600001683,
+        "fees": 2.2823453089799997,
+        "funding": 0.10892750712000002,
+        "exit_at": "2026-10-14T16:51:03.008172+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -21.58845846325195,
+        "best_executable_pnl": 21.963160198764065,
+        "valuation_missing_points": 0,
+        "holding_seconds": 12889.773559093475,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 16.491526156752172,
+        "gross": 18.65584908000017,
+        "fees": 2.273250430368,
+        "funding": 0.10892750712000002,
+        "exit_at": "2026-10-14T19:16:03.426015+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -21.58845846325195,
+        "best_executable_pnl": 22.748828747028128,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21590.191401958466,
+        "cover_fills": 6
+      },
+      "difference": -15.167225898612005
+    },
+    {
+      "signal_at": "2026-10-15T05:50:00+00:00",
+      "entry_at": "2026-10-15T05:55:51.178368+00:00",
+      "entry_source_observed_at": "2026-10-15T05:55:40.316020+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1507.93918,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.881453858823914,
+      "quantities": {
+        "AAVEUSDT": -1.54,
+        "BCHUSDT": -0.74,
+        "BTCUSDT": -0.006,
+        "DOTUSDT": -179.0,
+        "LTCUSDT": -4.9,
+        "NEARUSDT": -27.9
+      },
+      "corrected": {
+        "net": -10.999372149659859,
+        "gross": -9.185217779999858,
+        "fees": 1.8141543696599998,
+        "funding": 0.0,
+        "exit_at": "2026-10-15T06:56:39.794480+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -17.51117821045195,
+        "best_executable_pnl": -2.579840900124113,
+        "valuation_missing_points": 0,
+        "holding_seconds": 3648.6161119937897,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": -16.798702186503863,
+        "gross": -15.067594019999865,
+        "fees": 1.8176837954039997,
+        "funding": 0.08657562890000002,
+        "exit_at": "2026-10-15T11:56:21.569109+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -28.72383609637594,
+        "best_executable_pnl": -2.579840900124113,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21630.39074087143,
+        "cover_fills": 6
+      },
+      "difference": 5.799330036844005
+    },
+    {
+      "signal_at": "2026-10-16T15:25:00+00:00",
+      "entry_at": "2026-10-16T15:30:31.901070+00:00",
+      "entry_source_observed_at": "2026-10-16T15:30:26.800720+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 1899.9226,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.434412276734854,
+      "quantities": {
+        "AAVEUSDT": -1.87,
+        "BCHUSDT": -0.89,
+        "BTCUSDT": -0.007,
+        "DOTUSDT": -214.0,
+        "LTCUSDT": -6.1,
+        "NEARUSDT": -32.7
+      },
+      "corrected": {
+        "net": 0.5861778110682394,
+        "gross": 2.7198413400002397,
+        "fees": 2.2771755625320003,
+        "funding": 0.1435120336,
+        "exit_at": "2026-10-16T16:31:20.654556+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -7.953546829271849,
+        "best_executable_pnl": 6.166639280188239,
+        "valuation_missing_points": 0,
+        "holding_seconds": 3648.753485918045,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 14.637711735904253,
+        "gross": 16.762949400000252,
+        "fees": 2.2687496976959998,
+        "funding": 0.1435120336,
+        "exit_at": "2026-10-16T21:31:45.108522+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -7.953546829271849,
+        "best_executable_pnl": 33.80553603420418,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21673.207451820374,
+        "cover_fills": 6
+      },
+      "difference": -14.051533924836013
+    },
+    {
+      "signal_at": "2026-10-22T02:15:00+00:00",
+      "entry_at": "2026-10-22T02:21:23.135620+00:00",
+      "entry_source_observed_at": "2026-10-22T02:21:19.015280+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 2079.70464,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.994271268000084,
+      "quantities": {
+        "AAVEUSDT": -2.1,
+        "BCHUSDT": -0.94,
+        "BTCUSDT": -0.008,
+        "DOTUSDT": -239.0,
+        "LTCUSDT": -6.4,
+        "NEARUSDT": -34.4
+      },
+      "corrected": {
+        "net": -2.1676952211121185,
+        "gross": 0.3261261599998816,
+        "fees": 2.4938213811120002,
+        "funding": 0.0,
+        "exit_at": "2026-10-22T04:21:11.655387+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -8.261066751732022,
+        "best_executable_pnl": 5.515447300127976,
+        "valuation_missing_points": 0,
+        "holding_seconds": 7188.519766807556,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": 33.01440956649207,
+        "gross": 35.41484250000007,
+        "fees": 2.4727681513079998,
+        "funding": 0.0723352178,
+        "exit_at": "2026-10-22T08:21:07.626373+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -8.261066751732022,
+        "best_executable_pnl": 33.59887683657213,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21584.49075293541,
+        "cover_fills": 6
+      },
+      "difference": -35.18210478760419
+    },
+    {
+      "signal_at": "2026-10-24T15:10:00+00:00",
+      "entry_at": "2026-10-24T15:16:48.884469+00:00",
+      "entry_source_observed_at": "2026-10-24T15:16:32.748235+00:00",
+      "scenario": "base",
+      "capital_reference": 10000.0,
+      "notional": 2056.4861,
+      "risk_unit": 25.0,
+      "planned_stopped_risk": 24.730014839999885,
+      "quantities": {
+        "AAVEUSDT": -2.34,
+        "BCHUSDT": -0.97,
+        "BTCUSDT": -0.008,
+        "DOTUSDT": -260.0,
+        "LTCUSDT": -7.1,
+        "NEARUSDT": -40.8
+      },
+      "corrected": {
+        "net": -5.291111769932093,
+        "gross": -2.9693248600000937,
+        "fees": 2.4696748375319997,
+        "funding": 0.1478879276,
+        "exit_at": "2026-10-24T16:21:01.644801+00:00",
+        "reason": "SIGNAL_INVALIDATED",
+        "worst_executable_pnl": -16.682218735772032,
+        "best_executable_pnl": 5.984132872148071,
+        "valuation_missing_points": 0,
+        "holding_seconds": 3852.7603318691254,
+        "cover_fills": 6
+      },
+      "six_hour": {
+        "net": -26.89408292021596,
+        "gross": -24.559341999999962,
+        "fees": 2.4826288478159997,
+        "funding": 0.1478879276,
+        "exit_at": "2026-10-24T21:16:32.754920+00:00",
+        "reason": "MAX_HOLD",
+        "worst_executable_pnl": -40.65948809074408,
+        "best_executable_pnl": 5.984132872148071,
+        "valuation_missing_points": 0,
+        "holding_seconds": 21583.87045097351,
+        "cover_fills": 6
+      },
+      "difference": 21.602971150283867
+    }
+  ],
+  "selected": [
+    {
+      "signal_at": "2026-09-30T14:00:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-01T07:30:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-02T14:35:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-05T15:10:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-07T02:00:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-08T15:25:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-14T13:10:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-15T05:50:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-16T15:25:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-19T10:35:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    },
+    {
+      "signal_at": "2026-10-22T02:15:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-24T15:10:00+00:00",
+      "status": "COMPLETE"
+    },
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+    }
+  ],
+  "excluded": [
+    {
+      "signal_at": "2026-10-02T14:35:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-02T14:35:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-05T15:10:00+00:00",
+      "scenario": "base",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-05T15:10:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-05T15:10:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-07T02:00:00+00:00",
+      "scenario": "base",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-07T02:00:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-07T02:00:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-08T15:25:00+00:00",
+      "scenario": "base",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-08T15:25:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-08T15:25:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-14T13:10:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-14T13:10:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-19T10:35:00+00:00",
+      "scenario": "base",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-19T10:35:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-19T10:35:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "entry_book_unavailable_or_late"
+    },
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "scenario": "base",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "scenario": "latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    },
+    {
+      "signal_at": "2026-10-26T13:35:00+00:00",
+      "scenario": "cost_2x_latency_60s",
+      "reason": "book_gap_over_120_seconds"
+    }
+  ],
+  "frozen_code_sha256": {
+    "docs/research-protocols/m1-short-risk-exits-candidate-v1.json": "f0aec307f7fb6fa2f15d5727bb4dfa34fab70d8abd1ef553717da4d9d864514b",
+    "octobot/ai_strategy_lab/v13_m1_short_risk.py": "83033ed3e8ecbb8f4f940af0a3ac72ab8bad4327eb3ce98d87c63eda11d22637",
+    "octobot/ai_strategy_lab/v13_m1_short_candidate.py": "c1308c8800f0cc60f17c2ae107409f972a5d0159f1abfd078ae9bacd84335c39",
+    "scripts/qualify_m1_short_episode.py": "e6574920ff8e9e0c199d3300f41296890cdb93bbb2ded288620aaa6373fc935f"
+  },
+  "evaluation_code_sha256": {
+    "scripts/qualify_m1_short_broader.py": "4c1b7cd2b5a80b608a10f4c34087772b3bb96748ca9e9a7f23b2e056dd1326d4"
+  },
+  "primary_result_sha256": "e0eeeae6cd27516ad6a34ece165bdf3b96145144076820fb755b8f2503f4992f",
+  "checks": {
+    "tests": 89,
+    "candidate_unchanged": true,
+    "operating_strategies_changed": false,
+    "new_accounts": false,
+    "source_snapshot_integrity": "ok"
+  },
+  "limitations": [
+    "Retrospective fixed-basket diagnostic, not independent causal portfolio validation.",
+    "Independent conditional episodes, not a compounded M1 account return.",
+    "Missing events and stress-only entry failures remain unqualified.",
+    "The unchanged current-basket diagnostic is separate and is not pooled into the historical reference sample."
+  ]
+}
