@@ -85,22 +85,26 @@ def prepare(root,release):
         structure=json.loads((repo/'docs/research-protocols/m1-short-structural-invalidation-v1.json').read_text()),code_pins=pins)
     write(config/'authority-template.json',template)
     compose=json.loads((repo/'docker-compose.v13-research.yml').read_text())
-    services={}
+    services={};external_volumes={}
     ledger_mount=next(v['Source'] for v in old['Mounts'] if v['Destination']=='/execution')
     for role,info in [('executor',old),('issuer',old_issuer)]:
         service=copy.deepcopy(compose['services'][role]);service.pop('depends_on',None);service.pop('profiles',None)
         service.update(image=info['Image'],mem_limit='512m' if role=='executor' else '256m',cpus=1.0 if role=='executor' else .5)
         volumes=[]
-        for mount in info['Mounts']:
-            if mount['Type']!='bind':raise ValueError('unexpected_role_mount')
-            source=str(runtime) if mount['Destination']=='/workspace' else mount['Source']
+        for index,mount in enumerate(info['Mounts']):
+            if mount['Type']=='volume':
+                source='preserved_'+role+'_'+str(index)
+                external_volumes[source]=dict(external=True,name=mount['Name'])
+            elif mount['Type']=='bind':
+                source=str(runtime) if mount['Destination']=='/workspace' else mount['Source']
+            else:raise ValueError('unexpected_role_mount')
             volumes.append(source+':'+mount['Destination']+('' if mount['RW'] else ':ro'))
         if role=='issuer':volumes.append(ledger_mount+':/execution:ro')
         service['volumes']=volumes+[str(config/'authority.json')+':/successor-authority.json:ro']
         service['entrypoint']=['python3','-B','-m',MODULE,role,'--config','/runtime-config.json','--poll','20',
             '--successor-authority','/successor-authority.json','--successor-authority-sha256','AUTHORITY_SHA256_REQUIRED']
         services[role]=service
-    write(release/'compose-template.json',dict(version='2.4',services=services))
+    write(release/'compose-template.json',dict(version='2.4',services=services,volumes=external_volumes))
     runtime_files={str(p.relative_to(runtime)):sha(p) for p in runtime.rglob('*') if p.is_file()}
     ui=['octobot/ai_strategy_lab/v13_m1_paper_view.py','octobot/ai_strategy_lab/v13_original_structural_view.py',
         'packages/tentacles/Services/Interfaces/web_interface/static/js/common/v13_variants_lifecycle.js']
