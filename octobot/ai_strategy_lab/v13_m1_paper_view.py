@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import stat
 from octobot.ai_strategy_lab import v13_fork_view as legacy
+from octobot.ai_strategy_lab import v13_original_structural_view
 
 UID = 30943
 
@@ -111,7 +112,7 @@ def load(path='/v13-paper/forks-ui/comparison.json', fourth='/v13-paper/m1-paper
     try:value=public(fourth,now)
     except (OSError,ValueError,KeyError,TypeError):
         data['fourth_available']=False;data['fourth_message']='Quarta versione temporaneamente non verificabile.'
-        return data
+        return v13_original_structural_view.merge(data, now=now)
     data['fourth_available']=True;data['fourth_stale']=value['stale'];data['variants']['M1']=value['variant']
     data['m1']=value;data['comparison_reference']=value['comparison_reference']
     reference=value['comparison_reference']
@@ -121,4 +122,4 @@ def load(path='/v13-paper/forks-ui/comparison.json', fourth='/v13-paper/m1-paper
             variant['common_change']=variant['metrics']['equity']-ref['equity']
             variant['common_change_pct']=(variant['metrics']['equity']/ref['equity']-1)*100
             variant['common_reference_at']=ref['at']
-    return data
+    return v13_original_structural_view.merge(data, now=now)
