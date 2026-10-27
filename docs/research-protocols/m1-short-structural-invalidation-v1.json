@@ -1,0 +1,191 @@
+{
+  "version": "m1-short-structural-invalidation-v1",
+  "scope": "OFFLINE_SINGLE_HYPOTHESIS_NOT_ACTIVE",
+  "created_at": "2026-10-27T10:30:02.622222+00:00",
+  "base_commit": "494326bdd6722c03e789e963a38dbca38581eb18",
+  "parent_protocol_id": "a77bc705b996d5680c5dd9301351e64f0f58ab9e9dcc9a56795c3cb234351aa8",
+  "parent_evaluation_id": "31d614bd2e8d5502c4912c84dd8abce646249e2dca0fad941ff39d847513d808",
+  "frozen_predecessor_sha256": {
+    "docs/research-protocols/m1-short-risk-exits-candidate-v1.json": "f0aec307f7fb6fa2f15d5727bb4dfa34fab70d8abd1ef553717da4d9d864514b",
+    "octobot/ai_strategy_lab/v13_m1_short_risk.py": "83033ed3e8ecbb8f4f940af0a3ac72ab8bad4327eb3ce98d87c63eda11d22637",
+    "octobot/ai_strategy_lab/v13_m1_short_candidate.py": "c1308c8800f0cc60f17c2ae107409f972a5d0159f1abfd078ae9bacd84335c39",
+    "scripts/qualify_m1_short_broader.py": "4c1b7cd2b5a80b608a10f4c34087772b3bb96748ca9e9a7f23b2e056dd1326d4",
+    "scripts/supplement_m1_short_coverage.py": "2b9205ea8aa4be647da9cd26cc90769dab12873ee2d8dc7b823946eaa5add68d"
+  },
+  "rule": {
+    "source_rows": 289,
+    "grid_seconds": 300,
+    "max_source_age_seconds": 120,
+    "ema_fast_periods": 6,
+    "ema_slow_periods": 24,
+    "ema_seed": "OLDEST_PRICE_IN_VALID_289_ROW_WINDOW",
+    "slope_lag_periods": 3,
+    "btc_price_above_slow": true,
+    "btc_fast_over_slow_minimum_gap": 0.001,
+    "btc_fast_over_slow_sigma_multiple": 0.25,
+    "btc_sigma": "SQRT_SAMPLE_VARIANCE_OF_288_5M_RETURNS_TIMES_12",
+    "btc_slow_slope_positive": true,
+    "btc_60m_return_minimum": 0.0,
+    "market_confirmation": {
+      "minimum_symbols": 12,
+      "universe": 18,
+      "each_symbol": [
+        "PRICE_ABOVE_SLOW_EMA",
+        "SLOW_EMA_ABOVE_VALUE_THREE_BARS_AGO",
+        "60M_RETURN_STRICTLY_POSITIVE"
+      ]
+    },
+    "consecutive_distinct_slots": 3,
+    "missing_or_gap_resets": true,
+    "duplicate_does_not_advance": true
+  },
+  "preserve": [
+    "ENTRY_SIGNAL",
+    "ENTRY_SIZING",
+    "MAXIMUM_SHORT_AUTHORITY",
+    "LOSS_STOP_MINUS_R",
+    "PROFIT_ARM_PLUS_R",
+    "PROFIT_GIVEBACK_HALF_R",
+    "SIX_HOUR_MAX_HOLD",
+    "FEES_DEPTH_SLIPPAGE_FUNDING",
+    "ANTI_LONG_REPURCHASE",
+    "GRADUAL_LONG_REDUCTIONS",
+    "ALL_OPERATING_STRATEGIES"
+  ],
+  "arms": [
+    "old_invalidation",
+    "structural",
+    "protection_only",
+    "six_hour"
+  ],
+  "priority": [
+    "LOSS_STOP",
+    "PROFIT_GIVEBACK",
+    "STRUCTURAL_REVERSAL",
+    "MAX_HOLD"
+  ],
+  "cohorts": {
+    "base": [
+      "2026-09-30T14:00:00+00:00",
+      "2026-10-01T07:30:00+00:00",
+      "2026-10-02T14:35:00+00:00",
+      "2026-10-14T13:10:00+00:00",
+      "2026-10-15T05:50:00+00:00",
+      "2026-10-16T15:25:00+00:00",
+      "2026-10-22T02:15:00+00:00",
+      "2026-10-24T15:10:00+00:00"
+    ],
+    "common_stress": [
+      "2026-09-30T14:00:00+00:00",
+      "2026-10-01T07:30:00+00:00",
+      "2026-10-15T05:50:00+00:00",
+      "2026-10-16T15:25:00+00:00",
+      "2026-10-22T02:15:00+00:00",
+      "2026-10-24T15:10:00+00:00"
+    ],
+    "unavailable_signals": [
+      {
+        "signal_at": "2026-09-30T14:00:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-01T07:30:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-02T14:35:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-05T15:10:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-07T02:00:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-08T15:25:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-14T13:10:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-15T05:50:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-16T15:25:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-19T10:35:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      },
+      {
+        "signal_at": "2026-10-22T02:15:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-24T15:10:00+00:00",
+        "status": "COMPLETE"
+      },
+      {
+        "signal_at": "2026-10-26T13:35:00+00:00",
+        "status": "UNAVAILABLE_COMMON_SCENARIO_POOL"
+      }
+    ],
+    "selection": "REUSE_PREVIOUS_SEALED_COHORTS_NO_OUTCOME_FILTER"
+  },
+  "evaluation": {
+    "reference_capital": 10000.0,
+    "compounding": false,
+    "scenarios": [
+      {
+        "name": "base",
+        "latency_seconds": 20,
+        "fee_multiplier": 1,
+        "extra_slippage_per_side": 0.0
+      },
+      {
+        "name": "latency_60s",
+        "latency_seconds": 60,
+        "fee_multiplier": 1,
+        "extra_slippage_per_side": 0.0
+      },
+      {
+        "name": "cost_2x_latency_60s",
+        "latency_seconds": 60,
+        "fee_multiplier": 2,
+        "extra_slippage_per_side": 0.0002
+      }
+    ],
+    "old_and_six_hour_reproduction_absolute_tolerance": 1e-08,
+    "no_parameter_search": true,
+    "feature_data_future_allowed": false,
+    "exit_execution": "SAME_SEALED_SOURCE_BOOKS_AVAILABILITY_AND_NEXT_COLLECTION_AFTER_LATENCY",
+    "classifications": {
+      "scope": "DESCRIPTIVE_FUTURE_LABEL_ONLY_AT_EACH_ACTUAL_INVALIDATION_DECISION",
+      "horizon_seconds": 3600,
+      "anchor": "LAST_CLOSED_5M_GRID_AT_DECISION",
+      "btc_threshold": "MAX_0.001_AND_HALF_CAUSAL_HOURLY_SIGMA",
+      "recovery_continues": "FUTURE_BTC_RETURN_GE_THRESHOLD_AND_AT_LEAST_12_OF_18_POSITIVE",
+      "failed_rebound": "FUTURE_BTC_RETURN_LE_MINUS_THRESHOLD_AND_AT_LEAST_12_OF_18_NEGATIVE",
+      "otherwise": "AMBIGUOUS",
+      "missing": "UNKNOWN_NO_IMPUTATION",
+      "future_grid_must_be_contiguous": true
+    },
+    "decision": "RESEARCH_ONLY_NO_AUTOMATIC_PROMOTION"
+  },
+  "limitations": [
+    "All historical outcomes were previously inspected; no independent holdout remains.",
+    "Fixed six-symbol SHORT basket was selected on 25 October. Earlier events have basket selection bias.",
+    "Conditional isolated SHORT episodes exclude LONG and complete-account policy feedback. Event sums are not account return.",
+    "Structure is an observable proxy, not proof or prediction of a true reversal.",
+    "If structural results equal protection-only or no structural exits fire, added detection value is unproven.",
+    "Eight base episodes across three weeks are insufficient for promotion, irrespective of P&L."
+  ],
+  "protocol_id": "b4474ccad3bb59d91f107674c3fb768b6b141fc2cdc88e7af76bbe6bf9cb7814"
+}
